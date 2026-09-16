@@ -1,0 +1,184 @@
+name: CI Quality Gates
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  docker-compose-validate:
+    name: Docker Compose Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Validate Docker Compose Configurations
+        run: |
+          echo "=== Directive 3: Docker Compose Manifest Resiliency ==="
+          if [ -f ".env.example" ] && [ ! -f ".env" ]; then
+            echo "Copying .env.example to .env..."
+            cp .env.example .env
+          fi
+
+          if [ -f "docker-compose.infra.yml" ]; then
+            echo "Validating docker-compose.infra.yml..."
+            docker compose -f docker-compose.infra.yml config -q
+            echo "[PASS] docker-compose.infra.yml is valid."
+          else
+            echo "docker-compose.infra.yml not present. Skipping."
+          fi
+
+          if [ -f "docker-compose.yml" ]; then
+            echo "Validating docker-compose.yml..."
+            docker compose -f docker-compose.yml config -q
+            echo "[PASS] docker-compose.yml is valid."
+          else
+            echo "docker-compose.yml not present. Skipping."
+          fi
+
+  postman-lint:
+    name: Postman Collection Schema Linting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set Up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Validate Postman Collections via Bun
+        run: |
+          echo "=== Directive 2: Strict Postman Collection Schema Linting via Bun ==="
+          if [ -d "postman" ] && [ -n "$(find postman -name '*.json' 2>/dev/null)" ]; then
+            echo "Found Postman collection files in postman/. Running strict schema validator..."
+            bun -e '
+              import fs from "fs";
+              import path from "path";
+
+              const postmanDir = "postman";
+              const files = fs.readdirSync(postmanDir).filter(f => f.endsWith(".json"));
+              let errorCount = 0;
+
+              for (const file of files) {
+                const fullPath = path.join(postmanDir, file);
+                try {
+                  const content = JSON.parse(fs.readFileSync(fullPath, "utf-8"));
+                  if (!content.info || typeof content.info !== "object") {
+                    console.error(`[ERROR] ${file}: Missing top-level "info" object.`);
+                    errorCount++;
+                    continue;
+                  }
+                  if (!content.info.name || typeof content.info.name !== "string") {
+                    console.error(`[ERROR] ${file}: Missing or non-string "info.name".`);
+                    errorCount++;
+                    continue;
+                  }
+                  if (!content.info.schema || typeof content.info.schema !== "string") {
+                    console.error(`[ERROR] ${file}: Missing or non-string "info.schema".`);
+                    errorCount++;
+                    continue;
+                  }
+                  if (!Array.isArray(content.item)) {
+                    console.error(`[ERROR] ${file}: Missing or invalid "item" array.`);
+                    errorCount++;
+                    continue;
+                  }
+                  console.log(`[PASS] ${file}: Valid Postman collection (Name: "${content.info.name}", Items: ${content.item.length})`);
+                } catch (err) {
+                  console.error(`[ERROR] ${file}: Failed to parse JSON - ${err.message}`);
+                  errorCount++;
+                }
+              }
+
+              if (errorCount > 0) {
+                console.error(`\nValidation failed: ${errorCount} error(s) found across collections.`);
+                process.exit(1);
+              } else {
+                console.log(`\nAll Postman collections passed schema validation.`);
+              }
+            '
+          else
+            echo "No JSON collections found in 'postman/'. Skipping Postman schema linting cleanly."
+          fi
+
+  ballerina-ci:
+    name: Ballerina Monorepo Quality Gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set Up Ballerina
+        uses: ballerina-platform/setup-ballerina@v1.1.4
+        with:
+          version: 2201.13.5
+
+      - name: "Phase A: Build, Test & Install Shared Modules"
+        run: |
+          echo "=== Directive 1 (Phase A): Shared Modules Topological Build ==="
+          if [ -d "modules" ] && [ -n "$(find modules -mindepth 1 -maxdepth 2 -name 'Ballerina.toml' 2>/dev/null)" ]; then
+            echo "Found shared modules in modules/. Starting topological build..."
+            for mod in $(find modules -mindepth 1 -maxdepth 2 -name 'Ballerina.toml' -exec dirname {} \; | sort); do
+              echo "----------------------------------------------------"
+              echo "Building shared module: $mod"
+              echo "----------------------------------------------------"
+              pushd "$mod" > /dev/null
+
+              echo "[1/4] Checking code formatting..."
+              bal format
+              git diff --exit-code || { echo "Format check failed in $mod. Run 'bal format' locally."; exit 1; }
+
+              echo "[2/4] Running automated unit tests with coverage..."
+              bal test --test-report --code-coverage
+
+              echo "[3/4] Packing module..."
+              bal pack
+
+              echo "[4/4] Publishing to local repository..."
+              bal push --repository local
+
+              popd > /dev/null
+            done
+            echo "Phase A completed successfully. All shared modules packed and published locally."
+          else
+            echo "No Ballerina packages found in 'modules/'. Skipping Phase A cleanly."
+          fi
+
+      - name: "Phase B: Build & Test Microservices"
+        run: |
+          echo "=== Directive 1 (Phase B): Microservices Build & Test ==="
+          if [ -d "services" ] && [ -n "$(find services -mindepth 1 -maxdepth 2 -name 'Ballerina.toml' 2>/dev/null)" ]; then
+            echo "Found microservices in services/. Starting build and test..."
+            for svc in $(find services -mindepth 1 -maxdepth 2 -name 'Ballerina.toml' -exec dirname {} \; | sort); do
+              echo "----------------------------------------------------"
+              echo "Building microservice: $svc"
+              echo "----------------------------------------------------"
+              pushd "$svc" > /dev/null
+
+              echo "[1/3] Checking code formatting..."
+              bal format
+              git diff --exit-code || { echo "Format check failed in $svc. Run 'bal format' locally."; exit 1; }
+
+              echo "[2/3] Running automated unit tests with coverage..."
+              bal test --test-report --code-coverage
+
+              echo "[3/3] Compiling package executable..."
+              bal build
+
+              popd > /dev/null
+            done
+            echo "Phase B completed successfully. All microservices compiled and tested."
+          else
+            echo "No Ballerina packages found in 'services/'. Skipping Phase B cleanly."
+          fi
