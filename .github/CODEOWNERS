@@ -1,0 +1,26 @@
+# ==============================================================================
+# Peer Pressure Team - GitHub Code Ownership Matrix
+# Repository: CodeGrogu/DSA-Assignment-2
+# Enforces automated review assignments for PRs targeting main
+# ==============================================================================
+
+# Global Repository Owner
+* @CodeGrogu
+
+# Shared Contracts & Core Event Architecture (Jaden Awaseb)
+/modules/events/ @CodeGrogu
+/scripts/ @CodeGrogu
+.github/workflows/ @CodeGrogu
+
+# Microservices Code Ownership
+/services/order_service/ @CodeGrogu
+/services/customer_service/ @Florriinnddaa
+/services/restaurant_service/ @Jerganov
+/services/payment_service/ @Kondwani112206
+/services/delivery_service/ @itsyagirlmay
+/services/notification_service/ @LiinaMassipa
+/services/admin_service/ @LiinaMassipa
+
+# Infrastructure, Containers & Postman Testing
+docker-compose*.yml @Nangukuii @Henchoz
+/postman/ @Nangukuii
