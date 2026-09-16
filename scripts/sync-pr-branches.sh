@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# sync-native-assignees.sh
-# POSIX shell wrapper for sync-native-assignees.py
+# scripts/sync-pr-branches.sh
+# POSIX shell wrapper for sync-pr-branches.py
 
 set -euo pipefail
 
@@ -16,4 +16,4 @@ if ! command -v python3 &> /dev/null; then
     fi
 fi
 
-exec "$PYTHON_EXEC" "$SCRIPT_DIR/sync-native-assignees.py" "$@"
+exec "$PYTHON_EXEC" "$SCRIPT_DIR/sync-pr-branches.py" "$@"
