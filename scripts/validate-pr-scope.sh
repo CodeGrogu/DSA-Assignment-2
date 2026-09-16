@@ -37,7 +37,7 @@ if [ -n "$PARENT_NUM" ] && [ "$PARENT_NUM" -ge 1 ] && [ "$PARENT_NUM" -le 40 ]; 
     # Map Assignee & Domain
     if [ "$PARENT_NUM" -ge 1 ] && [ "$PARENT_NUM" -le 5 ]; then
         ASSIGNEE="@CodeGrogu"
-        MEMBER_NAME="Jaden Awaseb"
+        MEMBER_NAME="Jaden Awaseb (Team Leader)"
         DOMAIN="Order Lifecycle & Monorepo Architecture"
     elif [ "$PARENT_NUM" -ge 6 ] && [ "$PARENT_NUM" -le 10 ]; then
         ASSIGNEE="@Henchoz"
@@ -45,11 +45,11 @@ if [ -n "$PARENT_NUM" ] && [ "$PARENT_NUM" -ge 1 ] && [ "$PARENT_NUM" -le 40 ]; 
         DOMAIN="Kafka Infrastructure & Stream Resiliency"
     elif [ "$PARENT_NUM" -ge 11 ] && [ "$PARENT_NUM" -le 15 ]; then
         ASSIGNEE="@Florriinnddaa"
-        MEMBER_NAME="Florinda Funya"
+        MEMBER_NAME="Florinda Immanuel"
         DOMAIN="Customer Service & Mongo Persistence"
     elif [ "$PARENT_NUM" -ge 16 ] && [ "$PARENT_NUM" -le 20 ]; then
         ASSIGNEE="@Jerganov"
-        MEMBER_NAME="Tapiwa Kelvin"
+        MEMBER_NAME="Tapiwa Machekera"
         DOMAIN="Restaurant & Kitchen Microservices"
     elif [ "$PARENT_NUM" -ge 21 ] && [ "$PARENT_NUM" -le 25 ]; then
         ASSIGNEE="@Kondwani112206"
@@ -57,7 +57,7 @@ if [ -n "$PARENT_NUM" ] && [ "$PARENT_NUM" -ge 1 ] && [ "$PARENT_NUM" -le 40 ]; 
         DOMAIN="Payment Processing & Financial Ledger"
     elif [ "$PARENT_NUM" -ge 26 ] && [ "$PARENT_NUM" -le 30 ]; then
         ASSIGNEE="@itsyagirlmay"
-        MEMBER_NAME="Mayleenda"
+        MEMBER_NAME="May-Lee Mulundu"
         DOMAIN="Delivery Dispatch & Real-time Tracking"
     elif [ "$PARENT_NUM" -ge 31 ] && [ "$PARENT_NUM" -le 35 ]; then
         ASSIGNEE="@LiinaMassipa"
@@ -65,7 +65,7 @@ if [ -n "$PARENT_NUM" ] && [ "$PARENT_NUM" -ge 1 ] && [ "$PARENT_NUM" -le 40 ]; 
         DOMAIN="Notifications, Audit Log & Admin Platform"
     elif [ "$PARENT_NUM" -ge 36 ] && [ "$PARENT_NUM" -le 40 ]; then
         ASSIGNEE="@Nangukuii"
-        MEMBER_NAME="Nangu Tjizoo"
+        MEMBER_NAME="Nangukuii Kangootui"
         DOMAIN="End-to-End Orchestration & System Defense"
     fi
 
