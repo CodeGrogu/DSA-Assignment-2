@@ -1,6 +1,6 @@
 import ballerina/http;
 
-import codegrogu/events as _;
+import peerpressure/events as _;
 
 configurable int port = 9091;
 
@@ -11,7 +11,7 @@ service / on new http:Listener(port) {
             "service": "order_service",
             port: port,
             version: "0.1.0",
-            contracts: "codegrogu/events:0.1.0"
+            contracts: "peerpressure/events:0.1.0"
         };
     }
 }

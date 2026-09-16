@@ -305,26 +305,26 @@ modules = [
 ]
 
 [[package]]
-org = "codegrogu"
+org = "peerpressure"
 name = "admin_service"
 version = "0.1.0"
 dependencies = [
 	{org = "ballerina", name = "http"},
 	{org = "ballerinai", name = "observe"},
-	{org = "codegrogu", name = "events"}
+	{org = "peerpressure", name = "events"}
 ]
 modules = [
-	{org = "codegrogu", packageName = "admin_service", moduleName = "admin_service"}
+	{org = "peerpressure", packageName = "admin_service", moduleName = "admin_service"}
 ]
 
 [[package]]
-org = "codegrogu"
+org = "peerpressure"
 name = "events"
 version = "0.1.0"
 dependencies = [
 	{org = "ballerinai", name = "observe"}
 ]
 modules = [
-	{org = "codegrogu", packageName = "events", moduleName = "events"}
+	{org = "peerpressure", packageName = "events", moduleName = "events"}
 ]
 
