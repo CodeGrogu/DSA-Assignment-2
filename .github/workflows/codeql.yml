@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   analyze:
-    name: CodeQL Security Analysis
+    name: CodeQL Security Analysis (${{ matrix.language }})
     runs-on: ubuntu-latest
     permissions:
       security-events: write
@@ -27,9 +27,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - language: actions
-            build-mode: none
+        language: [actions]
 
     steps:
       - name: Checkout Repository
@@ -39,9 +37,10 @@ jobs:
         uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
-          build-mode: ${{ matrix.build-mode }}
+          build-mode: none
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
         with:
           category: "/language:${{ matrix.language }}"
+          upload: 'never'
