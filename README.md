@@ -142,7 +142,7 @@ To prevent network port collisions between local host processes, Docker infrastr
 
 ## 3. Kafka Topic Taxonomy & Schema Registry
 
-All events are strongly typed via the shared contract library `codegrogu/events:0.1.0` in [`modules/events`](file:///modules/events):
+All events are strongly typed via the shared contract library `peerpressure/events:0.1.0` in [`modules/events`](file:///modules/events):
 
 | Topic Name | Partitions | Key Strategy | Emitted By | Primary Consumers | Event Record Type |
 | :--- | :---: | :--- | :--- | :--- | :--- |
@@ -207,7 +207,7 @@ bal run
 Test health check:
 ```bash
 curl http://localhost:9091/health
-# Response: {"status":"UP","service":"order_service","port":9091,"version":"0.1.0","contracts":"codegrogu/events:0.1.0"}
+# Response: {"status":"UP","service":"order_service","port":9091,"version":"0.1.0","contracts":"peerpressure/events:0.1.0"}
 ```
 
 ---
