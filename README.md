@@ -24,13 +24,13 @@ flowchart LR
 
     subgraph Actors ["External System Actors"]
         direction TB
-        customer["<b>Customer</b><br/>👤 Places orders, tracks meals & receives alerts"]:::actorNode
-        restaurant["<b>Restaurant Staff</b><br/>👨‍🍳 Manages catalogs, validates stock & prepares orders"]:::actorNode
-        driver["<b>Delivery Driver</b><br/>🚗 Accepts dispatches, streams GPS & fulfills orders"]:::actorNode
-        admin["<b>Platform Admin</b><br/>📊 Monitors operations, revenue & SLA compliance"]:::actorNode
+        customer["<b>Customer</b><br/>Places orders, tracks meals & receives alerts"]:::actorNode
+        restaurant["<b>Restaurant Staff</b><br/>Manages catalogs, validates stock & prepares orders"]:::actorNode
+        driver["<b>Delivery Driver</b><br/>Accepts dispatches, streams GPS & fulfills orders"]:::actorNode
+        admin["<b>Platform Admin</b><br/>Monitors operations, revenue & SLA compliance"]:::actorNode
     end
 
-    platform["🏢 <b>Distributed Food Delivery Platform</b><br/><i>[Event-Driven Microservices Architecture]</i><br/>Choreographs order placement, payment settlement, kitchen prep,<br/>and driver dispatch via Apache Kafka event streaming"]:::systemNode
+    platform["<b>Distributed Food Delivery Platform</b><br/><i>[Event-Driven Microservices Architecture]</i><br/>Choreographs order placement, payment settlement, kitchen prep,<br/>and driver dispatch via Apache Kafka event streaming"]:::systemNode
 
     customer -->|"1. Orders & Payments<br/>(REST :9091)"| platform
     restaurant -->|"2. Kitchen Status & Menus<br/>(REST :9095)"| platform
@@ -43,60 +43,49 @@ flowchart LR
 ### 1.2 C4 Level 2: Container Diagram & Event Choreography
 
 ```mermaid
-flowchart LR
-    %% Styling Definitions
-    classDef svcOrder fill:#1565c0,stroke:#0d47a1,stroke-width:2px,color:#ffffff,font-family:sans-serif;
-    classDef svcFulfill fill:#2e7d32,stroke:#1b5e20,stroke-width:2px,color:#ffffff,font-family:sans-serif;
-    classDef svcObs fill:#6a1b9a,stroke:#4a148c,stroke-width:2px,color:#ffffff,font-family:sans-serif;
-    classDef brokerNode fill:#c62828,stroke:#8e0000,stroke-width:2px,color:#ffffff,font-family:sans-serif;
-    classDef dbNode fill:#00695c,stroke:#004d40,stroke-width:2px,color:#ffffff,font-family:sans-serif;
-    classDef clusterBox fill:none,stroke:#64748b,stroke-width:1.5px,stroke-dasharray: 4 4,color:#8b949e,font-family:sans-serif;
+flowchart TB
+    classDef clientNode fill:#1f6feb,stroke:#388bfd,stroke-width:2px,color:#ffffff,font-family:sans-serif;
+    classDef serviceNode fill:#0e706c,stroke:#20b6b0,stroke-width:2px,color:#ffffff,font-family:sans-serif;
+    classDef kafkaNode fill:#b35900,stroke:#f0883e,stroke-width:2px,color:#ffffff,font-family:sans-serif;
+    classDef mongoNode fill:#196c2e,stroke:#3fb950,stroke-width:2px,color:#ffffff,font-family:sans-serif;
+    classDef clusterBox fill:none,stroke:#30363d,stroke-width:2px,stroke-dasharray: 4 4,color:#8b949e,font-family:sans-serif;
 
-    subgraph LeftCol ["1. Order Intake & Customer"]
-        direction TB
-        orderSvc["<b>Order Service</b><br/><code>Ballerina :9091</code><br/>Order Lifecycle FSM"]:::svcOrder
-        custSvc["<b>Customer Service</b><br/><code>Ballerina :9093</code><br/>Profiles & Addresses"]:::svcOrder
-    end
-
-    subgraph CenterCol ["Data & Event Backbone (Docker)"]
-        direction TB
-        kafka[("<b>Apache Kafka (KRaft)</b><br/><code>:29092 / :9092</code><br/>10 Partitioned Event Topics")]:::brokerNode
-        mongo[("<b>MongoDB 7.0</b><br/><code>:27017</code><br/>Persistent Document Store")]:::dbNode
-    end
-
-    subgraph RightCol ["2. Operations & Fulfillment"]
-        direction TB
-        paySvc["<b>Payment Service</b><br/><code>Ballerina :9094</code><br/>Gateway & Ledger"]:::svcFulfill
-        restSvc["<b>Restaurant Service</b><br/><code>Ballerina :9095</code><br/>Menu Catalog & Kitchen Prep"]:::svcFulfill
-        delSvc["<b>Delivery Service</b><br/><code>Ballerina :9096</code><br/>Driver Dispatch & GPS"]:::svcFulfill
-    end
-
-    subgraph BottomCol ["3. Observability & Administration"]
+    subgraph Clients ["Client Applications & API Consumers"]
         direction LR
-        notifSvc["<b>Notification Service</b><br/><code>Ballerina :9097</code><br/>Alerts & Audit Logger"]:::svcObs
-        adminSvc["<b>Admin Service</b><br/><code>Ballerina :9098</code><br/>GMV & SLA Analytics"]:::svcObs
+        clientApp["<b>Web & Mobile Applications</b><br/>Customer App • Restaurant Portal • Driver App • Admin Console"]:::clientNode
     end
 
-    %% Left to Center
-    orderSvc -->|"orders.created<br/>orders.cancelled"| kafka
-    orderSvc -.->|"Orders & Audit"| mongo
-    custSvc -.->|"Customer Profiles"| mongo
+    subgraph Cluster ["Ballerina Microservices Cluster (Swan Lake 2201.13.5)"]
+        direction TB
 
-    %% Center to Right
-    kafka <-->|"orders.created<br/>payments.completed"| paySvc
-    kafka <-->|"payments.completed<br/>orders.ready"| restSvc
-    kafka <-->|"orders.ready<br/>delivery.status"| delSvc
+        subgraph Tier1 ["Intake & Administration Tier"]
+            direction LR
+            orderSvc["<b>Order Service</b><br/><code>:9091</code><br/>Order Lifecycle FSM"]:::serviceNode
+            custSvc["<b>Customer Service</b><br/><code>:9093</code><br/>Profiles & Addresses"]:::serviceNode
+            adminSvc["<b>Admin Service</b><br/><code>:9098</code><br/>GMV & SLA Analytics"]:::serviceNode
+        end
 
-    paySvc -.->|"Ledger"| mongo
-    restSvc -.->|"Menus"| mongo
-    delSvc -.->|"Tracking"| mongo
+        subgraph Tier2 ["Operations & Fulfillment Tier"]
+            direction LR
+            paySvc["<b>Payment Service</b><br/><code>:9094</code><br/>Gateway & Ledger"]:::serviceNode
+            restSvc["<b>Restaurant Service</b><br/><code>:9095</code><br/>Menus & Kitchen Prep"]:::serviceNode
+            delSvc["<b>Delivery Service</b><br/><code>:9096</code><br/>Driver Dispatch & GPS"]:::serviceNode
+            notifSvc["<b>Notification Service</b><br/><code>:9097</code><br/>Multi-Channel Alerts"]:::serviceNode
+        end
+    end
 
-    %% Center to Bottom
-    kafka -->|"Event Stream"| notifSvc
-    kafka -->|"Domain Events"| adminSvc
-    adminSvc -.->|"SLA & GMV Queries"| mongo
+    subgraph Infra ["Shared Infrastructure Tier (Docker)"]
+        direction LR
+        kafka[("<b>Apache Kafka (KRaft)</b><br/><code>:29092 / :9092</code><br/>10 Partitioned Topics")]:::kafkaNode
+        mongo[("<b>MongoDB 7.0</b><br/><code>:27017</code><br/>Document Collections")]:::mongoNode
+    end
 
-    class LeftCol,CenterCol,RightCol,BottomCol clusterBox;
+    clientApp -->|"HTTPS / REST Calls"| Cluster
+
+    Cluster <==>|"Publish / Consume Events<br/>(orders.*, payments.*, delivery.*)"| kafka
+    Cluster ==>|"State Persistence<br/>(TCP Driver :27017)"| mongo
+
+    class Clients,Cluster,Tier1,Tier2,Infra clusterBox;
 ```
 
 ### 1.3 Event Choreography Flow
