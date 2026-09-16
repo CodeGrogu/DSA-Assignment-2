@@ -139,6 +139,7 @@ scratch/
 # VS Code (ignore user workspace state, allow shared extension recommendations & launch/tasks)
 .vscode/*
 !.vscode/extensions.json
+!.vscode/settings.json
 !.vscode/tasks.json
 !.vscode/launch.json
 .history/

@@ -1,0 +1,11 @@
+{
+  "editor.formatOnSave": true,
+  "editor.tabSize": 4,
+  "editor.insertSpaces": true,
+  "ballerina.home": "C:\\Program Files\\Ballerina\\distributions\\ballerina-2201.13.5",
+  "files.eol": "\n",
+  "[ballerina]": {
+    "editor.tabSize": 4,
+    "editor.insertSpaces": true
+  }
+}
