@@ -6,3 +6,8 @@
 *.py text eol=lf
 *.yml text eol=lf
 *.yaml text eol=lf
+
+# Enforce Unix LF line endings for Ballerina and config files
+*.bal text eol=lf
+*.toml text eol=lf
+.env* text eol=lf
