@@ -19,7 +19,7 @@ REPO = "CodeGrogu/DSA-Assignment-2"
 MEMBERS = [
     {
         "username": "CodeGrogu",
-        "full_name": "Jaden Awaseb",
+        "full_name": "Jaden Awaseb (Team Leader)",
         "parents": range(1, 6),
         "subtasks": range(41, 51),
         "prs": range(121, 126),
@@ -33,14 +33,14 @@ MEMBERS = [
     },
     {
         "username": "Florriinnddaa",
-        "full_name": "Florinda Funya",
+        "full_name": "Florinda Immanuel",
         "parents": range(11, 16),
         "subtasks": range(61, 71),
         "prs": range(131, 136),
     },
     {
         "username": "Jerganov",
-        "full_name": "Tapiwa Kelvin",
+        "full_name": "Tapiwa Machekera",
         "parents": range(16, 21),
         "subtasks": range(71, 81),
         "prs": range(136, 141),
@@ -54,7 +54,7 @@ MEMBERS = [
     },
     {
         "username": "itsyagirlmay",
-        "full_name": "Mayleenda",
+        "full_name": "May-Lee Mulundu",
         "parents": range(26, 31),
         "subtasks": range(91, 101),
         "prs": range(146, 151),
@@ -68,7 +68,7 @@ MEMBERS = [
     },
     {
         "username": "Nangukuii",
-        "full_name": "Nangu Tjizoo",
+        "full_name": "Nangukuii Kangootui",
         "parents": range(36, 41),
         "subtasks": range(111, 121),
         "prs": range(156, 161),
