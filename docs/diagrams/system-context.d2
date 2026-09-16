@@ -1,0 +1,56 @@
+direction: right
+
+title: "System Context Diagram - Distributed Food Delivery Platform" {
+  near: top-center
+  shape: text
+  style.font-size: 24
+  style.bold: true
+}
+
+classes: {
+  person: {
+    shape: person
+    style: {
+      fill: "#0B4884"
+      font-color: "#FFFFFF"
+      stroke: "#07325D"
+      stroke-width: 2
+    }
+  }
+  system: {
+    shape: rectangle
+    style: {
+      fill: "#1168BD"
+      font-color: "#FFFFFF"
+      stroke: "#0B4884"
+      stroke-width: 2
+      border-radius: 8
+      shadow: true
+    }
+  }
+}
+
+customer: "Customer\n[Person]\nPlaces orders, tracks status, and receives notifications." {
+  class: person
+}
+
+restaurant: "Restaurant Staff\n[Person]\nAccepts orders, updates prep stages, and manages menus." {
+  class: person
+}
+
+driver: "Delivery Driver\n[Person]\nAccepts delivery assignments, updates status & GPS coordinates." {
+  class: person
+}
+
+admin: "Platform Admin\n[Person]\nMonitors platform health, restaurant revenue, and driver SLA performance." {
+  class: person
+}
+
+platform: "Distributed Food Delivery Platform\n[Software System]\nChoreographs order placement, payment settlement, kitchen prep, and driver dispatch via event streaming." {
+  class: system
+}
+
+customer -> platform: "Browses menus, places orders, makes payments\n[REST API :9091]"
+restaurant -> platform: "Updates order preparation and inventory\n[REST API :9095]"
+driver -> platform: "Updates delivery tracking & GPS coordinates\n[REST API :9096]"
+admin -> platform: "Inspects analytics, GMV, and SLA metrics\n[REST API :9098]"
