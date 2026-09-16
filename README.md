@@ -24,13 +24,13 @@ flowchart LR
 
     subgraph Actors ["External System Actors"]
         direction TB
-        customer["<b>Customer</b><br/>👤 Places orders, tracks meals & receives alerts"]:::actorNode
-        restaurant["<b>Restaurant Staff</b><br/>👨‍🍳 Manages catalogs, validates stock & prepares orders"]:::actorNode
-        driver["<b>Delivery Driver</b><br/>🚗 Accepts dispatches, streams GPS & fulfills orders"]:::actorNode
-        admin["<b>Platform Admin</b><br/>📊 Monitors operations, revenue & SLA compliance"]:::actorNode
+        customer["<b>Customer</b><br/>Places orders, tracks meals & receives alerts"]:::actorNode
+        restaurant["<b>Restaurant Staff</b><br/>Manages catalogs, validates stock & prepares orders"]:::actorNode
+        driver["<b>Delivery Driver</b><br/>Accepts dispatches, streams GPS & fulfills orders"]:::actorNode
+        admin["<b>Platform Admin</b><br/>Monitors operations, revenue & SLA compliance"]:::actorNode
     end
 
-    platform["🏢 <b>Distributed Food Delivery Platform</b><br/><i>[Event-Driven Microservices Architecture]</i><br/>Choreographs order placement, payment settlement, kitchen prep,<br/>and driver dispatch via Apache Kafka event streaming"]:::systemNode
+    platform["<b>Distributed Food Delivery Platform</b><br/><i>[Event-Driven Microservices Architecture]</i><br/>Choreographs order placement, payment settlement, kitchen prep,<br/>and driver dispatch via Apache Kafka event streaming"]:::systemNode
 
     customer -->|"1. Orders & Payments<br/>(REST :9091)"| platform
     restaurant -->|"2. Kitchen Status & Menus<br/>(REST :9095)"| platform
