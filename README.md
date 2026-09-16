@@ -15,255 +15,80 @@ An enterprise-grade, distributed, event-driven food delivery platform engineered
 
 ### 1.1 C4 Level 1: System Context Diagram
 
-<p align="center">
-  <img src="docs/diagrams/system-context.svg" alt="System Context Diagram" width="100%" />
-</p>
+```mermaid
+C4Context
+    title System Context Diagram - Distributed Food Delivery Platform
 
-<details>
-<summary>📐 View D2 Source (docs/diagrams/system-context.d2)</summary>
+    Person(customer, "Customer", "Places orders, tracks status, and receives notifications.")
+    Person(restaurant, "Restaurant Staff", "Accepts orders, updates preparation stages, and manages menus.")
+    Person(driver, "Delivery Driver", "Accepts delivery assignments, updates delivery status and GPS coordinates.")
+    Person(admin, "Platform Admin", "Monitors platform health, restaurant revenue, and driver SLA performance.")
 
-```d2
-direction: right
+    System(platform, "Distributed Food Delivery Platform", "Choreographs order placement, payment settlement, kitchen prep, and driver dispatch via event streaming.")
 
-title: "System Context Diagram - Distributed Food Delivery Platform" {
-  near: top-center
-  shape: text
-  style.font-size: 24
-  style.bold: true
-}
-
-classes: {
-  person: {
-    shape: person
-    style: {
-      fill: "#0B4884"
-      font-color: "#FFFFFF"
-      stroke: "#07325D"
-      stroke-width: 2
-    }
-  }
-  system: {
-    shape: rectangle
-    style: {
-      fill: "#1168BD"
-      font-color: "#FFFFFF"
-      stroke: "#0B4884"
-      stroke-width: 2
-      border-radius: 8
-      shadow: true
-    }
-  }
-}
-
-customer: "Customer\n[Person]\nPlaces orders, tracks status, and receives notifications." {
-  class: person
-}
-
-restaurant: "Restaurant Staff\n[Person]\nAccepts orders, updates prep stages, and manages menus." {
-  class: person
-}
-
-driver: "Delivery Driver\n[Person]\nAccepts delivery assignments, updates status & GPS coordinates." {
-  class: person
-}
-
-admin: "Platform Admin\n[Person]\nMonitors platform health, restaurant revenue, and driver SLA performance." {
-  class: person
-}
-
-platform: "Distributed Food Delivery Platform\n[Software System]\nChoreographs order placement, payment settlement, kitchen prep, and driver dispatch via event streaming." {
-  class: system
-}
-
-customer -> platform: "Browses menus, places orders, makes payments\n[REST API :9091]"
-restaurant -> platform: "Updates order preparation and inventory\n[REST API :9095]"
-driver -> platform: "Updates delivery tracking & GPS coordinates\n[REST API :9096]"
-admin -> platform: "Inspects analytics, GMV, and SLA metrics\n[REST API :9098]"
+    Rel(customer, platform, "Browses menus, places orders, makes payments via REST API")
+    Rel(restaurant, platform, "Updates order preparation and inventory via REST API")
+    Rel(driver, platform, "Updates delivery tracking & GPS coordinates via REST API")
+    Rel(admin, platform, "Inspects analytics, GMV, and SLA metrics via REST API")
 ```
-
-</details>
 
 ### 1.2 C4 Level 2: Container Diagram & Event Choreography
 
-<p align="center">
-  <img src="docs/diagrams/container-architecture.svg" alt="Container Architecture Diagram" width="100%" />
-</p>
+```mermaid
+C4Container
+    title Container Architecture & Kafka Event Choreography
 
-<details>
-<summary>📐 View D2 Source (docs/diagrams/container-architecture.d2)</summary>
+    Container(orderSvc, "Order Service", "Ballerina (:9091)", "FSM state machine managing order lifecycles (CREATED -> DELIVERED).")
+    Container(custSvc, "Customer Service", "Ballerina (:9093)", "Customer profile, delivery address validation, and order history.")
+    Container(restSvc, "Restaurant Service", "Ballerina (:9095)", "Restaurant catalog, inventory validation, and kitchen prep emitter.")
+    Container(paySvc, "Payment Service", "Ballerina (:9094)", "Payment gateway simulation, transaction ledger, and refund compensation.")
+    Container(delSvc, "Delivery Service", "Ballerina (:9096)", "Proximity-based driver matching and real-time delivery tracking.")
+    Container(notifSvc, "Notification Service", "Ballerina (:9097)", "Multi-channel event consumer & persistent notification audit logger.")
+    Container(adminSvc, "Admin Service", "Ballerina (:9098)", "Aggregates GMV, revenue shares, driver turnaround, and SLA breach metrics.")
 
-```d2
-direction: down
+    ContainerDb(kafka, "Apache Kafka (KRaft)", "Docker (:29092 / :9092)", "High-throughput, persistent event backbone with 10 partitioned topics.")
+    ContainerDb(mongo, "MongoDB 7.0", "Docker (:27017)", "Persistent document store for order, customer, ledger, and restaurant data.")
 
-title: "Container Architecture & Kafka Event Backbone" {
-  near: top-center
-  shape: text
-  style.font-size: 24
-  style.bold: true
-}
-
-classes: {
-  service: {
-    shape: rectangle
-    style: {
-      fill: "#2D882D"
-      font-color: "#FFFFFF"
-      stroke: "#1B5E20"
-      stroke-width: 2
-      border-radius: 6
-      shadow: true
-    }
-  }
-  datastore: {
-    shape: cylinder
-    style: {
-      fill: "#1A5276"
-      font-color: "#FFFFFF"
-      stroke: "#114B5F"
-      stroke-width: 2
-      shadow: true
-    }
-  }
-  broker: {
-    shape: queue
-    style: {
-      fill: "#B03A2E"
-      font-color: "#FFFFFF"
-      stroke: "#78281F"
-      stroke-width: 2
-      shadow: true
-    }
-  }
-}
-
-services: "Core Microservices (Ballerina 2201.13.5)" {
-  style: {
-    fill: "#F4F6F7"
-    stroke: "#BDC3C7"
-    stroke-dash: 2
-  }
-
-  orderSvc: "Order Service\n[Container: Ballerina :9091]\nFSM state machine managing order lifecycles (CREATED -> DELIVERED)." {
-    class: service
-  }
-
-  custSvc: "Customer Service\n[Container: Ballerina :9093]\nCustomer profile, delivery address validation, and order history." {
-    class: service
-  }
-
-  restSvc: "Restaurant Service\n[Container: Ballerina :9095]\nRestaurant catalog, inventory validation, and kitchen prep emitter." {
-    class: service
-  }
-
-  paySvc: "Payment Service\n[Container: Ballerina :9094]\nPayment gateway simulation, transaction ledger, and refund compensation." {
-    class: service
-  }
-
-  delSvc: "Delivery Service\n[Container: Ballerina :9096]\nProximity-based driver matching and real-time delivery tracking." {
-    class: service
-  }
-
-  notifSvc: "Notification Service\n[Container: Ballerina :9097]\nMulti-channel event consumer & persistent notification audit logger." {
-    class: service
-  }
-
-  adminSvc: "Admin Service\n[Container: Ballerina :9098]\nAggregates GMV, revenue shares, driver turnaround, and SLA breach metrics." {
-    class: service
-  }
-}
-
-infrastructure: "Data & Event Streaming Infrastructure (Docker)" {
-  style: {
-    fill: "#EAECEE"
-    stroke: "#BDC3C7"
-    stroke-dash: 2
-  }
-
-  kafka: "Apache Kafka (KRaft)\n[ContainerDb: Docker :29092 / :9092]\nHigh-throughput, persistent event backbone with 10 partitioned topics." {
-    class: broker
-  }
-
-  mongo: "MongoDB 7.0\n[ContainerDb: Docker :27017]\nPersistent document store for order, customer, ledger, and restaurant collections." {
-    class: datastore
-  }
-}
-
-# Event Interconnections
-services.orderSvc -> infrastructure.kafka: "Emits orders.created, orders.cancelled\n[Kafka Producer]"
-infrastructure.kafka -> services.paySvc: "Consumes orders.created\n[Kafka Consumer]"
-services.paySvc -> infrastructure.kafka: "Emits payments.completed, payments.failed\n[Kafka Producer]"
-infrastructure.kafka -> services.orderSvc: "Consumes payments.completed -> CONFIRMED\n[Kafka Consumer]"
-infrastructure.kafka -> services.restSvc: "Consumes payments.completed -> PREPARING\n[Kafka Consumer]"
-services.restSvc -> infrastructure.kafka: "Emits kitchen.ready\n[Kafka Producer]"
-infrastructure.kafka -> services.delSvc: "Consumes kitchen.ready -> driver assigned\n[Kafka Consumer]"
-services.delSvc -> infrastructure.kafka: "Emits delivery.assigned, delivery.status\n[Kafka Producer]"
-infrastructure.kafka -> services.notifSvc: "Subscribes to all domain events\n[Kafka Consumer]"
-
-# Database Interconnections
-services.orderSvc -> infrastructure.mongo: "Persists orders & audit records\n[TCP :27017]"
-services.custSvc -> infrastructure.mongo: "Persists customer profiles & addresses\n[TCP :27017]"
-services.paySvc -> infrastructure.mongo: "Persists financial ledger transactions\n[TCP :27017]"
-services.restSvc -> infrastructure.mongo: "Persists digital menus & operating hours\n[TCP :27017]"
-services.delSvc -> infrastructure.mongo: "Persists driver routes & tracking state\n[TCP :27017]"
+    Rel(orderSvc, kafka, "Emits orders.created, orders.cancelled", "Kafka Producer")
+    Rel(kafka, paySvc, "Consumes orders.created", "Kafka Consumer")
+    Rel(paySvc, kafka, "Emits payments.completed, payments.failed", "Kafka Producer")
+    Rel(kafka, orderSvc, "Consumes payments.completed -> CONFIRMED", "Kafka Consumer")
+    Rel(kafka, restSvc, "Consumes payments.completed -> PREPARING", "Kafka Consumer")
+    Rel(restSvc, kafka, "Emits orders.ready", "Kafka Producer")
+    Rel(kafka, delSvc, "Consumes orders.ready -> driver assigned", "Kafka Consumer")
+    Rel(delSvc, kafka, "Emits delivery.assigned, delivery.status", "Kafka Producer")
+    Rel(kafka, notifSvc, "Subscribes to all domain events", "Kafka Consumer")
+    Rel(orderSvc, mongo, "Persists orders & audit logs", "MongoDB Driver")
+    Rel(custSvc, mongo, "Persists customer profiles", "MongoDB Driver")
 ```
-
-</details>
 
 ### 1.3 Event Choreography Flow
 
-<p align="center">
-  <img src="docs/diagrams/event-choreography.svg" alt="Event Choreography Flow" width="100%" />
-</p>
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Customer
+    participant OrderSvc as Order Service (:9091)
+    participant Kafka as Apache Kafka (:29092)
+    participant PaySvc as Payment Service (:9094)
+    participant RestSvc as Restaurant Service (:9095)
+    participant DelSvc as Delivery Service (:9096)
+    participant NotifSvc as Notification Service (:9097)
 
-<details>
-<summary>📐 View D2 Source (docs/diagrams/event-choreography.d2)</summary>
-
-```d2
-shape: sequence_diagram
-
-title: "Kafka Event Choreography & Order Lifecycle Sequence" {
-  near: top-center
-  shape: text
-  style.font-size: 24
-  style.bold: true
-}
-
-customer: Customer
-orderSvc: "Order Service\n(:9091)"
-kafka: "Apache Kafka\n(:29092)"
-paySvc: "Payment Service\n(:9094)"
-restSvc: "Restaurant Service\n(:9095)"
-delSvc: "Delivery Service\n(:9096)"
-notifSvc: "Notification Service\n(:9097)"
-
-customer -> orderSvc: "1. POST /orders (Create Order)"
-orderSvc -> kafka: "2. Emit OrderCreatedEvent (orders.created)"
-kafka -> paySvc: "3. Consume OrderCreatedEvent" {
-  style.stroke-dash: 3
-}
-paySvc -> paySvc: "4. Process Payment Simulation & Authorize Ledger"
-paySvc -> kafka: "5. Emit PaymentCompletedEvent (payments.completed)"
-kafka -> orderSvc: "6. Consume PaymentCompletedEvent (Transition -> CONFIRMED)" {
-  style.stroke-dash: 3
-}
-kafka -> restSvc: "7. Consume PaymentCompletedEvent (Kitchen -> PREPARING)" {
-  style.stroke-dash: 3
-}
-restSvc -> kafka: "8. Emit KitchenReadyEvent (kitchen.ready)"
-kafka -> delSvc: "9. Consume KitchenReadyEvent (Match & Assign Courier)" {
-  style.stroke-dash: 3
-}
-delSvc -> kafka: "10. Emit DeliveryAssignedEvent (delivery.assigned)"
-delSvc -> kafka: "11. Emit DeliveryStatusUpdateEvent (delivery.status: DELIVERED)"
-kafka -> orderSvc: "12. Consume DeliveryStatusUpdateEvent (Transition -> DELIVERED)" {
-  style.stroke-dash: 3
-}
-kafka -> notifSvc: "13. Multi-Topic Consumer Dispatches Customer/Driver Alerts" {
-  style.stroke-dash: 3
-}
+    Customer->>OrderSvc: POST /orders (Create Order)
+    OrderSvc->>Kafka: Emit OrderCreatedEvent (orders.created)
+    Kafka-->>PaySvc: Consume OrderCreatedEvent
+    PaySvc->>PaySvc: Process Payment Simulation
+    PaySvc->>Kafka: Emit PaymentCompletedEvent (payments.completed)
+    Kafka-->>OrderSvc: Consume PaymentCompletedEvent (Transition -> CONFIRMED)
+    Kafka-->>RestSvc: Consume PaymentCompletedEvent (Kitchen -> PREPARING)
+    RestSvc->>Kafka: Emit KitchenReadyEvent (orders.ready)
+    Kafka-->>DelSvc: Consume KitchenReadyEvent (Match & Assign Driver)
+    DelSvc->>Kafka: Emit DeliveryAssignedEvent (delivery.assigned)
+    DelSvc->>Kafka: Emit DeliveryStatusUpdateEvent (delivery.status: DELIVERED)
+    Kafka-->>OrderSvc: Transition -> DELIVERED
+    Kafka-->>NotifSvc: Multi-topic Consumer Dispatches Customer/Driver Alerts
 ```
-
-</details>
 
 ---
 
