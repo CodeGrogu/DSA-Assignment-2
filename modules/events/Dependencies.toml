@@ -82,7 +82,7 @@ modules = [
 ]
 
 [[package]]
-org = "codegrogu"
+org = "peerpressure"
 name = "events"
 version = "0.1.0"
 dependencies = [
@@ -90,6 +90,6 @@ dependencies = [
 	{org = "ballerinai", name = "observe"}
 ]
 modules = [
-	{org = "codegrogu", packageName = "events", moduleName = "events"}
+	{org = "peerpressure", packageName = "events", moduleName = "events"}
 ]
 
