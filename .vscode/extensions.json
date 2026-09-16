@@ -1,0 +1,8 @@
+{
+  "recommendations": [
+    "WSO2.ballerina",
+    "ms-azuretools.vscode-docker",
+    "redhat.vscode-yaml",
+    "eamodio.gitlens"
+  ]
+}
