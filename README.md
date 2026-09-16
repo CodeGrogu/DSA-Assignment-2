@@ -217,6 +217,6 @@ Every Pull Request and commit to `main` is validated by four automated quality g
 ## 7. Submission & Defense Schedule
 
 - **Hard Code Freeze:** **05 October 2026, 23:59 CAT**
-- **Oral Defense Window:** **06 October – 09 October 2026**
+- **Oral Defense Window:** **N/A**
 - **Repository:** [https://github.com/CodeGrogu/DSA-Assignment-2](https://github.com/CodeGrogu/DSA-Assignment-2)
 - **Linear Workspace:** [https://linear.app/peerpressure](https://linear.app/peerpressure)
