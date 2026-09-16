@@ -182,3 +182,23 @@ jobs:
           else
             echo "No Ballerina packages found in 'services/'. Skipping Phase B cleanly."
           fi
+
+  pr-scope-validate:
+    name: "PR Verification: ${{ github.head_ref || github.ref_name }}"
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Make Scripts Executable
+        run: chmod +x scripts/*.sh 2>/dev/null || true
+
+      - name: Execute Scoped PR Domain Verification
+        run: ./scripts/validate-pr-scope.sh
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          BASE_REF: ${{ github.base_ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
