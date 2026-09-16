@@ -1,0 +1,24 @@
+public enum OrderStatus {
+    CREATED = "CREATED",
+    CONFIRMED = "CONFIRMED",
+    PREPARING = "PREPARING",
+    READY = "READY",
+    OUT_FOR_DELIVERY = "OUT_FOR_DELIVERY",
+    DELIVERED = "DELIVERED",
+    CANCELLED = "CANCELLED"
+}
+
+public enum PaymentStatus {
+    PENDING = "PENDING",
+    COMPLETED = "COMPLETED",
+    FAILED = "FAILED",
+    REFUNDED = "REFUNDED"
+}
+
+public enum DeliveryStatus {
+    PENDING = "PENDING",
+    ASSIGNED = "ASSIGNED",
+    PICKED_UP = "PICKED_UP",
+    DELIVERED = "DELIVERED",
+    FAILED = "FAILED"
+}
