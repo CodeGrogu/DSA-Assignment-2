@@ -16,50 +16,87 @@ An enterprise-grade, distributed, event-driven food delivery platform engineered
 ### 1.1 C4 Level 1: System Context Diagram
 
 ```mermaid
-C4Context
-    title System Context Diagram - Distributed Food Delivery Platform
+flowchart LR
+    %% Styling Definitions
+    classDef actorNode fill:#0b4884,stroke:#07325d,stroke-width:2px,color:#ffffff,font-family:sans-serif;
+    classDef systemNode fill:#1168bd,stroke:#0b4884,stroke-width:2px,color:#ffffff,font-family:sans-serif;
+    classDef clusterBox fill:none,stroke:#64748b,stroke-width:1.5px,stroke-dasharray: 4 4,color:#8b949e,font-family:sans-serif;
 
-    Person(customer, "Customer", "Places orders, tracks status, and receives notifications.")
-    Person(restaurant, "Restaurant Staff", "Accepts orders, updates preparation stages, and manages menus.")
-    Person(driver, "Delivery Driver", "Accepts delivery assignments, updates delivery status and GPS coordinates.")
-    Person(admin, "Platform Admin", "Monitors platform health, restaurant revenue, and driver SLA performance.")
+    subgraph Actors ["External System Actors"]
+        direction TB
+        customer["<b>Customer</b><br/>👤 Places orders, tracks meals & receives alerts"]:::actorNode
+        restaurant["<b>Restaurant Staff</b><br/>👨‍🍳 Manages catalogs, validates stock & prepares orders"]:::actorNode
+        driver["<b>Delivery Driver</b><br/>🚗 Accepts dispatches, streams GPS & fulfills orders"]:::actorNode
+        admin["<b>Platform Admin</b><br/>📊 Monitors operations, revenue & SLA compliance"]:::actorNode
+    end
 
-    System(platform, "Distributed Food Delivery Platform", "Choreographs order placement, payment settlement, kitchen prep, and driver dispatch via event streaming.")
+    platform["🏢 <b>Distributed Food Delivery Platform</b><br/><i>[Event-Driven Microservices Architecture]</i><br/>Choreographs order placement, payment settlement, kitchen prep,<br/>and driver dispatch via Apache Kafka event streaming"]:::systemNode
 
-    Rel(customer, platform, "Browses menus, places orders, makes payments via REST API")
-    Rel(restaurant, platform, "Updates order preparation and inventory via REST API")
-    Rel(driver, platform, "Updates delivery tracking & GPS coordinates via REST API")
-    Rel(admin, platform, "Inspects analytics, GMV, and SLA metrics via REST API")
+    customer -->|"1. Orders & Payments<br/>(REST :9091)"| platform
+    restaurant -->|"2. Kitchen Status & Menus<br/>(REST :9095)"| platform
+    driver -->|"3. Delivery Status & GPS<br/>(REST :9096)"| platform
+    admin -->|"4. Platform Analytics & SLAs<br/>(REST :9098)"| platform
+
+    class Actors clusterBox;
 ```
 
 ### 1.2 C4 Level 2: Container Diagram & Event Choreography
 
 ```mermaid
-C4Container
-    title Container Architecture & Kafka Event Choreography
+flowchart LR
+    %% Styling Definitions
+    classDef svcOrder fill:#1565c0,stroke:#0d47a1,stroke-width:2px,color:#ffffff,font-family:sans-serif;
+    classDef svcFulfill fill:#2e7d32,stroke:#1b5e20,stroke-width:2px,color:#ffffff,font-family:sans-serif;
+    classDef svcObs fill:#6a1b9a,stroke:#4a148c,stroke-width:2px,color:#ffffff,font-family:sans-serif;
+    classDef brokerNode fill:#c62828,stroke:#8e0000,stroke-width:2px,color:#ffffff,font-family:sans-serif;
+    classDef dbNode fill:#00695c,stroke:#004d40,stroke-width:2px,color:#ffffff,font-family:sans-serif;
+    classDef clusterBox fill:none,stroke:#64748b,stroke-width:1.5px,stroke-dasharray: 4 4,color:#8b949e,font-family:sans-serif;
 
-    Container(orderSvc, "Order Service", "Ballerina (:9091)", "FSM state machine managing order lifecycles (CREATED -> DELIVERED).")
-    Container(custSvc, "Customer Service", "Ballerina (:9093)", "Customer profile, delivery address validation, and order history.")
-    Container(restSvc, "Restaurant Service", "Ballerina (:9095)", "Restaurant catalog, inventory validation, and kitchen prep emitter.")
-    Container(paySvc, "Payment Service", "Ballerina (:9094)", "Payment gateway simulation, transaction ledger, and refund compensation.")
-    Container(delSvc, "Delivery Service", "Ballerina (:9096)", "Proximity-based driver matching and real-time delivery tracking.")
-    Container(notifSvc, "Notification Service", "Ballerina (:9097)", "Multi-channel event consumer & persistent notification audit logger.")
-    Container(adminSvc, "Admin Service", "Ballerina (:9098)", "Aggregates GMV, revenue shares, driver turnaround, and SLA breach metrics.")
+    subgraph LeftCol ["1. Order Intake & Customer"]
+        direction TB
+        orderSvc["<b>Order Service</b><br/><code>Ballerina :9091</code><br/>Order Lifecycle FSM"]:::svcOrder
+        custSvc["<b>Customer Service</b><br/><code>Ballerina :9093</code><br/>Profiles & Addresses"]:::svcOrder
+    end
 
-    ContainerDb(kafka, "Apache Kafka (KRaft)", "Docker (:29092 / :9092)", "High-throughput, persistent event backbone with 10 partitioned topics.")
-    ContainerDb(mongo, "MongoDB 7.0", "Docker (:27017)", "Persistent document store for order, customer, ledger, and restaurant data.")
+    subgraph CenterCol ["Data & Event Backbone (Docker)"]
+        direction TB
+        kafka[("<b>Apache Kafka (KRaft)</b><br/><code>:29092 / :9092</code><br/>10 Partitioned Event Topics")]:::brokerNode
+        mongo[("<b>MongoDB 7.0</b><br/><code>:27017</code><br/>Persistent Document Store")]:::dbNode
+    end
 
-    Rel(orderSvc, kafka, "Emits orders.created, orders.cancelled", "Kafka Producer")
-    Rel(kafka, paySvc, "Consumes orders.created", "Kafka Consumer")
-    Rel(paySvc, kafka, "Emits payments.completed, payments.failed", "Kafka Producer")
-    Rel(kafka, orderSvc, "Consumes payments.completed -> CONFIRMED", "Kafka Consumer")
-    Rel(kafka, restSvc, "Consumes payments.completed -> PREPARING", "Kafka Consumer")
-    Rel(restSvc, kafka, "Emits orders.ready", "Kafka Producer")
-    Rel(kafka, delSvc, "Consumes orders.ready -> driver assigned", "Kafka Consumer")
-    Rel(delSvc, kafka, "Emits delivery.assigned, delivery.status", "Kafka Producer")
-    Rel(kafka, notifSvc, "Subscribes to all domain events", "Kafka Consumer")
-    Rel(orderSvc, mongo, "Persists orders & audit logs", "MongoDB Driver")
-    Rel(custSvc, mongo, "Persists customer profiles", "MongoDB Driver")
+    subgraph RightCol ["2. Operations & Fulfillment"]
+        direction TB
+        paySvc["<b>Payment Service</b><br/><code>Ballerina :9094</code><br/>Gateway & Ledger"]:::svcFulfill
+        restSvc["<b>Restaurant Service</b><br/><code>Ballerina :9095</code><br/>Menu Catalog & Kitchen Prep"]:::svcFulfill
+        delSvc["<b>Delivery Service</b><br/><code>Ballerina :9096</code><br/>Driver Dispatch & GPS"]:::svcFulfill
+    end
+
+    subgraph BottomCol ["3. Observability & Administration"]
+        direction LR
+        notifSvc["<b>Notification Service</b><br/><code>Ballerina :9097</code><br/>Alerts & Audit Logger"]:::svcObs
+        adminSvc["<b>Admin Service</b><br/><code>Ballerina :9098</code><br/>GMV & SLA Analytics"]:::svcObs
+    end
+
+    %% Left to Center
+    orderSvc -->|"orders.created<br/>orders.cancelled"| kafka
+    orderSvc -.->|"Orders & Audit"| mongo
+    custSvc -.->|"Customer Profiles"| mongo
+
+    %% Center to Right
+    kafka <-->|"orders.created<br/>payments.completed"| paySvc
+    kafka <-->|"payments.completed<br/>orders.ready"| restSvc
+    kafka <-->|"orders.ready<br/>delivery.status"| delSvc
+
+    paySvc -.->|"Ledger"| mongo
+    restSvc -.->|"Menus"| mongo
+    delSvc -.->|"Tracking"| mongo
+
+    %% Center to Bottom
+    kafka -->|"Event Stream"| notifSvc
+    kafka -->|"Domain Events"| adminSvc
+    adminSvc -.->|"SLA & GMV Queries"| mongo
+
+    class LeftCol,CenterCol,RightCol,BottomCol clusterBox;
 ```
 
 ### 1.3 Event Choreography Flow
