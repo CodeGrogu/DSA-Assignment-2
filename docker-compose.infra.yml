@@ -45,16 +45,13 @@ services:
   mongodb:
     image: mongo:7.0
     container_name: dsa-mongodb
-    command: ["bash", "-c", "chmod 400 /etc/mongo-keyfile && mongod --replSet rs0 --bind_ip_all --keyFile /etc/mongo-keyfile"]
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
     ports:
       - "${MONGO_PORT:-27017}:27017"
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-root}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-password}
     volumes:
       - mongo-data:/data/db
       - ./scripts/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
-      - ./scripts/mongo-keyfile:/etc/mongo-keyfile
+     
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
@@ -84,4 +81,4 @@ volumes:
 
 networks:
   dsa-network:
-    driver: bridge
+    driver: bridge 
