@@ -1,0 +1,22 @@
+# docker/Dockerfile.service
+# Standardized Ballerina Microservice Production Runtime Containerfile
+FROM eclipse-temurin:17-jre-jammy
+
+WORKDIR /app
+
+# Create non-root runtime user for container security
+RUN groupadd -g 10001 ballerina && \
+    useradd -u 10001 -g ballerina -m -s /bin/bash ballerina
+
+ARG SERVICE_NAME
+ARG PORT
+
+# Copy compiled Ballerina executable jar from target/bin
+COPY services/${SERVICE_NAME}/target/bin/${SERVICE_NAME}.jar /app/service.jar
+
+ENV PORT=${PORT}
+EXPOSE ${PORT}
+
+USER 10001
+
+ENTRYPOINT ["java", "-jar", "/app/service.jar"]

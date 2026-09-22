@@ -30,7 +30,11 @@ if [ -n "$PARENT_NUM" ] && [ "$PARENT_NUM" -ge 1 ] && [ "$PARENT_NUM" -le 40 ]; 
     PR_NUM=$((120 + PARENT_NUM))
     SUB1_NUM=$((39 + 2 * PARENT_NUM))
     SUB2_NUM=$((40 + 2 * PARENT_NUM))
-    LINEAR_PARENT="PEE-$((66 + PARENT_NUM))"
+    if [ "$PARENT_NUM" -ge 1 ] && [ "$PARENT_NUM" -le 7 ]; then
+        LINEAR_PARENT="PEE-$((186 + PARENT_NUM))"
+    else
+        LINEAR_PARENT="PEE-$((66 + PARENT_NUM))"
+    fi
     LINEAR_SUB1="PEE-$((106 + SUB1_NUM - 40))"
     LINEAR_SUB2="PEE-$((106 + SUB2_NUM - 40))"
 

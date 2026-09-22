@@ -1,0 +1,11 @@
+[workspace]
+packages = [
+    "modules/events",
+    "services/order_service",
+    "services/customer_service",
+    "services/restaurant_service",
+    "services/payment_service",
+    "services/delivery_service",
+    "services/notification_service",
+    "services/admin_service"
+]
