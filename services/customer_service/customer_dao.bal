@@ -1,11 +1,14 @@
 import ballerinax/mongodb;
 
-public function getCustomerCollection() returns mongodb:Collection|error {
-    mongodb:ConnectionConfig config = {
-        connection: "mongodb://localhost:27017"
-    };
+configurable string mongodbConnection = "mongodb://localhost:27017";
 
-    mongodb:Client mongoClient = check new (config);
+mongodb:ConnectionConfig mongoConfig = {
+    connection: mongodbConnection
+};
+
+mongodb:Client mongoClient = checkpanic new (mongoConfig);
+
+public function getCustomerCollection() returns mongodb:Collection|error {
     mongodb:Database database = check mongoClient->getDatabase("customer_db");
     mongodb:Collection collection = check database->getCollection("customers");
 
@@ -29,6 +32,8 @@ public function getCustomerById(string id) returns Customer|error {
         return error("Customer not found");
     }
 
+    _ = result.remove("_id");
+
     return <Customer>result;
 }
 
@@ -41,10 +46,14 @@ public function updateCustomerAddress(string customerId, CustomerAddress address
         }
     };
 
-    _ = check collection->updateOne(
+    mongodb:UpdateResult result = check collection->updateOne(
         {id: customerId},
         update
     );
+
+    if result.matchedCount == 0 {
+        return error("Customer not found");
+    }
 
     return;
 }
