@@ -16,9 +16,9 @@ const customers = [
         city: "Windhoek",
         state: "Khomas",
         postalCode: "10005",
-        coordinates: {
-          latitude: -22.5609,
-          longitude: 17.0658
+        location: {
+          type: "Point",
+          coordinates: [17.0658, -22.5609]
         },
         deliveryInstructions: "Please call when you arrive.",
         isDefault: true
@@ -38,9 +38,9 @@ const customers = [
         city: "Windhoek",
         state: "Khomas",
         postalCode: "10006",
-        coordinates: {
-          latitude: -22.5687,
-          longitude: 17.0836
+        location: {
+          type: "Point",
+          coordinates: [17.0836, -22.5687]
         },
         deliveryInstructions: "Leave the order with security if unavailable.",
         isDefault: true
@@ -60,9 +60,9 @@ const customers = [
         city: "Windhoek",
         state: "Khomas",
         postalCode: "10007",
-        coordinates: {
-          latitude: -22.5671,
-          longitude: 17.0894
+        location: {
+          type: "Point",
+          coordinates: [17.0894, -22.5671]
         },
         deliveryInstructions: "Deliver between 12:00 and 14:00.",
         isDefault: true
@@ -82,9 +82,9 @@ const customers = [
         city: "Windhoek",
         state: "Khomas",
         postalCode: "10008",
-        coordinates: {
-          latitude: -22.5515,
-          longitude: 17.0762
+        location: {
+          type: "Point",
+          coordinates: [17.0762, -22.5515]
         },
         deliveryInstructions: "Gate is on the left side of the property.",
         isDefault: true
@@ -104,9 +104,9 @@ const customers = [
         city: "Windhoek",
         state: "Khomas",
         postalCode: "10009",
-        coordinates: {
-          latitude: -22.5742,
-          longitude: 17.0951
+        location: {
+          type: "Point",
+          coordinates: [17.0951, -22.5742]
         },
         deliveryInstructions: "Please ring the bell at the main entrance.",
         isDefault: true
@@ -126,9 +126,9 @@ const customers = [
         city: "Windhoek",
         state: "Khomas",
         postalCode: "10010",
-        coordinates: {
-          latitude: -22.5554,
-          longitude: 17.0798
+        location: {
+          type: "Point",
+          coordinates: [17.0798, -22.5554]
         },
         deliveryInstructions: "Deliver to reception.",
         isDefault: true
@@ -148,9 +148,9 @@ const customers = [
         city: "Windhoek",
         state: "Khomas",
         postalCode: "10011",
-        coordinates: {
-          latitude: -22.5831,
-          longitude: 17.0719
+        location: {
+          type: "Point",
+          coordinates: [17.0719, -22.5831]
         },
         deliveryInstructions: "Please do not leave the food outside.",
         isDefault: true
@@ -170,9 +170,9 @@ const customers = [
         city: "Windhoek",
         state: "Khomas",
         postalCode: "10012",
-        coordinates: {
-          latitude: -22.5398,
-          longitude: 17.0735
+        location: {
+          type: "Point",
+          coordinates: [17.0735, -22.5398]
         },
         deliveryInstructions: "Call the customer upon arrival.",
         isDefault: true
@@ -192,9 +192,9 @@ const customers = [
         city: "Windhoek",
         state: "Khomas",
         postalCode: "10013",
-        coordinates: {
-          latitude: -22.5488,
-          longitude: 17.1024
+        location: {
+          type: "Point",
+          coordinates: [17.1024, -22.5488]
         },
         deliveryInstructions: "Use the side gate for delivery.",
         isDefault: true
@@ -214,9 +214,9 @@ const customers = [
         city: "Windhoek",
         state: "Khomas",
         postalCode: "10014",
-        coordinates: {
-          latitude: -22.5617,
-          longitude: 17.1102
+        location: {
+          type: "Point",
+          coordinates: [17.1102, -22.5617]
         },
         deliveryInstructions: "Deliver during normal business hours.",
         isDefault: true

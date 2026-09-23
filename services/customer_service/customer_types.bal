@@ -13,12 +13,12 @@ public type CustomerAddress record {|
     string city;
     string state;
     string postalCode;
-    GeoCoordinate coordinates;
+    GeoJSONPoint location;
     string deliveryInstructions = "";
     boolean isDefault = false;
 |};
 
-public type GeoCoordinate record {|
-    decimal latitude;
-    decimal longitude;
+public type GeoJSONPoint record {|
+    string 'type = "Point";
+    decimal[] coordinates;
 |};
