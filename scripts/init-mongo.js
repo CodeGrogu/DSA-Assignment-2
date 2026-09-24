@@ -5,7 +5,7 @@ try {
         members: [
             {
                 _id: 0,
-                host: "localhost:27017"
+                host: "mongodb:27017"
             }
         ]
     });
@@ -22,7 +22,7 @@ for (let i = 0; i < 30; i++) {
     } catch (e) {
         print("Waiting for PRIMARY...");
     }
-    sleep(1000); 
+    sleep(1000);
 }
 
 
@@ -37,7 +37,7 @@ db.customers.createIndex(
 );
 
 db.customers.createIndex(
-    { location: "2dsphere" }
+    { "addresses.location": "2dsphere" }
 );
 
 
@@ -78,10 +78,52 @@ db = db.getSiblingDB("delivery_db");
 db.createCollection("deliveries");
 db.createCollection("drivers");
 
+db.drivers.createIndex(
+    { location: "2dsphere" }
+);
+
 
 // Notification Service database
 db = db.getSiblingDB("notification_db");
 
 db.createCollection("notifications");
+
+
+// Service users
+db.getSiblingDB("customer_db").createUser({
+    user: "customer_user",
+    pwd: "customer_password",
+    roles: [{ role: "readWrite", db: "customer_db" }]
+});
+
+db.getSiblingDB("order_db").createUser({
+    user: "order_user",
+    pwd: "order_password",
+    roles: [{ role: "readWrite", db: "order_db" }]
+});
+
+db.getSiblingDB("restaurant_db").createUser({
+    user: "restaurant_user",
+    pwd: "restaurant_password",
+    roles: [{ role: "readWrite", db: "restaurant_db" }]
+});
+
+db.getSiblingDB("payment_db").createUser({
+    user: "payment_user",
+    pwd: "payment_password",
+    roles: [{ role: "readWrite", db: "payment_db" }]
+});
+
+db.getSiblingDB("delivery_db").createUser({
+    user: "delivery_user",
+    pwd: "delivery_password",
+    roles: [{ role: "readWrite", db: "delivery_db" }]
+});
+
+db.getSiblingDB("notification_db").createUser({
+    user: "notification_user",
+    pwd: "notification_password",
+    roles: [{ role: "readWrite", db: "notification_db" }]
+});
 
 print("MongoDB initialization completed successfully.");
