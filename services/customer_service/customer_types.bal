@@ -20,5 +20,15 @@ public type CustomerAddress record {|
 
 public type GeoJSONPoint record {|
     string 'type = "Point";
-    decimal[] coordinates;
+    float[] coordinates;
 |};
+
+public type CustomerErrorDetail record {|
+    string message = "";
+|};
+
+public type CustomerNotFoundError distinct error<CustomerErrorDetail>;
+
+public type DuplicateEmailError distinct error<CustomerErrorDetail>;
+
+public type DatabaseOperationError distinct error<CustomerErrorDetail>;
