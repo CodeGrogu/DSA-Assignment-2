@@ -126,7 +126,7 @@ To prevent network port collisions between local host processes, Docker infrastr
 | :--- | :---: | :---: | :---: | :--- |
 | **Kafka Broker (Host Listener)** | `29092` | `29092` | PLAINTEXT_HOST | **Avoids collision with standard host Kafka port 9092** |
 | **Kafka Broker (Internal)** | `9092` | `9092` | PLAINTEXT | High-speed inter-container communication on bridge network |
-| **Kafka KRaft Controller** | `29093` | — | PLAINTEXT | Quorum consensus (ZooKeeper-free) |
+| **Kafka KRaft Controller** | `29093` | - | PLAINTEXT | Quorum consensus (ZooKeeper-free) |
 | **Kafka UI Dashboard** | `8080` | `8085` | HTTP | Web management dashboard for topics and consumer groups |
 | **MongoDB Primary** | `27017` | `27017` | TCP | Document storage for entity collections & ledgers |
 | **Mongo Express UI** | `8081` | `8086` | HTTP | Interactive MongoDB web browser |
@@ -221,14 +221,14 @@ Every team member has demonstrable code ownership across specific microservices,
 
 | Team Member | Student ID | GitHub Handle | Service / Domain Ownership | Milestone | Parents | Subtasks | Pull Requests | Linear Keys |
 | :--- | :---: | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Jaden Awaseb** (Team Leader) | `224055054` | `@CodeGrogu` | **Order Service** & Monorepo Architecture | M1, M2, M4, M5 | #1 – #5 | #41 – #50 | #121 – #125 | `PEE-67`–`PEE-71` |
-| **Henry Heita** | `223013692` | `@Henchoz` | **Kafka Infrastructure**, DLQ & Chaos | M1, M3, M4, M5 | #6 – #10 | #51 – #60 | #126 – #130 | `PEE-72`–`PEE-76` |
-| **Florinda Immanuel** | `224082256` | `@Florriinnddaa` | **Customer Service** & MongoDB Persistence | M1, M2, M3, M5 | #11 – #15 | #61 – #70 | #131 – #135 | `PEE-77`–`PEE-81` |
-| **Tapiwa Machekera** | `224059483` | `@Jerganov` | **Restaurant Service** & Kitchen Processing | M1, M2, M3, M5 | #16 – #20 | #71 – #80 | #136 – #140 | `PEE-82`–`PEE-86` |
-| **Kondwani Kunkwenzu** | `224093894` | `@Kondwani112206`| **Payment Service**, Ledger & Saga Refunds | M1, M2, M4, M5 | #21 – #25 | #81 – #90 | #141 – #145 | `PEE-87`–`PEE-91` |
-| **May-Lee Mulundu** | `223087858` | `@itsyagirlmay` | **Delivery Service** & Driver Dispatch | M1, M3, M4, M5 | #26 – #30 | #91 – #100 | #146 – #150 | `PEE-92`–`PEE-96` |
-| **Liina Massipa** | `223114006` | `@LiinaMassipa` | **Notification Service** & Admin Analytics | M1, M3, M4, M5 | #31 – #35 | #101 – #110 | #151 – #155 | `PEE-97`–`PEE-101` |
-| **Nangukuii Kangootui** | `224031066` | `@Nangukuii` | **E2E Testing**, Docker Compose & Defense | M1, M4, M5 | #36 – #40 | #111 – #120 | #156 – #160 | `PEE-102`–`PEE-106` |
+| **Jaden Awaseb** (Team Leader) | `224055054` | `@CodeGrogu` | **Order Service** & Monorepo Architecture | M1, M2, M4, M5 | #1 - #5 | #41 - #50 | #121 - #125 | `PEE-187`-`PEE-191` |
+| **Henry Heita** | `223013692` | `@Henchoz` | **Kafka Infrastructure**, DLQ & Chaos | M1, M3, M4, M5 | #6 - #10 | #51 - #60 | #126 - #130 | `PEE-192`-`PEE-193`, `PEE-74`-`PEE-76` |
+| **Florinda Immanuel** | `224082256` | `@Florriinnddaa` | **Customer Service** & MongoDB Persistence | M1, M2, M3, M5 | #11 - #15 | #61 - #70 | #131 - #135 | `PEE-77`-`PEE-81` |
+| **Tapiwa Machekera** | `224059483` | `@Jerganov` | **Restaurant Service** & Kitchen Processing | M1, M2, M3, M5 | #16 - #20 | #71 - #80 | #136 - #140 | `PEE-82`-`PEE-86` |
+| **Kondwani Kunkwenzu** | `224093894` | `@Kondwani112206`| **Payment Service**, Ledger & Saga Refunds | M1, M2, M4, M5 | #21 - #25 | #81 - #90 | #141 - #145 | `PEE-87`-`PEE-91` |
+| **May-Lee Mulundu** | `223087858` | `@itsyagirlmay` | **Delivery Service** & Driver Dispatch | M1, M3, M4, M5 | #26 - #30 | #91 - #100 | #146 - #150 | `PEE-92`-`PEE-96` |
+| **Liina Massipa** | `223114006` | `@LiinaMassipa` | **Notification Service** & Admin Analytics | M1, M3, M4, M5 | #31 - #35 | #101 - #110 | #151 - #155 | `PEE-97`-`PEE-101` |
+| **Nangukuii Kangootui** | `224031066` | `@Nangukuii` | **E2E Testing**, Docker Compose & Defense | M1, M4, M5 | #36 - #40 | #111 - #120 | #156 - #160 | `PEE-102`-`PEE-106` |
 
 ---
 
