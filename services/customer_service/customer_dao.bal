@@ -1,6 +1,7 @@
 import ballerinax/mongodb;
 
-configurable string mongodbConnection = "mongodb://localhost:27017";
+configurable string mongodbConnection =
+    "mongodb://root:password@localhost:27017/customer_db?authSource=admin";
 
 mongodb:ConnectionConfig mongoConfig = {
     connection: mongodbConnection
@@ -18,7 +19,18 @@ public function getCustomerCollection() returns mongodb:Collection|error {
 public function insertCustomer(Customer customer) returns error? {
     mongodb:Collection collection = check getCustomerCollection();
 
-    _ = check collection->insertOne(customer);
+    var result = collection->insertOne(customer);
+
+    if result is error {
+        string errorMessage = result.toString();
+
+        if errorMessage.includes("11000") ||
+            errorMessage.includes("duplicate key") {
+            return error DuplicateEmailError("Customer email already exists");
+        }
+
+        return error DatabaseOperationError("Failed to insert customer");
+    }
 
     return;
 }
@@ -29,19 +41,21 @@ public function getCustomerById(string id) returns Customer|error {
     record {}? result = check collection->findOne({id: id});
 
     if result is () {
-        return error("Customer not found");
+        return error CustomerNotFoundError("Customer not found");
     }
 
-    _ = result.remove("_id");
-
-    return <Customer>result;
+    Customer customer = check result.cloneWithType(Customer);
+    return customer;
 }
 
-public function updateCustomerAddress(string customerId, CustomerAddress address) returns error? {
+public function updateCustomerAddress(
+        string customerId,
+        CustomerAddress address
+) returns error? {
     mongodb:Collection collection = check getCustomerCollection();
 
     mongodb:Update update = {
-        "$push": {
+        "push": {
             "addresses": address
         }
     };
@@ -52,7 +66,7 @@ public function updateCustomerAddress(string customerId, CustomerAddress address
     );
 
     if result.matchedCount == 0 {
-        return error("Customer not found");
+        return error CustomerNotFoundError("Customer not found");
     }
 
     return;
