@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Check Ballerina formatting without changing the checkout or comparing EOL styles."""
 
+import difflib
 import shutil
 import subprocess
 import sys
@@ -37,10 +38,19 @@ def check_package(package: Path, bal: str) -> bool:
             print(f"[FAIL] {package.relative_to(ROOT)}: {result.stdout}{result.stderr}")
             return False
 
-        changed = [str(source.relative_to(ROOT)) for source in sources
-                   if normalized_text(source) != normalized_text(copy / source.relative_to(package))]
+        changed = False
+        for source in sources:
+            original = normalized_text(source)
+            formatted = normalized_text(copy / source.relative_to(package))
+            if original != formatted:
+                changed = True
+                name = str(source.relative_to(ROOT))
+                print(f"[FAIL] Formatting needed: {name}")
+                print("".join(difflib.unified_diff(
+                    original.splitlines(keepends=True), formatted.splitlines(keepends=True),
+                    fromfile=name, tofile=f"formatted/{name}"
+                )))
         if changed:
-            print(f"[FAIL] Formatting needed: {', '.join(changed)}")
             return False
         print(f"[PASS] {package.relative_to(ROOT)}")
         return True
