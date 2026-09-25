@@ -32,3 +32,8 @@ public type CustomerNotFoundError distinct error<CustomerErrorDetail>;
 public type DuplicateEmailError distinct error<CustomerErrorDetail>;
 
 public type DatabaseOperationError distinct error<CustomerErrorDetail>;
+
+public type CustomerProfileUpdate record {|
+    string name;
+    string phone;
+|};

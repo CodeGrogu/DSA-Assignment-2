@@ -12,3 +12,8 @@ org = "peerpressure"
 name = "events"
 version = "0.1.0"
 repository = "local"
+
+[[dependency]]
+org = "ballerinax"
+name = "mongodb"
+version = "5.2.1"

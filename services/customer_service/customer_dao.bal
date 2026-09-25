@@ -71,3 +71,29 @@ public function updateCustomerAddress(
 
     return;
 }
+
+public function updateCustomerProfile(
+        string customerId,
+        string name,
+        string phone
+) returns error? {
+    mongodb:Collection collection = check getCustomerCollection();
+
+    mongodb:Update update = {
+        "set": {
+            "name": name,
+            "phone": phone
+        }
+    };
+
+    mongodb:UpdateResult result = check collection->updateOne(
+        {id: customerId},
+        update
+    );
+
+    if result.matchedCount == 0 {
+        return error CustomerNotFoundError("Customer not found");
+    }
+
+    return;
+}
