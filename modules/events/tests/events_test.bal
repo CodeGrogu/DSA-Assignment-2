@@ -49,6 +49,7 @@ function testOrderCreatedSerializationAndValidation() returns error? {
 
     // Schema validation test
     OrderCreated validated = check validateOrderCreated(eventJson);
+    test:assertEquals(validated, event, "Order round-trip must preserve the entire record");
     test:assertEquals(validated.orderId, "ord-9001");
     test:assertEquals(validated.customerId, "cust-101");
     test:assertEquals(validated.restaurantId, "rest-202");
@@ -81,6 +82,7 @@ function testPaymentCompletedSerializationAndValidation() returns error? {
 
     // Schema validation test
     PaymentCompleted validated = check validatePaymentCompleted(eventJson);
+    test:assertEquals(validated, event, "Payment round-trip must preserve the entire record");
     test:assertEquals(validated.paymentId, "pay-501");
     test:assertEquals(validated.orderId, "ord-9001");
     test:assertEquals(validated.amount, 91.00d);
@@ -106,6 +108,7 @@ function testKitchenOrderReadySerializationAndValidation() returns error? {
 
     // Schema validation test
     KitchenOrderReady validated = check validateKitchenOrderReady(eventJson);
+    test:assertEquals(validated, event, "Kitchen ready round-trip must preserve the entire record");
     test:assertEquals(validated.orderId, "ord-9001");
     test:assertEquals(validated.restaurantId, "rest-202");
     test:assertEquals(validated.pickupReadyAt, "2026-09-21T12:15:30Z");
@@ -139,6 +142,7 @@ function testDeliveryStatusUpdatedSerializationAndValidation() returns error? {
 
     // Schema validation test
     DeliveryStatusUpdated validated = check validateDeliveryStatusUpdated(eventJson);
+    test:assertEquals(validated, event, "Delivery round-trip must preserve the entire record");
     test:assertEquals(validated.deliveryId, "del-701");
     test:assertEquals(validated.driverId, "drv-33");
     test:assertEquals(validated.status, PICKED_UP);
@@ -212,6 +216,54 @@ function testBackwardCompatibilityTypeAliases() returns error? {
 }
 
 // Negative schema validation tests
+
+function validOrderPayload() returns map<json> {
+    return {
+        eventId: "evt-valid",
+        orderId: "ord-valid",
+        customerId: "cust-valid",
+        restaurantId: "rest-valid",
+        items: [{itemId: "it-1", itemName: "Meal", quantity: 2, unitPrice: 10.25, subtotal: 20.50}],
+        totalAmount: 20.50,
+        deliveryAddress: {street: "Street", city: "Windhoek", state: "Khomas", postalCode: "10005"},
+        status: "CREATED",
+        createdAt: "2026-09-21T12:00:00Z"
+    };
+}
+
+@test:Config {}
+function testValidateOrderCreatedWrongSubtotal() {
+    map<json> payload = validOrderPayload();
+    payload["items"] = [{itemId: "it-1", itemName: "Meal", quantity: 2, unitPrice: 10.25, subtotal: 10.25}];
+    test:assertTrue(validateOrderCreated(payload) is error, "Validation must reject an incorrect item subtotal");
+}
+
+@test:Config {}
+function testValidateOrderCreatedWrongTotal() {
+    map<json> payload = validOrderPayload();
+    payload["totalAmount"] = 1.00;
+    test:assertTrue(validateOrderCreated(payload) is error, "Validation must reject an incorrect order total");
+}
+
+@test:Config {}
+function testValidateOrderCreatedTerminalStatus() {
+    map<json> payload = validOrderPayload();
+    payload["status"] = "DELIVERED";
+    test:assertTrue(validateOrderCreated(payload) is error, "Validation must reject terminal creation status");
+}
+
+@test:Config {}
+function testValidateOrderCreatedInvalidDestination() {
+    map<json> payload = validOrderPayload();
+    payload["deliveryAddress"] = {
+        street: "Street",
+        city: "Windhoek",
+        state: "Khomas",
+        postalCode: "10005",
+        coordinates: {latitude: 195.0, longitude: 17.06}
+    };
+    test:assertTrue(validateOrderCreated(payload) is error, "Validation must reject invalid destination coordinates");
+}
 
 @test:Config {}
 function testValidateOrderCreatedMissingRequiredField() {

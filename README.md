@@ -7,11 +7,11 @@
 [![Kafka](https://img.shields.io/badge/Kafka-KRaft_7.6.0-231F20?logo=apachekafka)](https://kafka.apache.org/)
 [![MongoDB](https://img.shields.io/badge/MongoDB-7.0-47A248?logo=mongodb)](https://www.mongodb.com/)
 
-An enterprise-grade, distributed, event-driven food delivery platform engineered with **Ballerina Swan Lake**, **Apache Kafka (KRaft mode)**, and **MongoDB**. Built by the **Peer Pressure** team for **DSA612S: Distributed Systems & Applications (Assignment 2)**.
+An in-progress distributed food delivery platform built with **Ballerina Swan Lake**, **Apache Kafka (KRaft mode)**, and **MongoDB** by the **Peer Pressure** team for **DSA612S: Distributed Systems & Applications (Assignment 2)**. Current implementation includes shared immutable event contracts, validation and tests, infrastructure Compose, and seven health-only service skeletons. Business endpoints, event producers/consumers, persistence, and the end-to-end order flow below are planned, not operational.
 
 ---
 
-## 1. System Architecture & C4 Diagrams
+## 1. Planned System Architecture & C4 Diagrams
 
 ### 1.1 C4 Level 1: System Context Diagram
 
@@ -88,7 +88,7 @@ flowchart TB
     class Clients,Cluster,Tier1,Tier2,Infra clusterBox;
 ```
 
-### 1.3 Event Choreography Flow
+### 1.3 Planned Event Choreography Flow
 
 ```mermaid
 sequenceDiagram
@@ -142,7 +142,7 @@ To prevent network port collisions between local host processes, Docker infrastr
 
 ## 3. Kafka Topic Taxonomy & Schema Registry
 
-All events are strongly typed via the shared contract library `peerpressure/events:0.1.0` in [`modules/events`](file:///modules/events):
+Event types are defined in shared contract library `peerpressure/events:0.1.0` in [`modules/events`](modules/events). Topics and publishers/consumers below describe planned integration; Compose does not provision topics yet. `OrderCreated` validation requires item subtotals to equal quantity × unit price and total amount to equal sum of item subtotals (no taxes or fees modeled).
 
 | Topic Name | Partitions | Key Strategy | Emitted By | Primary Consumers | Event Record Type |
 | :--- | :---: | :--- | :--- | :--- | :--- |
@@ -164,6 +164,7 @@ All events are strongly typed via the shared contract library `peerpressure/even
 ### 4.1 Prerequisites
 - [Ballerina Swan Lake](https://ballerina.io/downloads/) `2201.13.5`
 - [Docker & Docker Compose](https://docs.docker.com/compose/)
+- Python 3 (for the non-mutating, cross-platform formatting check)
 - [Bun](https://bun.sh/) (strictly no npm)
 
 ### 4.2 Step 1: Clone and Configure Environment
@@ -234,12 +235,14 @@ Every team member has demonstrable code ownership across specific microservices,
 
 ## 6. Continuous Integration & Quality Gates
 
-Every Pull Request and commit to `main` is validated by four automated quality gates:
-1. **Ballerina Monorepo Quality Gate (`ballerina-ci`):** Topological build enforcing code formatting (`bal format`), automated unit test suites (`bal test`), package packing, local repository installation, and executable compilation (`bal build`).
-2. **Docker Compose Validation (`docker-compose-validate`):** Verifies syntax, healthchecks, networks, and environment variables across `docker-compose.infra.yml` and `docker-compose.yml`.
-3. **Postman Schema Linting (`postman-lint`):** Validates Postman collection JSON schemas using Bun.
-4. **CodeQL Security Analysis (`codeql.yml`):** Analyzes workflow supply-chain security.
-5. **PR Domain Scope Verification (`pr-scope-validate`):** Dynamically audits each Pull Request against designated domain boundaries and deliverables.
+CI currently runs these five checks or reports (PR-specific jobs do not run on pushes):
+1. **Ballerina Monorepo Quality Gate (`ballerina-ci`):** Topological build enforcing dry-run code formatting (`bal format -d`), automated unit test suites (`bal test`), package packing, local repository installation, and executable compilation (`bal build`). Service tests have not yet been implemented.
+2. **Docker Compose Validation (`docker-compose-validate`):** Verifies configuration and matching network names across `docker-compose.infra.yml` and `docker/docker-compose.services.yml` without starting containers.
+3. **Postman Shape Linting (`postman-lint`):** Checks basic Postman collection fields if collections exist.
+4. **CodeQL Security Analysis (`codeql.yml`):** Uploads workflow supply-chain analysis results.
+5. **PR Scope Report (`pr-scope-validate`):** Reports branch/issue mapping and changed files; does not enforce domain boundaries or deliverables.
+
+The Ballerina job also builds the root workspace and smoke-tests Docker images, service health endpoints, and Kafka topic persistence on a Docker-enabled CI runner. The local `--check` formatter uses a temporary package copy so platform-specific line endings do not cause false failures or edit tracked sources.
 
 ---
 

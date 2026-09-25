@@ -29,21 +29,16 @@ jobs:
             cp .env.example .env
           fi
 
-          if [ -f "docker-compose.infra.yml" ]; then
-            echo "Validating docker-compose.infra.yml..."
-            docker compose -f docker-compose.infra.yml config -q
-            echo "[PASS] docker-compose.infra.yml is valid."
-          else
-            echo "docker-compose.infra.yml not present. Skipping."
-          fi
+          echo "Validating docker-compose.infra.yml..."
+          docker compose -f docker-compose.infra.yml config -q
+          echo "[PASS] docker-compose.infra.yml is valid."
 
-          if [ -f "docker-compose.yml" ]; then
-            echo "Validating docker-compose.yml..."
-            docker compose -f docker-compose.yml config -q
-            echo "[PASS] docker-compose.yml is valid."
-          else
-            echo "docker-compose.yml not present. Skipping."
-          fi
+          echo "Validating docker/docker-compose.services.yml..."
+          docker compose -f docker/docker-compose.services.yml config -q
+          echo "[PASS] docker/docker-compose.services.yml is valid."
+          infra_network=$(docker compose -f docker-compose.infra.yml config --format json | python3 -c 'import json,sys; print(json.load(sys.stdin)["networks"]["dsa-network"]["name"])')
+          services_network=$(docker compose -f docker/docker-compose.services.yml config --format json | python3 -c 'import json,sys; print(json.load(sys.stdin)["networks"]["dsa-network"]["name"])')
+          test "$infra_network" = "$services_network"
 
   postman-lint:
     name: Postman Collection Schema Linting
@@ -124,6 +119,9 @@ jobs:
         with:
           version: 2201.13.5
 
+      - name: Check Formatting Without Modifying Sources
+        run: bash scripts/format-all.sh --check
+
       - name: "Phase A: Build, Test & Install Shared Modules"
         run: |
           echo "=== Directive 1 (Phase A): Shared Modules Topological Build ==="
@@ -135,17 +133,13 @@ jobs:
               echo "----------------------------------------------------"
               pushd "$mod" > /dev/null
 
-              echo "[1/4] Checking code formatting..."
-              bal format
-              git diff --exit-code || { echo "Format check failed in $mod. Run 'bal format' locally."; exit 1; }
-
-              echo "[2/4] Running automated unit tests with coverage..."
+              echo "[1/3] Running automated unit tests with coverage..."
               bal test --test-report --code-coverage
 
-              echo "[3/4] Packing module..."
+              echo "[2/3] Packing module..."
               bal pack
 
-              echo "[4/4] Publishing to local repository..."
+              echo "[3/3] Publishing to local repository..."
               bal push --repository local
 
               popd > /dev/null
@@ -166,14 +160,10 @@ jobs:
               echo "----------------------------------------------------"
               pushd "$svc" > /dev/null
 
-              echo "[1/3] Checking code formatting..."
-              bal format
-              git diff --exit-code || { echo "Format check failed in $svc. Run 'bal format' locally."; exit 1; }
-
-              echo "[2/3] Running automated unit tests with coverage..."
+              echo "[1/2] Running automated unit tests with coverage..."
               bal test --test-report --code-coverage
 
-              echo "[3/3] Compiling package executable..."
+              echo "[2/2] Compiling package executable..."
               bal build
 
               popd > /dev/null
@@ -183,8 +173,47 @@ jobs:
             echo "No Ballerina packages found in 'services/'. Skipping Phase B cleanly."
           fi
 
+      - name: Verify Root Workspace Build
+        run: bal build
+
+      - name: Smoke Test Docker Runtime and Kafka Persistence
+        timeout-minutes: 20
+        run: |
+          docker compose -f docker-compose.infra.yml up -d --wait
+          docker compose -f docker/docker-compose.services.yml build
+          for entry in order-service:9091 customer-service:9093 payment-service:9094 restaurant-service:9095 delivery-service:9096 notification-service:9097 admin-service:9098; do
+            service="${entry%:*}"
+            port="${entry#*:}"
+            docker compose -f docker/docker-compose.services.yml up -d --no-deps "$service"
+            curl --fail --silent --show-error --retry 12 --retry-connrefused --retry-delay 2 "http://localhost:${port}/health"
+            docker compose -f docker/docker-compose.services.yml stop "$service"
+          done
+
+          docker exec dsa-kafka kafka-topics --bootstrap-server localhost:9092 --create --topic smoke.persistence --partitions 1 --replication-factor 1
+          docker compose -f docker-compose.infra.yml up -d --no-deps --force-recreate kafka
+          for attempt in $(seq 1 30); do
+            if docker exec dsa-kafka kafka-topics --bootstrap-server localhost:9092 --describe --topic smoke.persistence; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Kafka topic did not survive container recreation"
+          exit 1
+
+      - name: Docker Diagnostics on Failure
+        if: failure()
+        run: |
+          docker compose -f docker-compose.infra.yml logs --tail=100 || true
+          docker compose -f docker/docker-compose.services.yml logs --tail=100 || true
+
+      - name: Clean Up CI Containers
+        if: always()
+        run: |
+          docker compose -f docker/docker-compose.services.yml down || true
+          docker compose -f docker-compose.infra.yml down --volumes || true
+
   pr-scope-validate:
-    name: "PR Verification: ${{ github.head_ref || github.ref_name }}"
+    name: "PR Scope Report: ${{ github.head_ref || github.ref_name }}"
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
@@ -196,7 +225,7 @@ jobs:
       - name: Make Scripts Executable
         run: chmod +x scripts/*.sh 2>/dev/null || true
 
-      - name: Execute Scoped PR Domain Verification
+      - name: Generate PR Scope Report
         run: ./scripts/validate-pr-scope.sh
         env:
           HEAD_REF: ${{ github.head_ref }}
