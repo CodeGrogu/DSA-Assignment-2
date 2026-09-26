@@ -93,7 +93,7 @@ public function setDefaultAddress(
     }
 
     if !addressFound {
-        return error("Address not found");
+        return error AddressNotFoundError("Address not found");
     }
 
     mongodb:Update update = {
@@ -141,3 +141,45 @@ public function updateCustomerProfile(
     return;
 }
 
+public function deleteCustomerAddress(
+        string customerId,
+        string addressId
+) returns error? {
+
+    mongodb:Collection collection = check getCustomerCollection();
+
+    Customer customer = check getCustomerById(customerId);
+
+    CustomerAddress[] remainingAddresses = [];
+
+    boolean addressFound = false;
+
+    foreach var address in customer.addresses {
+        if address.id == addressId {
+            addressFound = true;
+        } else {
+            remainingAddresses.push(address);
+        }
+    }
+
+    if !addressFound {
+        return error AddressNotFoundError("Address not found");
+    }
+
+    mongodb:Update update = {
+        "set": {
+            "addresses": remainingAddresses
+        }
+    };
+
+    mongodb:UpdateResult result = check collection->updateOne(
+        {id: customerId},
+        update
+    );
+
+    if result.matchedCount == 0 {
+        return error CustomerNotFoundError("Customer not found");
+    }
+
+    return;
+}

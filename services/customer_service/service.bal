@@ -19,7 +19,21 @@ service / on new http:Listener(port) {
     resource function post customers(@http:Payload Customer customer)
             returns http:Response|error {
 
-        check insertCustomer(customer);
+        error? result = insertCustomer(customer);
+
+        if result is DuplicateEmailError {
+            http:Response response = new;
+            response.statusCode = http:STATUS_CONFLICT;
+            response.setPayload({
+                message: "Customer email already exists"
+            });
+
+            return response;
+        }
+
+        if result is error {
+            return result;
+        }
 
         http:Response response = new;
         response.statusCode = http:STATUS_CREATED;
@@ -31,11 +45,25 @@ service / on new http:Listener(port) {
     resource function get customers/[string customerId]()
             returns http:Response|error {
 
-        Customer customer = check getCustomerById(customerId);
+        Customer|error result = getCustomerById(customerId);
+
+        if result is error {
+            if result.message() == "Customer not found" {
+                http:Response response = new;
+                response.statusCode = http:STATUS_NOT_FOUND;
+                response.setPayload({
+                    message: "Customer not found"
+                });
+
+                return response;
+            }
+
+            return result;
+        }
 
         http:Response response = new;
         response.statusCode = http:STATUS_OK;
-        response.setPayload(customer);
+        response.setPayload(result);
 
         return response;
     }
@@ -44,7 +72,37 @@ service / on new http:Listener(port) {
             @http:Payload CustomerAddress address)
             returns http:Response|error {
 
-        check updateCustomerAddress(customerId, address);
+        error? coordinateResult =
+            validateNamibiaCoordinates(address.location);
+
+        if coordinateResult is error {
+            http:Response response = new;
+            response.statusCode = http:STATUS_BAD_REQUEST;
+            response.setPayload({
+                message: coordinateResult.message()
+            });
+
+            return response;
+        }
+
+        error? result = updateCustomerAddress(
+            customerId,
+            address
+        );
+
+        if result is error {
+            if result.message() == "Customer not found" {
+                http:Response response = new;
+                response.statusCode = http:STATUS_NOT_FOUND;
+                response.setPayload({
+                    message: "Customer not found"
+                });
+
+                return response;
+            }
+
+            return result;
+        }
 
         http:Response response = new;
         response.statusCode = http:STATUS_CREATED;
@@ -57,13 +115,54 @@ service / on new http:Listener(port) {
             @http:Payload DefaultAddressRequest request)
             returns http:Response|error {
 
-        check setDefaultAddress(customerId, request.addressId);
+        error? result = setDefaultAddress(
+            customerId,
+            request.addressId
+        );
 
-        Customer customer = check getCustomerById(customerId);
+        if result is error {
+            if result.message() == "Customer not found" {
+                http:Response response = new;
+                response.statusCode = http:STATUS_NOT_FOUND;
+                response.setPayload({
+                    message: "Customer not found"
+                });
+
+                return response;
+            }
+
+            if result.message() == "Address not found" {
+                http:Response response = new;
+                response.statusCode = http:STATUS_NOT_FOUND;
+                response.setPayload({
+                    message: "Address not found"
+                });
+
+                return response;
+            }
+
+            return result;
+        }
+
+        Customer|error customerResult = getCustomerById(customerId);
+
+        if customerResult is error {
+            if customerResult.message() == "Customer not found" {
+                http:Response response = new;
+                response.statusCode = http:STATUS_NOT_FOUND;
+                response.setPayload({
+                    message: "Customer not found"
+                });
+
+                return response;
+            }
+
+            return customerResult;
+        }
 
         http:Response response = new;
         response.statusCode = http:STATUS_OK;
-        response.setPayload(customer);
+        response.setPayload(customerResult);
 
         return response;
     }
@@ -72,17 +171,86 @@ service / on new http:Listener(port) {
             @http:Payload CustomerProfileUpdate profile)
             returns http:Response|error {
 
-        check updateCustomerProfile(
+        error? result = updateCustomerProfile(
             customerId,
             profile.name,
             profile.phone
         );
 
-        Customer customer = check getCustomerById(customerId);
+        if result is error {
+            if result.message() == "Customer not found" {
+                http:Response response = new;
+                response.statusCode = http:STATUS_NOT_FOUND;
+                response.setPayload({
+                    message: "Customer not found"
+                });
+
+                return response;
+            }
+
+            return result;
+        }
+
+        Customer|error customerResult = getCustomerById(customerId);
+
+        if customerResult is error {
+            if customerResult.message() == "Customer not found" {
+                http:Response response = new;
+                response.statusCode = http:STATUS_NOT_FOUND;
+                response.setPayload({
+                    message: "Customer not found"
+                });
+
+                return response;
+            }
+
+            return customerResult;
+        }
 
         http:Response response = new;
         response.statusCode = http:STATUS_OK;
-        response.setPayload(customer);
+        response.setPayload(customerResult);
+
+        return response;
+    }
+
+    resource function delete customers/[string customerId]/addresses/[string addressId]()
+            returns http:Response|error {
+
+        error? result = deleteCustomerAddress(
+            customerId,
+            addressId
+        );
+
+        if result is error {
+            if result.message() == "Customer not found" {
+                http:Response response = new;
+                response.statusCode = http:STATUS_NOT_FOUND;
+                response.setPayload({
+                    message: "Customer not found"
+                });
+
+                return response;
+            }
+
+            if result.message() == "Address not found" {
+                http:Response response = new;
+                response.statusCode = http:STATUS_NOT_FOUND;
+                response.setPayload({
+                    message: "Address not found"
+                });
+
+                return response;
+            }
+
+            return result;
+        }
+
+        http:Response response = new;
+        response.statusCode = http:STATUS_OK;
+        response.setPayload({
+            message: "Address deleted successfully"
+        });
 
         return response;
     }
