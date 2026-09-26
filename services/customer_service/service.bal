@@ -68,11 +68,15 @@ service / on new http:Listener(port) {
         return response;
     }
 
-    resource function patch customers/[string customerId](
+    resource function put customers/[string customerId](
             @http:Payload CustomerProfileUpdate profile)
             returns http:Response|error {
 
-        check updateCustomerProfile(customerId, profile.name, profile.phone);
+        check updateCustomerProfile(
+            customerId,
+            profile.name,
+            profile.phone
+        );
 
         Customer customer = check getCustomerById(customerId);
 
@@ -90,6 +94,3 @@ service / on new http:Listener(port) {
         return verifyCustomerAddress(request);
     }
 }
-public type DefaultAddressRequest record {|
-    string addressId;
-|};

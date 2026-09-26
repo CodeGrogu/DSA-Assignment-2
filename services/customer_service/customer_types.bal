@@ -48,3 +48,6 @@ public type AddressVerificationResponse record {|
     float distanceKm;
     string message;
 |};
+public type DefaultAddressRequest record {|
+    string addressId;
+|};
