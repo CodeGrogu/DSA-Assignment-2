@@ -52,6 +52,7 @@ public function updateCustomerAddress(
         string customerId,
         CustomerAddress address
 ) returns error? {
+
     mongodb:Collection collection = check getCustomerCollection();
 
     mongodb:Update update = {
@@ -72,11 +73,53 @@ public function updateCustomerAddress(
     return;
 }
 
+public function setDefaultAddress(
+        string customerId,
+        string addressId
+) returns error? {
+
+    mongodb:Collection collection = check getCustomerCollection();
+
+    Customer customer = check getCustomerById(customerId);
+
+    boolean addressFound = false;
+
+    foreach var address in customer.addresses {
+        address.isDefault = address.id == addressId;
+
+        if address.id == addressId {
+            addressFound = true;
+        }
+    }
+
+    if !addressFound {
+        return error("Address not found");
+    }
+
+    mongodb:Update update = {
+        "set": {
+            "addresses": customer.addresses
+        }
+    };
+
+    mongodb:UpdateResult result = check collection->updateOne(
+        {id: customerId},
+        update
+    );
+
+    if result.matchedCount == 0 {
+        return error CustomerNotFoundError("Customer not found");
+    }
+
+    return;
+}
+
 public function updateCustomerProfile(
         string customerId,
         string name,
         string phone
 ) returns error? {
+
     mongodb:Collection collection = check getCustomerCollection();
 
     mongodb:Update update = {
@@ -97,3 +140,4 @@ public function updateCustomerProfile(
 
     return;
 }
+

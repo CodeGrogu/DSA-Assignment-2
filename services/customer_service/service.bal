@@ -53,6 +53,21 @@ service / on new http:Listener(port) {
         return response;
     }
 
+    resource function put customers/[string customerId]/addresses/default(
+            @http:Payload DefaultAddressRequest request)
+            returns http:Response|error {
+
+        check setDefaultAddress(customerId, request.addressId);
+
+        Customer customer = check getCustomerById(customerId);
+
+        http:Response response = new;
+        response.statusCode = http:STATUS_OK;
+        response.setPayload(customer);
+
+        return response;
+    }
+
     resource function patch customers/[string customerId](
             @http:Payload CustomerProfileUpdate profile)
             returns http:Response|error {
@@ -75,3 +90,6 @@ service / on new http:Listener(port) {
         return verifyCustomerAddress(request);
     }
 }
+public type DefaultAddressRequest record {|
+    string addressId;
+|};
