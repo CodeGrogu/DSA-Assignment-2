@@ -28,6 +28,18 @@ service / on new http:Listener(port) {
         return response;
     }
 
+    resource function get customers/[string customerId]()
+            returns http:Response|error {
+
+        Customer customer = check getCustomerById(customerId);
+
+        http:Response response = new;
+        response.statusCode = http:STATUS_OK;
+        response.setPayload(customer);
+
+        return response;
+    }
+
     resource function post customers/[string customerId]/addresses(
             @http:Payload CustomerAddress address)
             returns http:Response|error {
@@ -55,6 +67,7 @@ service / on new http:Listener(port) {
 
         return response;
     }
+
     resource function post customers/verifyAddress(
             @http:Payload AddressVerificationRequest request)
             returns AddressVerificationResponse|error {
