@@ -37,3 +37,14 @@ public type CustomerProfileUpdate record {|
     string name;
     string phone;
 |};
+public type AddressVerificationRequest record {|
+    string customerId = "";
+    CustomerAddress address;
+|};
+
+public type AddressVerificationResponse record {|
+    boolean valid;
+    boolean withinDeliveryRange;
+    float distanceKm;
+    string message;
+|};

@@ -55,4 +55,10 @@ service / on new http:Listener(port) {
 
         return response;
     }
+    resource function post customers/verifyAddress(
+            @http:Payload AddressVerificationRequest request)
+            returns AddressVerificationResponse|error {
+
+        return verifyCustomerAddress(request);
+    }
 }
