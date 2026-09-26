@@ -30,14 +30,26 @@ public function insertOrder(events:OrderCreatedEvent orderData) returns error? {
     return;
 }
 
-public function getOrdersByCustomer(string customerId)
-        returns record {}[]|error {
+public function getOrdersByCustomer(
+        string customerId,
+        int resultLimit = 10,
+        int offset = 0
+) returns record {}[]|error {
 
     mongodb:Collection collection = check getOrderCollection();
 
-    stream<record {}, error?> orders = check collection->find({
-        customerId: customerId
-    });
+    mongodb:FindOptions options = {
+        sort: {
+            "createdAt": -1
+        },
+        'limit: resultLimit,
+        skip: offset
+    };
+
+    stream<record {}, error?> orders = check collection->find(
+        {customerId: customerId},
+        options
+    );
 
     record {}[] result = check from record {} orderRecord in orders
         select orderRecord;

@@ -16,9 +16,11 @@ service / on new http:Listener(port) {
         };
     }
 
-    resource function get orders/customer/[string customerId]()
-            returns record {}[]|error {
+    resource function get customers/[string customerId]/orders(
+            int resultLimit = 10,
+            int offset = 0
+) returns record {}[]|error {
 
-        return getOrdersByCustomer(customerId);
+        return getOrdersByCustomer(customerId, resultLimit, offset);
     }
 }
