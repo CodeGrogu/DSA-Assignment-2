@@ -3,7 +3,7 @@ import ballerinax/mongodb;
 import peerpressure/events as events;
 
 configurable string mongodbConnection =
-    "mongodb://root:password@localhost:27017/order_db?authSource=admin";
+    "mongodb://order_user:order_password@localhost:27017/order_db?authSource=order_db";
 
 mongodb:ConnectionConfig mongoConfig = {
     connection: mongodbConnection

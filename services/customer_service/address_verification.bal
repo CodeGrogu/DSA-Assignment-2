@@ -18,18 +18,19 @@ public function verifyCustomerAddress(
         return error("Coordinates must contain longitude and latitude");
     }
 
+    // Validate coordinates are within Namibia geographic boundaries.
+    error? namibiaValidation = validateNamibiaCoordinates(address.location);
+    if namibiaValidation is error {
+        return {
+            valid: false,
+            withinDeliveryRange: false,
+            distanceKm: -1.0,
+            message: namibiaValidation.message()
+        };
+    }
+
     float longitude = address.location.coordinates[0];
     float latitude = address.location.coordinates[1];
-
-    // Validate longitude.
-    if longitude < -180.0 || longitude > 180.0 {
-        return error("Invalid longitude");
-    }
-
-    // Validate latitude.
-    if latitude < -90.0 || latitude > 90.0 {
-        return error("Invalid latitude");
-    }
 
     // Delivery centre.
     float deliveryLongitude = 17.0658;

@@ -3,6 +3,9 @@ import ballerina/http;
 import peerpressure/events as _;
 
 configurable int port = 9093;
+configurable string orderServiceUrl = "http://localhost:9091";
+
+final http:Client orderClient = checkpanic new (orderServiceUrl);
 
 service / on new http:Listener(port) {
 
@@ -86,8 +89,8 @@ service / on new http:Listener(port) {
         }
 
         error? result = updateCustomerAddress(
-            customerId,
-            address
+                customerId,
+                address
         );
 
         if result is error {
@@ -116,8 +119,8 @@ service / on new http:Listener(port) {
             returns http:Response|error {
 
         error? result = setDefaultAddress(
-            customerId,
-            request.addressId
+                customerId,
+                request.addressId
         );
 
         if result is error {
@@ -172,9 +175,9 @@ service / on new http:Listener(port) {
             returns http:Response|error {
 
         error? result = updateCustomerProfile(
-            customerId,
-            profile.name,
-            profile.phone
+                customerId,
+                profile.name,
+                profile.phone
         );
 
         if result is error {
@@ -218,8 +221,8 @@ service / on new http:Listener(port) {
             returns http:Response|error {
 
         error? result = deleteCustomerAddress(
-            customerId,
-            addressId
+                customerId,
+                addressId
         );
 
         if result is error {
@@ -261,4 +264,37 @@ service / on new http:Listener(port) {
 
         return verifyCustomerAddress(request);
     }
+
+    resource function post customers/'verify\-address(
+            @http:Payload AddressVerificationRequest request)
+            returns AddressVerificationResponse|error {
+
+        return verifyCustomerAddress(request);
+    }
+
+    resource function get customers/[string customerId]/orders(
+            int 'limit = 10,
+            int offset = 0)
+            returns http:Response|json|error {
+
+        Customer|error customer = getCustomerById(customerId);
+        if customer is error {
+            if customer.message() == "Customer not found" {
+                http:Response response = new;
+                response.statusCode = http:STATUS_NOT_FOUND;
+                response.setPayload({
+                    message: "Customer not found"
+                });
+                return response;
+            }
+            return customer;
+        }
+
+        json|error ordersResponse = orderClient->get(string `/customers/${customerId}/orders?resultLimit=${'limit}&offset=${offset}`);
+        if ordersResponse is error {
+            return [];
+        }
+        return ordersResponse;
+    }
 }
+
