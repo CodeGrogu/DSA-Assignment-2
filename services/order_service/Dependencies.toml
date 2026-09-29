@@ -70,7 +70,7 @@ dependencies = [
 [[package]]
 org = "ballerina"
 name = "http"
-version = "2.17.1"
+version = "2.17.2"
 dependencies = [
 	{org = "ballerina", name = "auth"},
 	{org = "ballerina", name = "cache"},
@@ -305,6 +305,20 @@ modules = [
 ]
 
 [[package]]
+org = "ballerinax"
+name = "mongodb"
+version = "5.2.4"
+dependencies = [
+	{org = "ballerina", name = "crypto"},
+	{org = "ballerina", name = "jballerina.java"},
+	{org = "ballerina", name = "log"},
+	{org = "ballerina", name = "time"}
+]
+modules = [
+	{org = "ballerinax", packageName = "mongodb", moduleName = "mongodb"}
+]
+
+[[package]]
 org = "peerpressure"
 name = "events"
 version = "0.1.0"
@@ -322,6 +336,7 @@ version = "0.1.0"
 dependencies = [
 	{org = "ballerina", name = "http"},
 	{org = "ballerinai", name = "observe"},
+	{org = "ballerinax", name = "mongodb"},
 	{org = "peerpressure", name = "events"}
 ]
 modules = [
