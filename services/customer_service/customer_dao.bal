@@ -1,7 +1,7 @@
 import ballerinax/mongodb;
 
 configurable string mongodbConnection =
-    "mongodb://root:password@localhost:27017/customer_db?authSource=admin";
+    "mongodb://customer_user:customer_password@localhost:27017/customer_db?authSource=customer_db";
 
 mongodb:ConnectionConfig mongoConfig = {
     connection: mongodbConnection
@@ -56,7 +56,7 @@ public function updateCustomerAddress(
 
     mongodb:Update update = {
         "push": {
-            "addresses": address
+            "addresses": check address.cloneWithType(json)
         }
     };
 
@@ -66,6 +66,18 @@ public function updateCustomerAddress(
     );
 
     if result.matchedCount == 0 {
+        return error CustomerNotFoundError("Customer not found");
+    }
+
+    return;
+}
+
+public function deleteCustomer(string id) returns error? {
+    mongodb:Collection collection = check getCustomerCollection();
+
+    mongodb:DeleteResult result = check collection->deleteOne({id: id});
+
+    if result.deletedCount == 0 {
         return error CustomerNotFoundError("Customer not found");
     }
 

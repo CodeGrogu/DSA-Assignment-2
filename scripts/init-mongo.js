@@ -1,81 +1,105 @@
-// MongoDB infrastructure initialization for the DSA project.
-// Creates the replica set, required collections, and indexes.
+// MongoDB Initialization Script
+// Databases, collections, indexes, and service users are provisioned during bootstrap.
 
-try {
-  rs.status();
-  print("Replica set already initialized.");
-} catch (e) {
-  rs.initiate({
-    _id: "rs0",
-    members: [
-      {
-        _id: 0,
-        host: "mongodb:27017"
-      }
-    ]
-  });
 
-  print("Replica set initialized.");
-}
+// Customer Service database
+db = db.getSiblingDB("customer_db");
 
-function ensureCollection(database, collectionName) {
-  if (!database.getCollectionNames().includes(collectionName)) {
-    database.createCollection(collectionName);
-    print("Created collection: " + database.getName() + "." + collectionName);
-  }
-}
+db.createCollection("customers");
 
-// Customer database
-const customerDb = db.getSiblingDB("customer_db");
-
-ensureCollection(customerDb, "customers");
-
-customerDb.customers.createIndex(
-  { email: 1 },
-  { unique: true }
+db.customers.createIndex(
+    { email: 1 },
+    { unique: true }
 );
 
-customerDb.customers.createIndex(
-  { "addresses.location": "2dsphere" }
+db.customers.createIndex(
+    { "addresses.location": "2dsphere" }
 );
 
-// Restaurant database
-const restaurantDb = db.getSiblingDB("restaurant_db");
 
-ensureCollection(restaurantDb, "restaurants");
+// Order Service database
+db = db.getSiblingDB("order_db");
 
-restaurantDb.restaurants.createIndex(
-  { location: "2dsphere" }
+db.createCollection("orders");
+
+db.orders.createIndex(
+    { customerId: 1, createdAt: -1 }
 );
 
-// Order database
-const orderDb = db.getSiblingDB("order_db");
 
-ensureCollection(orderDb, "orders");
+// Restaurant Service database
+db = db.getSiblingDB("restaurant_db");
 
-// Payment database
-const paymentDb = db.getSiblingDB("payment_db");
+db.createCollection("restaurants");
 
-ensureCollection(paymentDb, "payments");
-
-paymentDb.payments.createIndex(
-  { idempotencyKey: 1 },
-  { unique: true }
+db.restaurants.createIndex(
+    { location: "2dsphere" }
 );
 
-// Delivery database
-const deliveryDb = db.getSiblingDB("delivery_db");
 
-ensureCollection(deliveryDb, "drivers");
-ensureCollection(deliveryDb, "deliveries");
+// Payment Service database
+db = db.getSiblingDB("payment_db");
 
-deliveryDb.drivers.createIndex(
-  { location: "2dsphere" }
+db.createCollection("payments");
+
+db.payments.createIndex(
+    { idempotencyKey: 1 },
+    { unique: true }
 );
 
-// Notification database
-const notificationDb = db.getSiblingDB("notification_db");
 
-ensureCollection(notificationDb, "notifications");
+// Delivery Service database
+db = db.getSiblingDB("delivery_db");
 
-print("MongoDB infrastructure initialization completed.");
+db.createCollection("deliveries");
+db.createCollection("drivers");
+
+db.drivers.createIndex(
+    { location: "2dsphere" }
+);
+
+
+// Notification Service database
+db = db.getSiblingDB("notification_db");
+
+db.createCollection("notifications");
+
+
+// Service users
+db.getSiblingDB("customer_db").createUser({
+    user: "customer_user",
+    pwd: "customer_password",
+    roles: [{ role: "readWrite", db: "customer_db" }]
+});
+
+db.getSiblingDB("order_db").createUser({
+    user: "order_user",
+    pwd: "order_password",
+    roles: [{ role: "readWrite", db: "order_db" }]
+});
+
+db.getSiblingDB("restaurant_db").createUser({
+    user: "restaurant_user",
+    pwd: "restaurant_password",
+    roles: [{ role: "readWrite", db: "restaurant_db" }]
+});
+
+db.getSiblingDB("payment_db").createUser({
+    user: "payment_user",
+    pwd: "payment_password",
+    roles: [{ role: "readWrite", db: "payment_db" }]
+});
+
+db.getSiblingDB("delivery_db").createUser({
+    user: "delivery_user",
+    pwd: "delivery_password",
+    roles: [{ role: "readWrite", db: "delivery_db" }]
+});
+
+db.getSiblingDB("notification_db").createUser({
+    user: "notification_user",
+    pwd: "notification_password",
+    roles: [{ role: "readWrite", db: "notification_db" }]
+});
+
+print("MongoDB initialization completed successfully.");

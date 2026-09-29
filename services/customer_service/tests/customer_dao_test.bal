@@ -2,6 +2,10 @@ import ballerina/test;
 
 @test:Config {}
 function testInsertCustomer() returns error? {
+    var cleanup = deleteCustomer("TEST-CUST-002");
+    if cleanup is error {
+    }
+
     Customer customer = {
         id: "TEST-CUST-002",
         name: "Test Customer",
@@ -17,6 +21,8 @@ function testInsertCustomer() returns error? {
     test:assertEquals(result.id, customer.id);
     test:assertEquals(result.name, customer.name);
     test:assertEquals(result.email, customer.email);
+
+    check deleteCustomer("TEST-CUST-002");
 }
 
 @test:Config {}
@@ -30,6 +36,20 @@ function testGetCustomerById() returns error? {
 
 @test:Config {}
 function testUpdateCustomerAddress() returns error? {
+    var cleanup = deleteCustomer("TEST-CUST-UPDATE-001");
+    if cleanup is error {
+    }
+
+    Customer testCustomer = {
+        id: "TEST-CUST-UPDATE-001",
+        name: "Update Test Customer",
+        email: "update.test.001@example.com",
+        phone: "+264810000002",
+        addresses: []
+    };
+
+    check insertCustomer(testCustomer);
+
     CustomerAddress address = {
         id: "TEST-ADDR-001",
         tag: "Test",
@@ -45,20 +65,33 @@ function testUpdateCustomerAddress() returns error? {
         isDefault: false
     };
 
-    Customer testCustomer = {
-        id: "TEST-CUST-UPDATE-001",
-        name: "Update Test Customer",
-        email: "update.test.001@example.com",
-        phone: "+264810000002",
-        addresses: []
-    };
-
-    check insertCustomer(testCustomer);
-
     check updateCustomerAddress("TEST-CUST-UPDATE-001", address);
 
     Customer customer = check getCustomerById("TEST-CUST-UPDATE-001");
 
     test:assertEquals(customer.addresses.length(), 1);
     test:assertEquals(customer.addresses[0].id, "TEST-ADDR-001");
+
+    check deleteCustomer("TEST-CUST-UPDATE-001");
 }
+
+@test:Config {}
+function testDuplicateEmailError() returns error? {
+    Customer duplicate = {
+        id: "TEST-CUST-DUP",
+        name: "Duplicate Customer",
+        email: "amelia.shilongo@example.com",
+        phone: "+264810000099",
+        addresses: []
+    };
+
+    error? res = insertCustomer(duplicate);
+    test:assertTrue(res is DuplicateEmailError, "Expected DuplicateEmailError on duplicate email");
+}
+
+@test:Config {}
+function testCustomerNotFoundError() returns error? {
+    Customer|error res = getCustomerById("NON-EXISTENT-ID");
+    test:assertTrue(res is CustomerNotFoundError, "Expected CustomerNotFoundError for non-existent ID");
+}
+
