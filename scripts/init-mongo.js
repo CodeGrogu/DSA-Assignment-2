@@ -1,29 +1,5 @@
-// Initialize the single-node replica set
-try {
-    rs.initiate({
-        _id: "rs0",
-        members: [
-            {
-                _id: 0,
-                host: "mongodb:27017"
-            }
-        ]
-    });
-} catch (e) {
-    print("Replica set initialization: " + e);
-}
-
-// Wait for the replica set to become PRIMARY
-for (let i = 0; i < 30; i++) {
-    try {
-        if (db.adminCommand({ hello: 1 }).isWritablePrimary) {
-            break;
-        }
-    } catch (e) {
-        print("Waiting for PRIMARY...");
-    }
-    sleep(1000);
-}
+// MongoDB Initialization Script
+// Databases, collections, indexes, and service users are provisioned during bootstrap.
 
 
 // Customer Service database
