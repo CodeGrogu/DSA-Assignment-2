@@ -86,8 +86,8 @@ service / on new http:Listener(port) {
         }
 
         error? result = updateCustomerAddress(
-            customerId,
-            address
+                customerId,
+                address
         );
 
         if result is error {
@@ -116,8 +116,8 @@ service / on new http:Listener(port) {
             returns http:Response|error {
 
         error? result = setDefaultAddress(
-            customerId,
-            request.addressId
+                customerId,
+                request.addressId
         );
 
         if result is error {
@@ -172,9 +172,9 @@ service / on new http:Listener(port) {
             returns http:Response|error {
 
         error? result = updateCustomerProfile(
-            customerId,
-            profile.name,
-            profile.phone
+                customerId,
+                profile.name,
+                profile.phone
         );
 
         if result is error {
@@ -218,8 +218,8 @@ service / on new http:Listener(port) {
             returns http:Response|error {
 
         error? result = deleteCustomerAddress(
-            customerId,
-            addressId
+                customerId,
+                addressId
         );
 
         if result is error {
@@ -261,4 +261,12 @@ service / on new http:Listener(port) {
 
         return verifyCustomerAddress(request);
     }
+
+    resource function post customers/'verify\-address(
+            @http:Payload AddressVerificationRequest request)
+            returns AddressVerificationResponse|error {
+
+        return verifyCustomerAddress(request);
+    }
 }
+

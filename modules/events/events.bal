@@ -1,4 +1,4 @@
-public type OrderCreatedEvent record {|
+public type OrderCreated readonly & record {|
     string eventId;
     string orderId;
     string customerId;
@@ -10,7 +10,9 @@ public type OrderCreatedEvent record {|
     string createdAt;
 |};
 
-public type OrderConfirmedEvent record {|
+public type OrderCreatedEvent OrderCreated;
+
+public type OrderConfirmed readonly & record {|
     string eventId;
     string orderId;
     string paymentId;
@@ -18,7 +20,9 @@ public type OrderConfirmedEvent record {|
     string confirmedAt;
 |};
 
-public type OrderCancelledEvent record {|
+public type OrderConfirmedEvent OrderConfirmed;
+
+public type OrderCancelled readonly & record {|
     string eventId;
     string orderId;
     string reason;
@@ -26,7 +30,9 @@ public type OrderCancelledEvent record {|
     string cancelledAt;
 |};
 
-public type PaymentCompletedEvent record {|
+public type OrderCancelledEvent OrderCancelled;
+
+public type PaymentCompleted readonly & record {|
     string eventId;
     string paymentId;
     string orderId;
@@ -38,7 +44,9 @@ public type PaymentCompletedEvent record {|
     string completedAt;
 |};
 
-public type PaymentFailedEvent record {|
+public type PaymentCompletedEvent PaymentCompleted;
+
+public type PaymentFailed readonly & record {|
     string eventId;
     string orderId;
     string customerId;
@@ -48,7 +56,9 @@ public type PaymentFailedEvent record {|
     string failedAt;
 |};
 
-public type KitchenPreparingEvent record {|
+public type PaymentFailedEvent PaymentFailed;
+
+public type KitchenPreparing readonly & record {|
     string eventId;
     string orderId;
     string restaurantId;
@@ -56,14 +66,20 @@ public type KitchenPreparingEvent record {|
     string startedAt;
 |};
 
-public type KitchenReadyEvent record {|
+public type KitchenPreparingEvent KitchenPreparing;
+
+public type KitchenOrderReady readonly & record {|
     string eventId;
     string orderId;
     string restaurantId;
     string pickupReadyAt;
 |};
 
-public type DeliveryAssignedEvent record {|
+public type KitchenReadyEvent KitchenOrderReady;
+
+public type KitchenOrderReadyEvent KitchenOrderReady;
+
+public type DeliveryAssigned readonly & record {|
     string eventId;
     string deliveryId;
     string orderId;
@@ -73,7 +89,9 @@ public type DeliveryAssignedEvent record {|
     string assignedAt;
 |};
 
-public type DeliveryStatusUpdateEvent record {|
+public type DeliveryAssignedEvent DeliveryAssigned;
+
+public type DeliveryStatusUpdated readonly & record {|
     string eventId;
     string deliveryId;
     string orderId;
@@ -83,7 +101,11 @@ public type DeliveryStatusUpdateEvent record {|
     string updatedAt;
 |};
 
-public type NotificationEvent record {|
+public type DeliveryStatusUpdateEvent DeliveryStatusUpdated;
+
+public type DeliveryStatusUpdatedEvent DeliveryStatusUpdated;
+
+public type NotificationEvent readonly & record {|
     string eventId;
     string recipientId;
     string channel;
@@ -92,3 +114,4 @@ public type NotificationEvent record {|
     string? orderId = ();
     string timestamp;
 |};
+
