@@ -88,8 +88,10 @@ services:
 
         # 6. Execute idempotent initialization script
         mongosh -u "$${MONGO_INITDB_ROOT_USERNAME}" -p "$${MONGO_INITDB_ROOT_PASSWORD}" --authenticationDatabase admin /scripts/init-mongo.js 2>/dev/null || true
+        touch /data/db/.init-done
 
-        # 7. Keep container running with mongod
+        # 7. Keep container running with mongod and forward signals gracefully
+        trap 'kill -SIGTERM $$MONGO_PID' SIGTERM SIGINT
         wait $$MONGO_PID
 
     ports:
@@ -102,11 +104,11 @@ services:
       test:
         - CMD-SHELL
         - >
-          mongosh -u "$${MONGO_INITDB_ROOT_USERNAME}" -p "$${MONGO_INITDB_ROOT_PASSWORD}" --authenticationDatabase admin --quiet --eval "rs.status().ok === 1 && db.adminCommand({ping: 1}).ok === 1" || exit 1
+          [ -f /data/db/.init-done ] && mongosh -u "$${MONGO_INITDB_ROOT_USERNAME}" -p "$${MONGO_INITDB_ROOT_PASSWORD}" --authenticationDatabase admin --quiet --eval "db.hello().isWritablePrimary === true && db.adminCommand({ping: 1}).ok === 1" || exit 1
       interval: 5s
       timeout: 5s
       retries: 5
-      start_period: 5s
+      start_period: 20s
     networks:
       - dsa-network
 
