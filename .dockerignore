@@ -1,0 +1,15 @@
+.git
+.github
+.vscode
+.postman
+postman
+evidence
+scripts
+**/target
+**/.ballerina
+**/generated
+*.jar
+*.balx
+.env
+*.txt
+
