@@ -15,16 +15,25 @@ public type HolidayException record {|
     boolean isClosed = true;
 |};
 
+public type GeoJsonPoint record {|
+    string 'type = "Point";
+    # [longitude, latitude] in degrees
+    [decimal, decimal] coordinates;
+|};
+
 public type MenuItem record {|
     @constraint:String {minLength: 1}
     string id;
     @constraint:String {minLength: 1}
     string name;
     string description;
-    @constraint:Float {minValue: 0.0}
-    float price;
-    float taxRate = 0.0;
+    @constraint:Number {minValue: 0.0}
+    decimal price;
+    @constraint:Number {minValue: 0.0, maxValue: 1.0}
+    decimal taxRate = 0.15d;
     string[] dietaryAttributes = [];
+    @constraint:Int {minValue: 0}
+    int stock = 100;
 |};
 
 public type MenuCategory record {|
@@ -41,6 +50,7 @@ public type Restaurant record {|
     @constraint:String {minLength: 1}
     string name;
     string address;
+    GeoJsonPoint location;
     string contactNumber;
     OperatingHours[] operatingHours;
     HolidayException[] holidayExceptions = [];
