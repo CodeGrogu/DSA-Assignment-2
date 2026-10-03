@@ -68,6 +68,15 @@ public type KitchenPreparing readonly & record {|
 
 public type KitchenPreparingEvent KitchenPreparing;
 
+// Covers both preparation and readiness without changing the existing ready-only event.
+public type KitchenStatusEvent readonly & record {|
+    string eventId;
+    string orderId;
+    string restaurantId;
+    OrderStatus status;
+    string updatedAt;
+|};
+
 public type KitchenOrderReady readonly & record {|
     string eventId;
     string orderId;
@@ -105,6 +114,8 @@ public type DeliveryStatusUpdateEvent DeliveryStatusUpdated;
 
 public type DeliveryStatusUpdatedEvent DeliveryStatusUpdated;
 
+public type DeliveryStatusEvent DeliveryStatusUpdated;
+
 public type NotificationEvent readonly & record {|
     string eventId;
     string recipientId;
@@ -114,4 +125,3 @@ public type NotificationEvent readonly & record {|
     string? orderId = ();
     string timestamp;
 |};
-
