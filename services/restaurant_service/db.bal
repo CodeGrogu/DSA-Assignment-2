@@ -3,14 +3,20 @@ import ballerinax/mongodb;
 
 configurable string mongoHost = "mongodb";
 configurable int mongoPort = 27017;
-configurable string mongoUser = "restaurant_user";
-configurable string mongoPassword = "restaurant_password";
+configurable string mongoUser = "root";
+configurable string mongoPassword = "password";
+configurable string mongoAuthSource = "admin";
 configurable string databaseName = "restaurant_db";
 
-final string mongoConnectionString = string `mongodb://${mongoUser}:${mongoPassword}@${mongoHost}:${mongoPort}/${databaseName}?authSource=${databaseName}&replicaSet=rs0`;
+final string mongoConnectionString = string `mongodb://${mongoUser}:${mongoPassword}@${mongoHost}:${mongoPort}/${databaseName}?authSource=${mongoAuthSource}`;
+final mongodb:Client mongoClient = checkpanic new ({connection: mongoConnectionString});
+
+function getRestaurantsCollection() returns mongodb:Collection|error {
+    mongodb:Database restaurantDb = check mongoClient->getDatabase(databaseName);
+    return check restaurantDb->getCollection("restaurants");
+}
 
 public function seedDatabase() returns error? {
-    mongodb:Client mongoClient = check new ({connection: mongoConnectionString});
     mongodb:Database restaurantDb = check mongoClient->getDatabase(databaseName);
     mongodb:Collection restaurantsCollection = check restaurantDb->getCollection("restaurants");
 
@@ -155,3 +161,4 @@ public function seedDatabase() returns error? {
 
     log:printInfo("Database seeded successfully.");
 }
+
