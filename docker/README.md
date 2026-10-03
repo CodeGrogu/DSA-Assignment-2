@@ -4,8 +4,8 @@ Standardized containerization artifacts for the Distributed Food Delivery Platfo
 
 ## Directory Structure
 
-* `docker/Dockerfile.service`: Reusable production containerfile based on `eclipse-temurin:17-jre-jammy` executing compiled Ballerina `.jar` services under non-root user `ballerina` (UID 10001).
-* `docker/docker-compose.services.yml`: Microservices orchestration manifest wiring all 7 services to the shared `dsa-network` bridge.
+* `docker/Dockerfile.service`: Reusable containerfile based on `eclipse-temurin:21-jre-jammy` executing compiled Ballerina `.jar` services under non-root user `ballerina` (UID 10001).
+* `docker/docker-compose.services.yml`: Microservices orchestration manifest wiring all 7 service skeletons to the shared `dsa-network` bridge. Infrastructure Compose creates this named network first.
 
 ## Quickstart
 
@@ -35,3 +35,5 @@ docker compose -f docker/docker-compose.services.yml up -d --build
 * Delivery Service: `http://localhost:9096/health`
 * Notification Service: `http://localhost:9097/health`
 * Admin Service: `http://localhost:9098/health`
+
+Currently these services expose only `/health` liveness endpoints; they do not yet implement order, payment, or delivery flows. Kafka data persists in the `kafka-data` volume (removed by `docker compose down -v`).
