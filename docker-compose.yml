@@ -1,0 +1,59 @@
+include:
+  - docker-compose.infra.yml
+
+x-orchestration: &orchestration
+  depends_on:
+    kafka:
+      condition: service_healthy
+    mongodb:
+      condition: service_healthy
+  healthcheck:
+    test: ["CMD-SHELL", "curl -fsS http://localhost:$${PORT}/health || exit 1"]
+    interval: 10s
+    timeout: 5s
+    retries: 6
+    start_period: 30s
+  restart: unless-stopped
+
+services:
+  order-service:
+    extends:
+      file: docker/docker-compose.services.yml
+      service: order-service
+    <<: *orchestration
+
+  customer-service:
+    extends:
+      file: docker/docker-compose.services.yml
+      service: customer-service
+    <<: *orchestration
+
+  payment-service:
+    extends:
+      file: docker/docker-compose.services.yml
+      service: payment-service
+    <<: *orchestration
+
+  restaurant-service:
+    extends:
+      file: docker/docker-compose.services.yml
+      service: restaurant-service
+    <<: *orchestration
+
+  delivery-service:
+    extends:
+      file: docker/docker-compose.services.yml
+      service: delivery-service
+    <<: *orchestration
+
+  notification-service:
+    extends:
+      file: docker/docker-compose.services.yml
+      service: notification-service
+    <<: *orchestration
+
+  admin-service:
+    extends:
+      file: docker/docker-compose.services.yml
+      service: admin-service
+    <<: *orchestration

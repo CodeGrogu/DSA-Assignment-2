@@ -1,0 +1,12 @@
+.git
+.env
+.env.*
+**/.env
+**/.env.*
+**/Config.toml
+**/Config.local.toml
+**/*.pem
+**/*.key
+**/target/cache
+**/target/backup
+**/target/report
