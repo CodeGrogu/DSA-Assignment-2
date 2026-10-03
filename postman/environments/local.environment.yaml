@@ -1,0 +1,31 @@
+name: Local
+values:
+  - key: orders_url
+    value: http://localhost:9091
+    type: default
+    enabled: true
+  - key: customers_url
+    value: http://localhost:9093
+    type: default
+    enabled: true
+  - key: payments_url
+    value: http://localhost:9094
+    type: default
+    enabled: true
+  - key: restaurants_url
+    value: http://localhost:9095
+    type: default
+    enabled: true
+  - key: deliveries_url
+    value: http://localhost:9096
+    type: default
+    enabled: true
+  - key: notifications_url
+    value: http://localhost:9097
+    type: default
+    enabled: true
+  - key: admin_url
+    value: http://localhost:9098
+    type: default
+    enabled: true
+    
