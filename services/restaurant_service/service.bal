@@ -20,10 +20,10 @@ service / on new http:Listener(port) {
         http:Response res = new;
         if err is error {
             res.statusCode = 500;
-            res.setJsonPayload({ message: "Failed to seed database", "error": err.message() });
+            res.setJsonPayload({message: "Failed to seed database", "error": err.message()});
         } else {
             res.statusCode = 200;
-            res.setJsonPayload({ message: "Database seeded successfully" });
+            res.setJsonPayload({message: "Database seeded successfully"});
         }
         return res;
     }
