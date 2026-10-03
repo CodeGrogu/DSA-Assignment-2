@@ -1,0 +1,38 @@
+# docker/Dockerfile.service
+# Standardized Ballerina Microservice Production Runtime Containerfile
+FROM ballerina/ballerina:2201.13.5 AS builder
+USER root
+WORKDIR /src
+ARG SERVICE_NAME
+
+COPY modules/events ./modules/events
+RUN cd modules/events && bal pack && bal push --repository local
+
+COPY services/${SERVICE_NAME} ./services/${SERVICE_NAME}
+RUN cd services/${SERVICE_NAME} && bal build
+
+FROM eclipse-temurin:21-jre-jammy
+
+
+WORKDIR /app
+
+
+RUN apt-get update && apt-get install -y --no-install-recommends curl && \
+    rm -rf /var/lib/apt/lists/*
+# Create non-root runtime user for container security
+RUN groupadd -g 10001 ballerina && \
+    useradd -u 10001 -g ballerina -m -s /bin/bash ballerina
+
+ARG SERVICE_NAME
+ARG PORT
+
+# Copy compiled Ballerina executable jar from the builder stage
+COPY --from=builder /src/services/${SERVICE_NAME}/target/bin/${SERVICE_NAME}.jar /app/service.jar
+
+ENV PORT=${PORT}
+ENV BAL_CONFIG_VAR_PORT=${PORT}
+EXPOSE ${PORT}
+
+USER 10001
+
+ENTRYPOINT ["java", "-jar", "/app/service.jar"]
