@@ -17,7 +17,7 @@ services:
       KAFKA_LISTENERS: 'PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:29093,PLAINTEXT_HOST://0.0.0.0:29092'
       KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
       KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
-      KAFKA_LOG_DIRS: '/tmp/kraft-combined-logs'
+      KAFKA_LOG_DIRS: '/var/lib/kafka/data'
       CLUSTER_ID: '${KAFKA_CLUSTER_ID:-MkU3OEVBNTcwNTJENDM2Qk}'
     healthcheck:
       test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 || exit 1"]
@@ -25,6 +25,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 15s
+    volumes:
+      - kafka-data:/var/lib/kafka/data
     networks:
       - dsa-network
 
@@ -77,8 +79,10 @@ services:
       - dsa-network
 
 volumes:
+  kafka-data:
   mongo-data:
 
 networks:
   dsa-network:
+    name: dsa-network
     driver: bridge
