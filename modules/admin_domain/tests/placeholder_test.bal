@@ -72,3 +72,57 @@ function testUnknownEventReturnsEmpty() {
     SubscriptionRule[] rules = rulesForEvent("something.we.dont.know");
     test:assertEquals(rules.length(), 0);
 }
+
+@test:Config {}
+function testPlatformOverviewFields() {
+    PlatformOverview o = {
+        totalOrders: 120,
+        grossMerchandiseValue: 45600.50,
+        successfulPayments: 115,
+        failedPayments: 5,
+        activeDeliveries: 7,
+        generatedAt: "2026-10-04T12:00:00Z"
+    };
+    test:assertEquals(o.totalOrders, 120);
+    test:assertEquals(o.failedPayments, 5);
+}
+
+@test:Config {}
+function testRestaurantReportPayoutMath() {
+    // gross - commission = net payout
+    RestaurantReport r = {
+        restaurantId: "r-1",
+        restaurantName: "Kasi Kitchen",
+        orderCount: 40,
+        grossSales: 8000.00,
+        commissionAmount: 800.00,
+        netPayout: 7200.00
+    };
+    test:assertEquals(r.grossSales - r.commissionAmount, r.netPayout);
+}
+
+@test:Config {}
+function testDriverReportSlaBreachCount() {
+    DriverReport d = {
+        driverId: "d-9",
+        driverName: "Tomas",
+        completedDeliveries: 32,
+        averageTurnaroundMinutes: 24.5,
+        slaBreaches: 2
+    };
+    test:assertEquals(d.completedDeliveries, 32);
+    test:assertTrue(d.slaBreaches <= d.completedDeliveries);
+}
+
+@test:Config {}
+function testDailySnapshotComplianceRate() {
+    DailyMetricsSnapshot s = {
+        date: "2026-10-03",
+        totalOrders: 100,
+        deliveredOnTime: 92,
+        deliveredLate: 8,
+        slaComplianceRate: 0.92
+    };
+    test:assertEquals(s.deliveredOnTime + s.deliveredLate, s.totalOrders);
+    test:assertTrue(s.slaComplianceRate > 0.0d && s.slaComplianceRate <= 1.0d);
+}

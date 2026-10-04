@@ -1,14 +1,22 @@
 # admin_domain
 
-Shared types for notifications and admin analytics.
+Shared types and rules for notifications and admin analytics.
 
-Used by:
+## What's in here
 
-- `services/notification_service` — notification payloads and audit rows
-- `services/admin_service` — overview, restaurant and driver reports
+- `enums.bal` — Severity (INFO/WARN/CRITICAL), Channel (EMAIL/SMS/PUSH), RecipientRole (CUSTOMER/RESTAURANT/DRIVER)
+- `notification_types.bal` — NotificationPayload, NotificationAuditRecord, SubscriptionRule
+- `subscription_matrix.bal` — the "when X happens, notify Y" rules
+- `analytics_types.bal` — PlatformOverview, RestaurantReport, DriverReport, DailyMetricsSnapshot
 
-Import it with:
+## How to use it
 
-```ballerina
-import nust/admin_domain as domain;
+In a service `Ballerina.toml`, add:
+
+```toml
+[[dependency]]
+org = "peerpressure"
+name = "admin_domain"
+version = "0.1.0"
+repository = "local"
 ```
