@@ -58,6 +58,31 @@ public type PaymentFailed readonly & record {|
 
 public type PaymentFailedEvent PaymentFailed;
 
+public type PaymentRefunded readonly & record {|
+    string eventId;
+    string paymentId;
+    string orderId;
+    string customerId;
+    decimal amount;
+    string currency;
+    string transactionReference;
+    string refundReference;
+    string reason;
+    string refundedAt;
+|};
+
+public type PaymentRefundedEvent PaymentRefunded;
+
+public type KitchenRejected readonly & record {|
+    string eventId;
+    string orderId;
+    string restaurantId;
+    string reason;
+    string rejectedAt;
+|};
+
+public type KitchenRejectedEvent KitchenRejected;
+
 public type KitchenPreparing readonly & record {|
     string eventId;
     string orderId;

@@ -79,6 +79,42 @@ public isolated function validatePaymentCompleted(json data) returns PaymentComp
     return event;
 }
 
+public isolated function validatePaymentRefunded(json data) returns PaymentRefunded|error {
+    PaymentRefunded event = check data.cloneWithType(PaymentRefunded);
+    if event.eventId.trim().length() == 0 || event.paymentId.trim().length() == 0 ||
+        event.orderId.trim().length() == 0 || event.customerId.trim().length() == 0 {
+        return error("Validation failed: payment refund identifiers must not be empty");
+    }
+    if event.amount <= 0d || event.currency.trim().length() == 0 ||
+        event.transactionReference.trim().length() == 0 || event.refundReference.trim().length() == 0 {
+        return error("Validation failed: refund details must be valid");
+    }
+    if event.reason.trim().length() == 0 || event.refundedAt.trim().length() == 0 {
+        return error("Validation failed: refund reason and timestamp must not be empty");
+    }
+    return event;
+}
+
+public isolated function validateOrderCancelled(json data) returns OrderCancelled|error {
+    OrderCancelled event = check data.cloneWithType(OrderCancelled);
+    if event.eventId.trim().length() == 0 || event.orderId.trim().length() == 0 ||
+        event.reason.trim().length() == 0 || event.cancelledBy.trim().length() == 0 ||
+        event.cancelledAt.trim().length() == 0 {
+        return error("Validation failed: order cancellation fields must not be empty");
+    }
+    return event;
+}
+
+public isolated function validateKitchenRejected(json data) returns KitchenRejected|error {
+    KitchenRejected event = check data.cloneWithType(KitchenRejected);
+    if event.eventId.trim().length() == 0 || event.orderId.trim().length() == 0 ||
+        event.restaurantId.trim().length() == 0 || event.reason.trim().length() == 0 ||
+        event.rejectedAt.trim().length() == 0 {
+        return error("Validation failed: kitchen rejection fields must not be empty");
+    }
+    return event;
+}
+
 public isolated function validateKitchenOrderReady(json data) returns KitchenOrderReady|error {
     KitchenOrderReady event = check data.cloneWithType(KitchenOrderReady);
     if event.eventId.trim().length() == 0 {

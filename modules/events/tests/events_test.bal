@@ -89,6 +89,53 @@ function testPaymentCompletedSerializationAndValidation() returns error? {
 }
 
 @test:Config {}
+function testPaymentRefundedValidation() returns error? {
+    PaymentRefunded refund = {
+        eventId: "evt-refund-001",
+        paymentId: "pay-501",
+        orderId: "ord-9001",
+        customerId: "cust-101",
+        amount: 91.00,
+        currency: "NAD",
+        transactionReference: "TXN-20260921-9988",
+        refundReference: "REF-20260921-001",
+        reason: "Order cancelled",
+        refundedAt: "2026-09-21T12:10:00Z"
+    };
+    PaymentRefunded validated = check validatePaymentRefunded(refund.toJson());
+    test:assertEquals(validated.refundReference, "REF-20260921-001");
+    test:assertEquals(validated.orderId, "ord-9001");
+}
+
+@test:Config {}
+function testOrderCancelledValidation() returns error? {
+    OrderCancelled cancellation = {
+        eventId: "evt-cancel-001",
+        orderId: "ord-9001",
+        reason: "Customer cancelled",
+        cancelledBy: "cust-101",
+        cancelledAt: "2026-09-21T12:10:00Z"
+    };
+    OrderCancelled validated = check validateOrderCancelled(cancellation.toJson());
+    test:assertEquals(validated.orderId, "ord-9001");
+    test:assertEquals(validated.reason, "Customer cancelled");
+}
+
+@test:Config {}
+function testKitchenRejectedValidation() returns error? {
+    KitchenRejected rejection = {
+        eventId: "evt-reject-001",
+        orderId: "ord-9001",
+        restaurantId: "rest-202",
+        reason: "Item unavailable",
+        rejectedAt: "2026-09-21T12:05:00Z"
+    };
+    KitchenRejected validated = check validateKitchenRejected(rejection.toJson());
+    test:assertEquals(validated.restaurantId, "rest-202");
+    test:assertEquals(validated.reason, "Item unavailable");
+}
+
+@test:Config {}
 function testKitchenOrderReadySerializationAndValidation() returns error? {
     KitchenOrderReady event = {
         eventId: "evt-kit-001",
@@ -363,7 +410,7 @@ function testValidatePaymentCompletedMissingField() {
         customerId: "cust-01",
         amount: 50.00,
         currency: "NAD"
-        // missing transactionReference, paymentMethod, completedAt
+    // missing transactionReference, paymentMethod, completedAt
     };
 
     PaymentCompleted|error result = validatePaymentCompleted(invalidJson);
@@ -375,7 +422,7 @@ function testValidateKitchenOrderReadyMissingField() {
     json invalidJson = {
         eventId: "evt-kit-01",
         orderId: "ord-01"
-        // missing restaurantId and pickupReadyAt
+    // missing restaurantId and pickupReadyAt
     };
 
     KitchenOrderReady|error result = validateKitchenOrderReady(invalidJson);
@@ -391,7 +438,7 @@ function testValidateDeliveryStatusUpdatedInvalidCoordinates() {
         driverId: "drv-01",
         status: "PICKED_UP",
         currentLocation: {
-            latitude: 195.0, // Invalid: exceeds 90 degrees
+            latitude: 195.0,  // Invalid: exceeds 90 degrees
             longitude: 17.06
         },
         updatedAt: "2026-09-21T12:00:00Z"

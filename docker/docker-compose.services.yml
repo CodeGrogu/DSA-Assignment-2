@@ -46,7 +46,7 @@ services:
     environment:
       PORT: 9094
       KAFKA_BROKER: kafka:9092
-      MONGO_URI: mongodb://${MONGO_ROOT_USER:-root}:${MONGO_ROOT_PASSWORD:-password}@mongodb:27017/payments_db?authSource=admin
+      MONGO_URI: mongodb://${MONGO_ROOT_USER:-root}:${MONGO_ROOT_PASSWORD:-password}@mongodb:27017/payment_service?authSource=admin
     networks:
       - dsa-network
 
