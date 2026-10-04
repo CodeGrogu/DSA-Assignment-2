@@ -38,3 +38,13 @@ version = "2.17.1"
 org = "ballerinax"
 name = "mongodb"
 version = "5.2.1"
+
+[[dependency]]
+org = "ballerina"
+name = "http"
+version = "2.17.3"
+
+[[dependency]]
+org = "ballerina"
+name = "regex"
+version = "1.3.2"
