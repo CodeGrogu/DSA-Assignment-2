@@ -114,7 +114,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install Ballerina 2201.13.5
+      - name: Install Ballerina 2201.10.0
         run: |
           set -euxo pipefail
           # Fetch the official GitHub release asset instead of the restricted dist.ballerina.io URL
