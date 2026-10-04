@@ -26,7 +26,6 @@ service on kafkaListener {
     }
 }
 
-// Turn a single raw message into zero or more notifications.
 function handleOne(byte[] raw) {
     ParsedEvent? parsed = parseEnvelope(raw);
     if parsed is () {
@@ -42,10 +41,8 @@ function handleOne(byte[] raw) {
     foreach domain:SubscriptionRule rule in rules {
         domain:NotificationPayload? payload = buildPayload(rule, parsed.data);
         if payload is domain:NotificationPayload {
-            log:printInfo("Would send notification",
-                    recipient = payload.recipientId,
-                    channel = payload.channel.toString(),
-                    subject = payload.subject);
+            // Pretend we sent it — then write an audit row to Mongo.
+            checkpanic saveAudit(payload, "SENT");
         }
     }
 }

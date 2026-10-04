@@ -21,3 +21,13 @@ Make sure infra is up:
 ```powershell
 docker compose -f docker-compose.infra.yml up -d
 ```
+
+## MongoDB
+
+Audit records are stored in:
+
+- Database: `notification_service`
+- Collection: `audit`
+- Connection: `mongodb://root:password@localhost:27017/?authSource=admin`
+
+To browse locally, open Mongo Express at http://localhost:8086 (root / password).
