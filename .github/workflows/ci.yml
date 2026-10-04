@@ -114,10 +114,16 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set Up Ballerina
-        uses: ballerina-platform/setup-ballerina@v1.1.4
-        with:
-          version: 2201.13.5
+      - name: Install Ballerina 2201.13.5
+        run: |
+          set -euxo pipefail
+          curl -L --fail --retry 3 \
+            -o /tmp/ballerina.tar.gz \
+            https://dist.ballerina.io/downloads/2201.13.5/ballerina-linux-x64-2201.13.5.tar.gz
+          mkdir -p /tmp/ballerina
+          tar -xzf /tmp/ballerina.tar.gz -C /tmp/ballerina
+          echo "/tmp/ballerina/ballerina-2201.13.5/bin" >> "$GITHUB_PATH"
+          /tmp/ballerina/ballerina-2201.13.5/bin/bal version
 
       - name: Check Formatting Without Modifying Sources
         run: bash scripts/format-all.sh --check
