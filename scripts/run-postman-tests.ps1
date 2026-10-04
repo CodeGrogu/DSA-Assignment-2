@@ -1,10 +1,11 @@
 $root = git rev-parse --show-toplevel 2>$null
 if (-not $root) { Write-Host 'Not inside a git repo' -ForegroundColor Red; exit 2 }
 Set-Location $root
-$envFile = 'postman/environments/local.environment.yaml'
-if (-not (Get-Command postman -ErrorAction SilentlyContinue)) { Write-Host 'Postman CLI not found. Install it, then run: postman login' -ForegroundColor Red; exit 2 }
-if (-not (Test-Path $envFile)) { Write-Host "Missing $envFile" -ForegroundColor Red; exit 2 }
-if ($env:POSTMAN_API_KEY) { postman login --with-api-key $env:POSTMAN_API_KEY | Out-Null }
+$envFile = 'postman/environments/local.postman_environment.json'
+if (-not (Test-Path $envFile)) { Write-Host "Missing $envFile. Run: node scripts/build-postman-collections.mjs" -ForegroundColor Red; exit 2 }
+if (Get-Command bunx -ErrorAction SilentlyContinue) { $runner = @('bunx','newman') }
+elseif (Get-Command npx -ErrorAction SilentlyContinue) { $runner = @('npx','--yes','newman') }
+else { Write-Host 'Install Node.js (npx) or Bun (bunx) to run Newman.' -ForegroundColor Red; exit 2 }
 
 Write-Host 'Waiting for services (up to 90s)...'
 foreach ($port in 9091,9093,9094,9095,9096,9097,9098) {
@@ -17,14 +18,10 @@ foreach ($port in 9091,9093,9094,9095,9096,9097,9098) {
   if (-not $ok) { Write-Host "Service on port $port is not healthy. Run: docker compose up -d" -ForegroundColor Red; exit 2 }
 }
 
-postman environment lint $envFile
-if ($LASTEXITCODE -ne 0) { exit 1 }
 $fail = $false
-foreach ($dir in Get-ChildItem postman/collections -Directory) {
-  Write-Host "`n=== $($dir.Name)"
-  postman collection lint $dir.FullName
-  if ($LASTEXITCODE -ne 0) { $fail = $true }
-  postman collection run $dir.FullName -e $envFile
+foreach ($file in Get-ChildItem postman -Filter *.postman_collection.json) {
+  Write-Host "`n=== $($file.BaseName -replace '\.postman_collection$','')"
+  & $runner[0] $runner[1..($runner.Count - 1)] run $file.FullName -e $envFile --reporters cli
   if ($LASTEXITCODE -ne 0) { $fail = $true }
 }
 if ($fail) { Write-Host 'SOME POSTMAN COLLECTIONS FAILED' -ForegroundColor Red; exit 1 }
