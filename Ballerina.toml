@@ -1,6 +1,7 @@
 [workspace]
 packages = [
     "modules/events",
+    "modules/metrics",
     "services/order_service",
     "services/customer_service",
     "services/restaurant_service",
