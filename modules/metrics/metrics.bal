@@ -103,9 +103,12 @@ public class MetricsRegistry {
             }
 
             foreach var [key, lag] in self.consumerLag.entries() {
-                output += "# HELP kafka_consumer_lag Consumer lag reported per consumer group and topic\n";
-                output += "# TYPE kafka_consumer_lag gauge\n";
-                output += string `kafka_consumer_lag{group_topic="${key}"} ${lag}\n`;
+                output += "# HELP kafka_consumer_lag Consumer lag reported per consumer group and topic
+";
+                output += "# TYPE kafka_consumer_lag gauge
+";
+                output += string `kafka_consumer_lag{group_topic="${key}"} ${lag}
+`;
             }
 
             return output;
