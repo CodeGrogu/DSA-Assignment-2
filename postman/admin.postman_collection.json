@@ -59,15 +59,7 @@
       "request": {
         "method": "GET",
         "header": [],
-        "url": {
-          "raw": "{{admin_url}}/health",
-          "host": [
-            "{{admin_url}}"
-          ],
-          "path": [
-            "health"
-          ]
-        },
+        "url": "{{admin_url}}/health",
         "description": "Liveness probe for the admin service."
       }
     }

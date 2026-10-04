@@ -59,15 +59,7 @@
       "request": {
         "method": "GET",
         "header": [],
-        "url": {
-          "raw": "{{orders_url}}/health",
-          "host": [
-            "{{orders_url}}"
-          ],
-          "path": [
-            "health"
-          ]
-        },
+        "url": "{{orders_url}}/health",
         "description": "Liveness probe for the order service."
       }
     }

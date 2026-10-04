@@ -59,15 +59,7 @@
       "request": {
         "method": "GET",
         "header": [],
-        "url": {
-          "raw": "{{customers_url}}/health",
-          "host": [
-            "{{customers_url}}"
-          ],
-          "path": [
-            "health"
-          ]
-        },
+        "url": "{{customers_url}}/health",
         "description": "Liveness probe for the customer service."
       }
     }

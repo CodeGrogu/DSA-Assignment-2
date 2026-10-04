@@ -59,15 +59,7 @@
       "request": {
         "method": "GET",
         "header": [],
-        "url": {
-          "raw": "{{notifications_url}}/health",
-          "host": [
-            "{{notifications_url}}"
-          ],
-          "path": [
-            "health"
-          ]
-        },
+        "url": "{{notifications_url}}/health",
         "description": "Liveness probe for the notification service."
       }
     }

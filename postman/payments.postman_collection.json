@@ -59,15 +59,7 @@
       "request": {
         "method": "GET",
         "header": [],
-        "url": {
-          "raw": "{{payments_url}}/health",
-          "host": [
-            "{{payments_url}}"
-          ],
-          "path": [
-            "health"
-          ]
-        },
+        "url": "{{payments_url}}/health",
         "description": "Liveness probe for the payment service."
       }
     }
