@@ -176,7 +176,7 @@ function validateRestaurant(Restaurant restaurant) returns string? {
         }
         foreach MenuItem item in category.items {
             if seenItems.hasKey(item.id) {
-                return "Duplicate menu item ID '" + item.id + "' found across the restaurant menu";
+                return "duplicate menu item ID '" + item.id + "' found across the restaurant menu";
             }
             seenItems[item.id] = true;
 
