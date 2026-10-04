@@ -13,16 +13,32 @@ function testValidateRestaurantRejectsDuplicateMenuItemIdsAcrossCategories() ret
                 id: "C-1",
                 name: "Main",
                 items: [
-                    {id: "I-1", name: "Burger", description: "Classic burger", price: 60.00d, taxRate: 0.15d,
-                        dietaryAttributes: ["High-Protein"], stock: 5, isAvailable: true}
+                    {
+                        id: "I-1",
+                        name: "Burger",
+                        description: "Classic burger",
+                        price: 60.00d,
+                        taxRate: 0.15d,
+                        dietaryAttributes: ["High-Protein"],
+                        stock: 5,
+                        isAvailable: true
+                    }
                 ]
             },
             {
                 id: "C-2",
                 name: "Sides",
                 items: [
-                    {id: "I-1", name: "Fries", description: "Crispy fries", price: 25.00d, taxRate: 0.15d,
-                        dietaryAttributes: ["Vegetarian"], stock: 10, isAvailable: true}
+                    {
+                        id: "I-1",
+                        name: "Fries",
+                        description: "Crispy fries",
+                        price: 25.00d,
+                        taxRate: 0.15d,
+                        dietaryAttributes: ["Vegetarian"],
+                        stock: 10,
+                        isAvailable: true
+                    }
                 ]
             }
         ]

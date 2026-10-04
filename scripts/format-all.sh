@@ -8,10 +8,10 @@ echo "================================================================="
 echo "       Ballerina Workspace Code Formatting Check                "
 echo "================================================================="
 
-if command -v bal &> /dev/null && ! command -v bal.bat &> /dev/null; then
+if command -v bal &> /dev/null; then
     run_bal() { bal "$@"; }
-elif command -v cmd.exe &> /dev/null; then
-    run_bal() { cmd.exe /c bal "$@"; }
+elif command -v bal.bat &> /dev/null; then
+    run_bal() { cmd.exe /c bal.bat "$@"; }
 else
     run_bal() { bal "$@"; }
 fi
