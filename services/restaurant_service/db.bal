@@ -3,12 +3,13 @@ import ballerinax/mongodb;
 
 configurable string mongoHost = "mongodb";
 configurable int mongoPort = 27017;
-configurable string mongoUser = "root";
-configurable string mongoPassword = "password";
-configurable string mongoAuthSource = "admin";
+configurable string mongoUser = "restaurant_user";
+configurable string mongoPassword = "restaurant_password";
+configurable string mongoAuthSource = "restaurant_db";
+configurable string mongoReplicaSet = "rs0";
 configurable string databaseName = "restaurant_db";
 
-final string mongoConnectionString = string `mongodb://${mongoUser}:${mongoPassword}@${mongoHost}:${mongoPort}/${databaseName}?authSource=${mongoAuthSource}`;
+final string mongoConnectionString = string `mongodb://${mongoUser}:${mongoPassword}@${mongoHost}:${mongoPort}/${databaseName}?authSource=${mongoAuthSource}&replicaSet=${mongoReplicaSet}`;
 final mongodb:Client mongoClient = checkpanic new ({connection: mongoConnectionString});
 
 function getRestaurantsCollection() returns mongodb:Collection|error {

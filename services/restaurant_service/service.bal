@@ -153,11 +153,33 @@ function validateRestaurant(Restaurant restaurant) returns string? {
         return "Restaurant ID, name, address, and contact number are required";
     }
 
+    if restaurant.location.'type != "Point" {
+        return "Restaurant location must be a GeoJSON Point";
+    }
+
+    if restaurant.location.coordinates.length() != 2 {
+        return "Restaurant location coordinates must include longitude and latitude";
+    }
+    decimal longitude = restaurant.location.coordinates[0];
+    decimal latitude = restaurant.location.coordinates[1];
+    if longitude < -180.0d || longitude > 180.0d {
+        return "Restaurant location longitude must be between -180 and 180 degrees";
+    }
+    if latitude < -90.0d || latitude > 90.0d {
+        return "Restaurant location latitude must be between -90 and 90 degrees";
+    }
+
+    map<boolean> seenItems = {};
     foreach MenuCategory category in restaurant.menu {
         if category.id.trim().length() == 0 || category.name.trim().length() == 0 {
             return "Menu category ID and name are required";
         }
         foreach MenuItem item in category.items {
+            if seenItems.hasKey(item.id) {
+                return "Duplicate menu item ID '" + item.id + "' found across the restaurant menu";
+            }
+            seenItems[item.id] = true;
+
             string? itemError = validateMenuItem(item);
             if itemError is string {
                 return itemError;
@@ -179,6 +201,9 @@ function validateMenuItem(MenuItem item) returns string? {
     }
     if item.stock < 0 {
         return "Menu item stock cannot be negative";
+    }
+    if item.isAvailable && item.stock <= 0 {
+        return "Menu item stock should be at least 1 to be marked available";
     }
     return ();
 }
