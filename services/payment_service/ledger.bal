@@ -60,6 +60,7 @@ isolated class PaymentStore {
             targetType = PaymentTransaction
         );
     }
+
     public isolated function findByIdempotencyKey(string key) returns PaymentTransaction?|error {
         check self.ensureIndexes();
         IdempotencyRecord? document = check self.idempotencyCollection->findOne({_id: key}, targetType = IdempotencyRecord);
@@ -68,6 +69,7 @@ isolated class PaymentStore {
         }
         return document.'transaction;
     }
+
     public isolated function persistCharge(PaymentTransaction payment) returns error? {
         check self.ensureIndexes();
         check self.transactionsCollection->insertOne(payment);
@@ -84,6 +86,7 @@ isolated class PaymentStore {
         };
         check self.idempotencyCollection->insertOne(idempotencyRecord);
     }
+
     public isolated function persistRefund(PaymentTransaction payment) returns error? {
         check self.ensureIndexes();
         check self.transactionsCollection->insertOne(payment);

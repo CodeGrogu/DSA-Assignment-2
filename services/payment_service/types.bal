@@ -59,6 +59,7 @@ public type KitchenRejectedEvent record {|
 |};
 
 public type OrderCreatedEvent events:OrderCreatedEvent;
+
 public type OrderCancelledEvent events:OrderCancelledEvent;
 
 public type OrderCreatedMessage record {|

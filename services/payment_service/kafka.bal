@@ -1,5 +1,5 @@
-import ballerina/log;
 import ballerina/lang.'runtime as runtime;
+import ballerina/log;
 import ballerina/time;
 import ballerinax/kafka;
 
