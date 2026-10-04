@@ -117,9 +117,15 @@ jobs:
       - name: Install Ballerina 2201.13.5
         run: |
           set -euxo pipefail
-          curl -L --fail --retry 3 \
-            -o /tmp/ballerina.tar.gz \
-            https://dist.ballerina.io/downloads/2201.13.5/ballerina-linux-x64-2201.13.5.tar.gz
+          # Fetch the official GitHub release asset instead of the restricted dist.ballerina.io URL
+          DOWNLOAD_URL=$(curl -s https://api.github.com/repos/ballerina-platform/ballerina-lang/releases/tags/v2201.13.5 | grep -oP '"browser_download_url": "\K[^"]*ballerina-linux-x64-2201\.13\.5\.tar\.gz')
+
+          if [ -z "$DOWNLOAD_URL" ]; then
+            echo "Failed to find download URL from GitHub API, trying direct URL..."
+            DOWNLOAD_URL="https://github.com/ballerina-platform/ballerina-lang/releases/download/v2201.13.5/ballerina-linux-x64-2201.13.5.tar.gz"
+          fi
+
+          curl -L --fail --retry 5 -o /tmp/ballerina.tar.gz "$DOWNLOAD_URL"
           mkdir -p /tmp/ballerina
           tar -xzf /tmp/ballerina.tar.gz -C /tmp/ballerina
           echo "/tmp/ballerina/ballerina-2201.13.5/bin" >> "$GITHUB_PATH"
