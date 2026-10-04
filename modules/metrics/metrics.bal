@@ -79,19 +79,26 @@ public class MetricsRegistry {
         lock {
             string output = "";
             foreach var [name, metric] in self.metrics.entries() {
-                output += string `# HELP ${metric.name} ${metric.help}\n`;
-                output += string `# TYPE ${metric.name} ${metric.metricType.toLowerAscii()}\n`;
+                output += string `# HELP ${metric.name} ${metric.help}
+`;
+                output += string `# TYPE ${metric.name} ${metric.metricType.toLowerAscii()}
+`;
 
                 string labelsText = self.formatLabels(metric.labels);
                 if metric.metricType == "COUNTER" || metric.metricType == "GAUGE" {
-                    output += string `${metric.name}${labelsText} ${metric.value}\n`;
+                    output += string `${metric.name}${labelsText} ${metric.value}
+`;
                 } else {
                     foreach int bucket in metric.buckets {
-                        output += string `${metric.name}_bucket{le="${bucket}"}${labelsText} ${metric.value >= <decimal>bucket ? 1d : 0d}\n`;
+                        output += string `${metric.name}_bucket{le="${bucket}"}${labelsText} ${metric.value >= <decimal>bucket ? 1d : 0d}
+`;
                     }
-                    output += string `${metric.name}_bucket{le="+Inf"}${labelsText} 1\n`;
-                    output += string `${metric.name}_sum${labelsText} ${metric.sum}\n`;
-                    output += string `${metric.name}_count${labelsText} ${metric.count}\n`;
+                    output += string `${metric.name}_bucket{le="+Inf"}${labelsText} 1
+`;
+                    output += string `${metric.name}_sum${labelsText} ${metric.sum}
+`;
+                    output += string `${metric.name}_count${labelsText} ${metric.count}
+`;
                 }
             }
 
