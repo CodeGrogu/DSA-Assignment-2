@@ -24,8 +24,6 @@ service / on new http:Listener(port) {
         json[] deliveries = loadDeliveries();
 
         Overview ov = computeOverview(orders, payments, deliveries);
-
-        // Fill in generatedAt at response time.
         string now = time:utcToString(time:utcNow());
 
         return {
@@ -36,5 +34,47 @@ service / on new http:Listener(port) {
             activeDeliveries: ov.activeDeliveries,
             generatedAt: now
         };
+    }
+
+    // GET /admin/reports/restaurant?from=YYYY-MM-DD&to=YYYY-MM-DD
+    resource function get admin/reports/restaurant(http:Request req) returns json[] {
+        string fromDate = req.getQueryParamValue("from") ?: "";
+        string toDate = req.getQueryParamValue("to") ?: "";
+
+        json[] orders = loadOrders();
+        RestaurantReport[] rows = computeRestaurantReport(orders, fromDate, toDate);
+
+        json[] result = [];
+        foreach RestaurantReport r in rows {
+            result.push({
+                restaurantId: r.restaurantId,
+                orderCount: r.orderCount,
+                grossSales: r.grossSales,
+                commissionAmount: r.commissionAmount,
+                netPayout: r.netPayout
+            });
+        }
+        return result;
+    }
+
+    // GET /admin/reports/driver?from=YYYY-MM-DD&to=YYYY-MM-DD
+    resource function get admin/reports/driver(http:Request req) returns json[] {
+        string fromDate = req.getQueryParamValue("from") ?: "";
+        string toDate = req.getQueryParamValue("to") ?: "";
+
+        json[] deliveries = loadDeliveries();
+        DriverReport[] rows = computeDriverReport(deliveries, fromDate, toDate);
+
+        json[] result = [];
+        foreach DriverReport r in rows {
+            result.push({
+                driverId: r.driverId,
+                driverName: r.driverName,
+                completedDeliveries: r.completedDeliveries,
+                averageTurnaroundMinutes: r.averageTurnaroundMinutes,
+                slaBreaches: r.slaBreaches
+            });
+        }
+        return result;
     }
 }
