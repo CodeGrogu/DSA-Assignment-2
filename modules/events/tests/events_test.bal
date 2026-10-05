@@ -96,6 +96,7 @@ function testKitchenOrderReadySerializationAndValidation() returns error? {
         eventId: "evt-kit-001",
         orderId: "ord-9001",
         restaurantId: "rest-202",
+        pickupAddress: "14 Independence Avenue, Windhoek",
         pickupReadyAt: "2026-09-21T12:15:30Z"
     };
 
@@ -198,6 +199,7 @@ function testBackwardCompatibilityTypeAliases() returns error? {
         eventId: "evt-kit-alias",
         orderId: "ord-alias-01",
         restaurantId: "rest-01",
+        pickupAddress: "Sam Nujoma Drive, Windhoek",
         pickupReadyAt: "2026-09-21T10:10:00Z"
     };
     KitchenOrderReady directKitchen = kitEvt;

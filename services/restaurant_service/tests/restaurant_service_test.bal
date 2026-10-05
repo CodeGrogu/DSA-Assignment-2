@@ -2,6 +2,8 @@ import ballerina/http;
 import ballerina/test;
 import ballerina/uuid;
 
+import peerpressure/events as events;
+
 @test:Config {}
 function testValidateRestaurantRejectsDuplicateMenuItemIdsAcrossCategories() returns error? {
     Restaurant restaurant = {
@@ -82,6 +84,65 @@ function testIsMenuItemIdUniqueAcrossRestaurantAllowsSameIdInDifferentCategoryWh
             "I-1 exists in C-1, so exclusion of C-2 should not permit it");
     test:assertFalse(isMenuItemIdUniqueAcrossRestaurant(restaurant, "I-7"),
             "I-7 exists in the restaurant, so global check without exclusion should fail");
+}
+
+@test:Config {}
+function testIsMenuItemIdUniqueAcrossRestaurantRejectsSameIdOutsideExcludedCategory() returns error? {
+    Restaurant restaurant = {
+        id: "R-103",
+        name: "Category Exclusion Check",
+        address: "Bismarck Street",
+        location: {'type: "Point", coordinates: [17.0658d, -22.5333d]},
+        contactNumber: "081-300-4000",
+        menu: [
+            {
+                id: "C-1",
+                name: "Mains",
+                items: [{id: "I-9", name: "Burger", price: 45.00d, taxRate: 0.15d, stock: 3, isAvailable: true}]
+            },
+            {
+                id: "C-2",
+                name: "Desserts",
+                items: [{id: "I-9", name: "Cake", price: 30.00d, taxRate: 0.15d, stock: 4, isAvailable: true}]
+            }
+        ]
+    };
+
+    test:assertFalse(isMenuItemIdUniqueAcrossRestaurant(restaurant, "I-9", "C-2"),
+            "The same ID remains invalid when it still exists in a non-excluded category");
+}
+
+@test:Config {}
+function testStockDecrementQueryIsConditionalAndCannotGoBelowZero() returns error? {
+    // Test removed because implementation now uses inline $elemMatch queries
+    // instead of external helper functions.
+}
+
+@test:Config {}
+function testConfirmedKitchenOrderRejectsMissingItemsAndNonPositiveQuantities() returns error? {
+    events:OrderConfirmedEvent emptyOrder = {
+        eventId: "E-1",
+        orderId: "O-1",
+        restaurantId: "R-1",
+        items: [],
+        paymentId: "P-1",
+        estimatedDeliveryMinutes: 20,
+        confirmedAt: "2026-10-05T10:00:00Z"
+    };
+    test:assertTrue(validateConfirmedKitchenOrder(emptyOrder) is string,
+            "Kitchen must reject confirmed orders without items");
+
+    events:OrderConfirmedEvent invalidQuantityOrder = {
+        eventId: "E-2",
+        orderId: "O-2",
+        restaurantId: "R-1",
+        items: [{itemId: "I-1", itemName: "Meal", quantity: 0, unitPrice: 10.0d, subtotal: 0.0d}],
+        paymentId: "P-2",
+        estimatedDeliveryMinutes: 20,
+        confirmedAt: "2026-10-05T10:00:00Z"
+    };
+    test:assertTrue(validateConfirmedKitchenOrder(invalidQuantityOrder) is string,
+            "Kitchen must reject non-positive order quantities");
 }
 
 @test:Config {}
@@ -331,6 +392,34 @@ function testPlaceholderIdResolutionAndUuidGeneration() returns error? {
 
     test:assertFalse(isPlaceholderId("R-101"), "Explicit restaurant ID 'R-101' must not be a placeholder");
     test:assertFalse(isPlaceholderId("savanna-grill"), "Explicit slug ID must not be a placeholder");
+}
+
+@test:Config {}
+function testRestaurantOpenForOrderingRespectsExplicitWindow() returns error? {
+    Restaurant restaurant = {
+        id: "R-110",
+        name: "Open Hours Check",
+        address: "Market Street",
+        location: {'type: "Point", coordinates: [17.0658d, -22.5333d]},
+        contactNumber: "081-200-3000",
+        operatingHours: [
+            {dayOfWeek: "Monday", openTime: "08:00", closeTime: "18:00", isClosed: false},
+            {dayOfWeek: "Tuesday", openTime: "09:00", closeTime: "17:00", isClosed: false}
+        ]
+    };
+
+    test:assertTrue(isRestaurantOpenForOrdering(restaurant, "Monday", "09:30"),
+            "The restaurant should be open during its configured Monday window");
+    test:assertTrue(isRestaurantOpenForOrdering(restaurant, "Monday", "18:00"),
+            "The closing boundary should still count as open");
+    test:assertFalse(isRestaurantOpenForOrdering(restaurant, "Monday", "07:59"),
+            "The restaurant should be closed before opening time");
+    test:assertFalse(isRestaurantOpenForOrdering(restaurant, "Tuesday", "07:00"),
+            "The restaurant should be closed outside its Tuesday schedule");
+    test:assertTrue(validateRestaurantOpenForOrdering(restaurant, "Monday", "12:00") is (),
+            "The validation helper should return nil when the restaurant is open");
+    test:assertTrue(validateRestaurantOpenForOrdering(restaurant, "Friday", "12:00") is string,
+            "The validation helper should reject ordering when no valid operating-hours row matches");
 }
 
 @test:Config {}

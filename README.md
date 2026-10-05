@@ -107,8 +107,8 @@ sequenceDiagram
     PaySvc->>PaySvc: Process Payment Simulation
     PaySvc->>Kafka: Emit PaymentCompletedEvent (payments.completed)
     Kafka-->>OrderSvc: Consume PaymentCompletedEvent (Transition -> CONFIRMED)
-    Kafka-->>RestSvc: Consume PaymentCompletedEvent (Kitchen -> PREPARING)
-    RestSvc->>Kafka: Emit KitchenReadyEvent (orders.ready)
+    Kafka-->>RestSvc: Consume OrderConfirmedEvent (decrement stock, start cooking)
+    RestSvc->>Kafka: Emit KitchenReadyEvent (kitchen.orders.ready)
     Kafka-->>DelSvc: Consume KitchenReadyEvent (Match & Assign Driver)
     DelSvc->>Kafka: Emit DeliveryAssignedEvent (delivery.assigned)
     DelSvc->>Kafka: Emit DeliveryStatusUpdateEvent (delivery.status: DELIVERED)
@@ -147,12 +147,12 @@ Event types are defined in shared contract library `peerpressure/events:0.1.0` i
 | Topic Name | Partitions | Key Strategy | Emitted By | Primary Consumers | Event Record Type |
 | :--- | :---: | :--- | :--- | :--- | :--- |
 | `orders.created` | 3 | `customerId` | Order Service | Payment Service, Notification Service | `OrderCreatedEvent` |
-| `orders.confirmed` | 3 | `orderId` | Order Service | Notification Service, Admin Service | `OrderConfirmedEvent` |
+| `orders.confirmed` | 3 | `orderId` | Order Service | Restaurant Service, Notification Service, Admin Service | `OrderConfirmedEvent` |
 | `orders.cancelled` | 3 | `orderId` | Order Service | Payment Service (Refunds), Notification | `OrderCancelledEvent` |
-| `payments.completed` | 3 | `orderId` | Payment Service | Order Service, Restaurant Service | `PaymentCompletedEvent` |
+| `payments.completed` | 3 | `orderId` | Payment Service | Order Service | `PaymentCompletedEvent` |
 | `payments.failed` | 3 | `orderId` | Payment Service | Order Service (Abort FSM), Notification | `PaymentFailedEvent` |
 | `orders.preparing` | 3 | `restaurantId`| Restaurant Service | Order Service, Notification Service | `KitchenPreparingEvent` |
-| `orders.ready` | 3 | `restaurantId`| Restaurant Service | Delivery Service (Driver Dispatch) | `KitchenReadyEvent` |
+| `kitchen.orders.ready` | 3 | `orderId` | Restaurant Service | Delivery Service (Driver Dispatch) | `KitchenReadyEvent` |
 | `delivery.assigned` | 3 | `driverId` | Delivery Service | Order Service, Notification Service | `DeliveryAssignedEvent` |
 | `delivery.status` | 3 | `orderId` | Delivery Service | Order Service, Notification, Admin | `DeliveryStatusUpdateEvent` |
 | `notifications.dispatched` | 3 | `recipientId` | Notification Service | Audit Logger, Admin Analytics | `NotificationEvent` |
