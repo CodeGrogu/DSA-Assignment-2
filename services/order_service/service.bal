@@ -257,7 +257,7 @@ service / on new http:Listener(port) {
         pricingEngine.setSupplyDemand(orderStore.getUnfulfilledOrderCount(), pricingEngine.getAvailableDrivers());
 
         string cancelledAt = currentTimestamp();
-        error? pubErr = orderEventProducer.publishOrderCancelled(orderId, reason, "CUSTOMER", cancelledAt);
+        error? pubErr = orderEventProducer.publishOrderCancelled(orderId, reason, "CUSTOMER", cancelledAt, 'order.customerId);
         if pubErr is error {
             log:printError("Failed to publish OrderCancelled event", 'error = pubErr, orderId = orderId);
         }

@@ -34,7 +34,10 @@ public type MenuItem record {|
     string[] dietaryAttributes = [];
     @constraint:Int {minValue: 0}
     int stock = 100;
+    @constraint:Int {minValue: 0}
+    int lowStockThreshold = 10;
     boolean isAvailable = true;
+    string imageUrl = "";
 |};
 
 public type MenuCategory record {|
@@ -55,12 +58,27 @@ public type Restaurant record {|
     OperatingHours[] operatingHours = [];
     HolidayException[] holidayExceptions = [];
     MenuCategory[] menu = [];
+    decimal balance = 0.0d;
+    decimal totalEarnings = 0.0d;
 |};
 
 public type AddMenuItemRequest record {|
     @constraint:String {minLength: 1}
     string categoryId;
     MenuItem item;
+|};
+
+public type UpdateMenuItemRequest record {|
+    string? id = ();
+    string? name = ();
+    string? description = ();
+    decimal? price = ();
+    decimal? taxRate = ();
+    string[]? dietaryAttributes = ();
+    int? stock = ();
+    int? lowStockThreshold = ();
+    boolean? isAvailable = ();
+    string? imageUrl = ();
 |};
 
 public type OrderItemReservation record {|
@@ -106,5 +124,31 @@ public type OrderValidationResult record {|
     string? failedItemId = ();
     int? availableStock = ();
     int? requestedQuantity = ();
+|};
+
+public type VerifyHandoverRequest record {|
+    string pin;
+    string? driverId = ();
+    string? customerPhoneSuffix = ();
+|};
+
+public type VerifyHandoverResponse record {|
+    boolean verified;
+    string orderId;
+    string status;
+    string message;
+    string timestamp;
+|};
+
+public type CreditEarningsRequest record {|
+    decimal amount;
+    string? orderId = ();
+    string? description = ();
+|};
+
+public type PayoutRequest record {|
+    decimal amount;
+    string? bankAccount = ();
+    string? bankName = ();
 |};
 

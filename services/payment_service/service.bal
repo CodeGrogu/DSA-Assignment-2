@@ -11,12 +11,40 @@ isolated map<json> inMemoryPayments = {
         paymentId: "pay_test_1",
         transactionId: "txn_test_1",
         orderId: "ord_test_1",
+        customerId: "cust_test_1",
         amount: 100.0d,
         currency: "NAD",
-        status: "SUCCESS",
+        status: "COMPLETED",
         paymentMethod: "CREDIT_CARD"
     }
 };
+
+isolated function paymentToJson(PaymentTransaction txn) returns map<json> {
+    string payId = txn.paymentId ?: txn.transactionId;
+    return {
+        paymentId: payId,
+        transactionId: txn.transactionId,
+        orderId: txn.orderId,
+        customerId: txn.customerId,
+        amount: txn.amount,
+        currency: txn.currency,
+        status: txn.status,
+        paymentMethod: txn.method,
+        completedAt: txn.completedAt ?: txn.createdAt
+    };
+}
+
+isolated function recordInMemoryPayment(PaymentTransaction txn) {
+    string payId = txn.paymentId ?: txn.transactionId;
+    string txnId = txn.transactionId;
+    string ordId = txn.orderId;
+    map<json> rec = paymentToJson(txn);
+    lock {
+        inMemoryPayments[payId] = rec.cloneReadOnly();
+        inMemoryPayments[txnId] = rec.cloneReadOnly();
+        inMemoryPayments[ordId] = rec.cloneReadOnly();
+    }
+}
 
 @http:ServiceConfig {
     cors: {
@@ -48,6 +76,14 @@ service / on new http:Listener(port) {
     }
 
     resource function get payments() returns json[] {
+        if enableMongo {
+            PaymentTransaction[]|error dbTxns = trap listTransactions();
+            if dbTxns is PaymentTransaction[] {
+                foreach PaymentTransaction t in dbTxns {
+                    recordInMemoryPayment(t);
+                }
+            }
+        }
         lock {
             json[] results = [];
             map<boolean> seenOrders = {};
@@ -87,16 +123,7 @@ service / on new http:Listener(port) {
         }
         http:Response response = new;
         response.statusCode = 200;
-        json paymentPayload = {
-            paymentId: result.transactionId,
-            transactionId: result.transactionId,
-            orderId: result.orderId,
-            amount: result.amount,
-            currency: result.currency,
-            status: result.status,
-            paymentMethod: result.method
-        };
-        response.setPayload(paymentPayload);
+        response.setPayload(paymentToJson(result));
         return response;
     }
 
@@ -128,16 +155,7 @@ service / on new http:Listener(port) {
         }
         http:Response response = new;
         response.statusCode = 200;
-        json paymentPayload = {
-            paymentId: result.transactionId,
-            transactionId: result.transactionId,
-            orderId: result.orderId,
-            amount: result.amount,
-            currency: result.currency,
-            status: result.status,
-            paymentMethod: result.method
-        };
-        response.setPayload(paymentPayload);
+        response.setPayload(paymentToJson(result));
         return response;
     }
 
@@ -182,7 +200,6 @@ service / on new http:Listener(port) {
 
         GatewayResult|error gatewayResult = paymentGatewaySimulator.authorize(outcome, gatewayTimeoutSeconds);
         boolean authorized = gatewayResult is GatewayResult && gatewayResult.status != FAILED;
-        string finalStatus = authorized ? "SUCCESS" : "FAILED";
         PaymentStatus txnStatus = authorized ? COMPLETED : FAILED;
 
         string suffix = orderId;
@@ -191,54 +208,58 @@ service / on new http:Listener(port) {
         }
         string paymentId = "pay_" + suffix;
         string transactionId = "txn_" + suffix;
+        string customerId = "cust_" + suffix;
+        if payload.hasKey("customerId") && payload["customerId"] is string {
+            string reqCust = (<string>payload["customerId"]).trim();
+            if reqCust != "" {
+                customerId = reqCust;
+            }
+        }
 
-        json paymentRecord = {
+        string now = currentTimestamp();
+        PaymentTransaction txn = {
             paymentId: paymentId,
             transactionId: transactionId,
             orderId: orderId,
-            amount: amount,
-            currency: "NAD",
-            status: finalStatus,
-            paymentMethod: method,
-            completedAt: currentTimestamp()
-        };
-
-        lock {
-            inMemoryPayments[paymentId] = paymentRecord.cloneReadOnly();
-            inMemoryPayments[transactionId] = paymentRecord.cloneReadOnly();
-            inMemoryPayments[orderId] = paymentRecord.cloneReadOnly();
-            inMemoryPayments["pay_" + orderId] = paymentRecord.cloneReadOnly();
-        }
-
-        PaymentTransaction txn = {
-            transactionId: transactionId,
-            orderId: orderId,
-            customerId: "cust_" + suffix,
+            customerId: customerId,
             amount: amount,
             currency: "NAD",
             method: method,
             status: txnStatus,
+            failureReason: authorized ? () : "Payment authorization declined",
             idempotencyKey: createIdempotencyKey(orderId, "charge"),
-            createdAt: currentTimestamp()
+            createdAt: now,
+            completedAt: now
         };
 
-        _ = start persistAndPublishAsync(txn);
+        recordInMemoryPayment(txn);
+        map<json> paymentRecord = paymentToJson(txn);
+
+        _ = start persistAndPublishAsync(txn, outcome);
 
         return <http:Created>{body: paymentRecord};
     }
 }
 
-function persistAndPublishAsync(PaymentTransaction txn) {
+function persistAndPublishAsync(PaymentTransaction txn, string errorCode = "DECLINED") {
     if enableMongo {
         error? persistResult = trap persistCharge(txn);
         if persistResult is error {
             log:printWarn("Ledger persistence skipped (ledger unavailable)", 'error = persistResult);
         }
     }
-    if startKafkaConsumers && txn.status == COMPLETED {
-        error? pubErr = trap publishCompleted(txn);
-        if pubErr is error {
-            log:printWarn("Payment Kafka publish skipped", 'error = pubErr);
+    if startKafkaConsumers {
+        if txn.status == COMPLETED {
+            error? pubErr = trap publishCompleted(txn);
+            if pubErr is error {
+                log:printWarn("Payment Kafka publish skipped", 'error = pubErr);
+            }
+        } else if txn.status == FAILED {
+            string reason = txn.failureReason ?: "Payment authorization failed";
+            error? pubFailErr = trap publishFailed(txn, reason, errorCode);
+            if pubFailErr is error {
+                log:printWarn("Failed payment Kafka publish skipped", 'error = pubFailErr);
+            }
         }
     }
 }

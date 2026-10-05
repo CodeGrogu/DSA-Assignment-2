@@ -2,6 +2,8 @@ import ballerina/http;
 import ballerina/test;
 import ballerina/time;
 
+import peerpressure/events;
+
 @test:Config {}
 function testGatewaySuccessAndRejectedPayments() {
     GatewayResult|error success = paymentGatewaySimulator.authorize("SUCCESS", 0);
@@ -83,6 +85,63 @@ function testChargeAndRefundLedgerEntriesAreInsertOnlyReversals() {
 }
 
 @test:Config {}
+function testPaymentEventContractsMatchSharedEventsModule() returns error? {
+    PaymentTransaction payment = {
+        paymentId: "pay-42",
+        transactionId: "order-42-charge",
+        orderId: "order-42",
+        customerId: "customer-9",
+        amount: 125.50,
+        currency: "NAD",
+        method: "CARD",
+        status: COMPLETED,
+        idempotencyKey: "charge:order-42",
+        createdAt: "2026-10-04T12:00:00Z",
+        completedAt: "2026-10-04T12:00:00Z"
+    };
+
+    PaymentCompletedEvent completedEvt = buildCompletedEvent(payment);
+    events:PaymentCompleted validatedCompleted = check events:validatePaymentCompleted(events:paymentCompletedToJson(completedEvt));
+    test:assertEquals(validatedCompleted.paymentId, "pay-42");
+    test:assertEquals(validatedCompleted.orderId, "order-42");
+
+    PaymentFailedEvent failedEvt = buildFailedEvent(payment, "Insufficient funds", "INSUFFICIENT_FUNDS");
+    events:PaymentFailed validatedFailed = check events:validatePaymentFailed(events:paymentFailedToJson(failedEvt));
+    test:assertEquals(validatedFailed.orderId, "order-42");
+    test:assertEquals(validatedFailed.errorCode, "INSUFFICIENT_FUNDS");
+
+    PaymentRefundedEvent refundedEvt = buildRefundedEvent(payment);
+    events:PaymentRefunded validatedRefunded = check events:validatePaymentRefunded(events:paymentRefundedToJson(refundedEvt));
+    test:assertEquals(validatedRefunded.orderId, "order-42");
+
+    events:OrderCreated upstreamOrder = {
+        eventId: "evt-ord-42",
+        orderId: "order-42",
+        customerId: "customer-9",
+        restaurantId: "R001",
+        items: [{itemId: "M1", itemName: "Beef Kapana", quantity: 2, unitPrice: 50.0d, subtotal: 100.0d}],
+        totalAmount: 125.50d,
+        deliveryFee: 25.50d,
+        deliveryAddress: {street: "12 Independence Ave", city: "Windhoek", state: "Khomas", postalCode: "9000"},
+        status: events:CREATED,
+        createdAt: "2026-10-04T11:59:00Z"
+    };
+    OrderCreatedMessage parsedOrder = check events:orderCreatedToJson(upstreamOrder).cloneWithType(OrderCreatedMessage);
+    test:assertEquals(parsedOrder.deliveryFee, 25.50d);
+
+    events:OrderCancelled upstreamCancel = {
+        eventId: "evt-cancel-42",
+        orderId: "order-42",
+        customerId: "customer-9",
+        reason: "Changed mind",
+        cancelledBy: "CUSTOMER",
+        cancelledAt: "2026-10-04T12:05:00Z"
+    };
+    OrderCancelledMessage parsedCancel = check events:orderCancelledToJson(upstreamCancel).cloneWithType(OrderCancelledMessage);
+    test:assertEquals(parsedCancel.customerId, "customer-9");
+}
+
+@test:Config {}
 function testCreateAndGetPayment() returns error? {
     http:Client clientEp = check new (string `http://localhost:${port}`);
     json createPayload = {
@@ -96,7 +155,7 @@ function testCreateAndGetPayment() returns error? {
     test:assertTrue(createBody is map<json>);
     map<json> bodyMap = <map<json>>createBody;
     test:assertEquals(bodyMap["orderId"], "ord_unit_1");
-    test:assertEquals(bodyMap["status"], "SUCCESS");
+    test:assertTrue(bodyMap["status"] == "COMPLETED" || bodyMap["status"] == "SUCCESS");
     test:assertEquals(bodyMap["currency"], "NAD");
 
     http:Response getResp = check clientEp->get("/payments/pay_unit_1");
@@ -105,7 +164,7 @@ function testCreateAndGetPayment() returns error? {
     test:assertTrue(getBody is map<json>);
     map<json> getMap = <map<json>>getBody;
     test:assertEquals(getMap["orderId"], "ord_unit_1");
-    test:assertEquals(getMap["status"], "SUCCESS");
+    test:assertTrue(getMap["status"] == "COMPLETED" || getMap["status"] == "SUCCESS");
 }
 
 @test:Config {}
@@ -125,4 +184,3 @@ function testCreatePaymentValidation() returns error? {
     http:Response badResp2 = check clientEp->post("/payments", invalidAmountPayload);
     test:assertEquals(badResp2.statusCode, 400);
 }
-

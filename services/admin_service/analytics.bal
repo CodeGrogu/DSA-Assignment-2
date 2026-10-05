@@ -25,13 +25,13 @@ public isolated function computeOverview(json[] orders, json[] payments, json[] 
         }
     }
 
-    // Payments: count COMPLETED vs FAILED.
+    // Payments: count COMPLETED (or legacy SUCCESS) vs FAILED.
     int ok = 0;
     int failed = 0;
     foreach json p in payments {
         if p is map<json> {
             string status = getString(p, "status");
-            if status == "COMPLETED" {
+            if status == "COMPLETED" || status == "SUCCESS" {
                 ok = ok + 1;
             }
             if status == "FAILED" {
@@ -115,7 +115,7 @@ const decimal SLA_MINUTES = 45.0d;
 
 // Compute per-restaurant reports, filtered by date range if given.
 // fromDate / toDate are "YYYY-MM-DD" strings. Empty string means "no filter".
-public isolated function computeRestaurantReport(json[] orders, string fromDate, string toDate) returns RestaurantReport[] {
+public isolated function computeRestaurantReport(json[] orders, string fromDate, string toDate, string fromTime = "", string toTime = "") returns RestaurantReport[] {
     map<RestaurantReport> byRestaurant = {};
 
     foreach json o in orders {
@@ -125,7 +125,7 @@ public isolated function computeRestaurantReport(json[] orders, string fromDate,
                 continue;
             }
             string createdAt = getString(o, "createdAt");
-            if !withinDateRange(createdAt, fromDate, toDate) {
+            if !withinDateRange(createdAt, fromDate, toDate, fromTime, toTime) {
                 continue;
             }
 
@@ -173,7 +173,7 @@ public isolated function computeRestaurantReport(json[] orders, string fromDate,
 }
 
 // Compute per-driver reports, filtered by date range.
-public isolated function computeDriverReport(json[] deliveries, string fromDate, string toDate) returns DriverReport[] {
+public isolated function computeDriverReport(json[] deliveries, string fromDate, string toDate, string fromTime = "", string toTime = "") returns DriverReport[] {
     map<DriverReport> byDriver = {};
     map<int> turnaroundSum = {};
     map<int> turnaroundCount = {};
@@ -185,7 +185,7 @@ public isolated function computeDriverReport(json[] deliveries, string fromDate,
                 continue;
             }
             string deliveredAt = getString(d, "deliveredAt");
-            if !withinDateRange(deliveredAt, fromDate, toDate) {
+            if !withinDateRange(deliveredAt, fromDate, toDate, fromTime, toTime) {
                 continue;
             }
 
@@ -243,9 +243,9 @@ public isolated function computeDriverReport(json[] deliveries, string fromDate,
     return rows;
 }
 
-// True if timestamp falls within [fromDate, toDate] inclusive.
+// True if timestamp falls within [fromDate, toDate] (and optional HH:MM time bounds) inclusive.
 // Empty strings mean "no bound on that side".
-isolated function withinDateRange(string timestamp, string fromDate, string toDate) returns boolean {
+isolated function withinDateRange(string timestamp, string fromDate, string toDate, string fromTime = "", string toTime = "") returns boolean {
     if timestamp == "" {
         return false;
     }
@@ -255,6 +255,15 @@ isolated function withinDateRange(string timestamp, string fromDate, string toDa
     }
     if toDate != "" && day > toDate {
         return false;
+    }
+    if (fromTime != "" || toTime != "") && timestamp.length() >= 16 {
+        string hhmm = timestamp.substring(11, 16);
+        if fromTime != "" && (fromDate == "" || day == fromDate) && hhmm < fromTime {
+            return false;
+        }
+        if toTime != "" && (toDate == "" || day == toDate) && hhmm > toTime {
+            return false;
+        }
     }
     return true;
 }

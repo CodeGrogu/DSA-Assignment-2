@@ -73,8 +73,8 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
-  scrollbar-width: thin;
-  scrollbar-color: #cbd5e1 #f1f5f9;
+  scrollbar-width: none;
+  scrollbar-color: #cbd5e100 #f1f5f900;
 }
 
 ::-webkit-scrollbar {
@@ -666,6 +666,15 @@ select:disabled,
   background: #ffffff;
 }
 
+.custom-dropdown-root.single-option .custom-dropdown-trigger {
+  cursor: default !important;
+  padding-right: 12px !important;
+}
+
+.custom-dropdown-root.single-option .custom-dropdown-trigger:hover {
+  border-color: var(--border, #e2e8f0);
+}
+
 .custom-dropdown-root.open .custom-dropdown-trigger {
   border-color: var(--accent, #eb4d28);
   box-shadow: 0 0 0 2px rgba(235, 77, 40, 0.15);
@@ -722,8 +731,10 @@ select:disabled,
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
-  right: 0;
+  width: 100%;
   min-width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   background: #ffffff;
   border: 1px solid var(--border, #e2e8f0);
   border-radius: var(--radius-md, 10px);
@@ -731,14 +742,26 @@ select:disabled,
   padding: 4px;
   max-height: 240px;
   overflow-y: auto;
+  overflow-x: hidden;
   z-index: 1200;
   display: none;
   pointer-events: none;
   animation: dropdownFadeIn 0.15s ease forwards;
 }
 
+.custom-dropdown-root.open-up .custom-dropdown-menu {
+  top: auto !important;
+  bottom: calc(100% + 4px) !important;
+  animation: dropdownFadeInUp 0.15s ease forwards !important;
+}
+
 @keyframes dropdownFadeIn {
   from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes dropdownFadeInUp {
+  from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
@@ -759,6 +782,18 @@ select:disabled,
   cursor: pointer;
   transition: background 0.1s ease, color 0.1s ease;
   user-select: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.custom-dropdown-item .item-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.3;
 }
 
 .custom-dropdown-item:hover {
@@ -1215,11 +1250,21 @@ select:disabled,
   white-space: nowrap !important;
 }
 
-.custom-datetime-root {
+.custom-datetime-root,
+.custom-dropdown-root {
   position: relative !important;
-  display: inline-block !important;
+  display: block !important;
   width: 100% !important;
   vertical-align: middle;
+  border: none !important;
+  background: transparent !important;
+  background-image: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  box-shadow: none !important;
+  outline: none !important;
+  height: auto !important;
+  min-height: 0 !important;
 }
 
 .custom-datetime-trigger {
@@ -1295,10 +1340,18 @@ select:disabled,
   z-index: 1500;
   display: none;
   pointer-events: none;
-  width: 300px;
-  max-width: min(320px, 92vw);
+  width: 290px;
+  max-width: min(290px, calc(100vw - 32px));
   box-sizing: border-box;
+  overflow-y: auto;
+  overflow-x: hidden;
   animation: dropdownFadeIn 0.15s ease forwards;
+}
+
+.custom-datetime-root.open-up .custom-datetime-card {
+  top: auto !important;
+  bottom: calc(100% + 6px) !important;
+  animation: dropdownFadeInUp 0.15s ease forwards !important;
 }
 
 .custom-datetime-root.open .custom-datetime-card {
@@ -1446,8 +1499,8 @@ select:disabled,
 }
 
 .stepper-btn {
-  width: 36px;
-  height: 20px;
+  width: 44px;
+  height: 22px;
   background: var(--bg-surface-alt);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -1459,6 +1512,7 @@ select:disabled,
   transition: all 0.12s ease;
   padding: 0;
   line-height: 1;
+  box-sizing: border-box;
 }
 
 .stepper-btn:hover {
@@ -1475,17 +1529,19 @@ select:disabled,
 }
 
 .custom-time-input-box {
-  width: 38px;
-  height: 28px;
+  width: 44px;
+  height: 30px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   text-align: center;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   font-family: var(--font-mono, monospace);
   color: var(--text-main);
   background: #ffffff;
-  padding: 0 2px;
+  padding: 0;
+  margin: 0;
+  box-sizing: border-box;
   -moz-appearance: textfield;
 }
 
@@ -1741,6 +1797,182 @@ select:disabled,
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+/* ==========================================================================
+   RESTAURANT MAP POPUP & CARDS (CLIENT & DRIVER COMPATIBLE)
+   ========================================================================== */
+.restaurant-map-popup .leaflet-popup-content-wrapper {
+  padding: 0 !important;
+  border-radius: 16px !important;
+  overflow: hidden !important;
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.22) !important;
+  border: 1px solid rgba(226, 232, 240, 0.9) !important;
+  background: #ffffff !important;
+}
+
+.restaurant-map-popup .leaflet-popup-content {
+  margin: 0 !important;
+  width: 280px !important;
+  max-width: 290px !important;
+  line-height: 1.4 !important;
+}
+
+.restaurant-popup-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #ffffff;
+  border-radius: 16px;
+  font-family: inherit;
+}
+
+.restaurant-popup-media {
+  position: relative;
+  width: 100%;
+  height: 120px;
+  overflow: hidden;
+  background: #0f172a;
+}
+
+.restaurant-popup-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.restaurant-popup-content {
+  padding: 12px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.restaurant-popup-tag-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.restaurant-popup-tag {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #ea580c;
+  background: #fff7ed;
+  padding: 2px 7px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.restaurant-popup-rating {
+  font-size: 11px;
+  font-weight: 700;
+  color: #047857;
+  background: #ecfdf5;
+  padding: 2px 7px;
+  border-radius: 999px;
+}
+
+.restaurant-popup-title {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 2px 0 0 0;
+  line-height: 1.25;
+}
+
+.restaurant-popup-desc {
+  font-size: 11.5px;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.restaurant-popup-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 11px;
+  color: #64748b;
+  margin: 4px 0 2px;
+}
+
+.restaurant-popup-meta span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.restaurant-popup-action-btn {
+  margin-top: 6px;
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  border-radius: 10px;
+  background: #eb4d28 !important;
+  color: #ffffff !important;
+  border: none !important;
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.restaurant-popup-action-btn:hover {
+  background: #d43b17 !important;
+  transform: translateY(-1px);
+}
+
+.restaurant-popup-driver-note {
+  margin-top: 6px;
+  padding: 7px 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 11px;
+  color: #475569;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.driver-note-label {
+  font-weight: 700;
+  color: #0f172a;
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+}
+
+.driver-note-contact {
+  font-family: monospace;
+  color: #64748b;
+}
+
+.restaurant-pin-marker {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #ea580c;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(234, 88, 12, 0.4);
+  border: 2px solid #ffffff;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.restaurant-pin-marker:hover {
+  transform: scale(1.15);
 }
 
 

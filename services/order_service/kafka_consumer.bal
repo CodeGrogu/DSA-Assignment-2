@@ -9,6 +9,7 @@ configurable string paymentsCompletedTopic = "payments.completed";
 configurable string paymentsFailedTopic = "payments.failed";
 configurable string kitchenPreparingTopic = "orders.preparing";
 configurable string kitchenReadyTopic = "kitchen.orders.ready";
+configurable string kitchenRejectedTopic = "kitchen.rejected";
 configurable string deliveryStatusUpdatedTopic = "delivery.status";
 configurable string orderConsumerGroup = "order-service-group";
 
@@ -40,7 +41,14 @@ function pollOrderEventTopics() returns error? {
         offsetReset: "earliest",
         autoCommit: false
     });
-    string[] subscribedTopics = [paymentsCompletedTopic, paymentsFailedTopic, kitchenPreparingTopic, kitchenReadyTopic, deliveryStatusUpdatedTopic];
+    string[] subscribedTopics = [
+        paymentsCompletedTopic,
+        paymentsFailedTopic,
+        kitchenPreparingTopic,
+        kitchenReadyTopic,
+        kitchenRejectedTopic,
+        deliveryStatusUpdatedTopic
+    ];
     if kitchenReadyTopic != "orders.ready" {
         subscribedTopics.push("orders.ready");
     }
@@ -52,7 +60,11 @@ function pollOrderEventTopics() returns error? {
         foreach kafka:AnydataConsumerRecord rec in records {
             error? procErr = processConsumerRecord(rec);
             if procErr is error {
-                log:printError("Error processing record from Kafka topic", 'error = procErr, topic = rec.offset.partition.topic);
+                log:printError("Error processing record from Kafka topic; routing to DLQ", 'error = procErr, topic = rec.offset.partition.topic);
+                byte[]|error rawPayload = extractPayloadBytes(rec.value);
+                if rawPayload is byte[] {
+                    orderEventProducer.publishRawDlq(rec.offset.partition.topic, rawPayload, procErr.message());
+                }
             }
         }
         if records.length() > 0 {
@@ -95,6 +107,9 @@ public function dispatchTopicPayload(string topic, byte[] payloadBytes) returns 
         _ = check processKitchenPreparingJson(parsed);
     } else if topic == kitchenReadyTopic || topic == "orders.ready" || topic == "kitchen.orders.ready" {
         _ = check processKitchenReadyJson(parsed);
+    } else if topic == kitchenRejectedTopic {
+        events:KitchenRejected event = check events:validateKitchenRejected(parsed);
+        _ = check processKitchenRejected(event);
     } else if topic == deliveryStatusUpdatedTopic {
         events:DeliveryStatusUpdated event = check events:validateDeliveryStatusUpdated(parsed);
         _ = check processDeliveryStatusUpdated(event);
@@ -153,22 +168,32 @@ public function processPaymentCompleted(events:PaymentCompleted event) returns O
 # Duplicate events for an already cancelled order are handled harmlessly.
 # Illegal transitions are safely rejected with an error and logged.
 public function processPaymentFailed(events:PaymentFailed event) returns Order|error {
-    Order? existing = check orderStore.get(event.orderId);
+    return cancelOrderFromFailureEvent(event.orderId, event.reason, "PaymentFailed");
+}
+
+# Processes a KitchenRejected event idempotently and deterministically.
+# Transitions order from CONFIRMED (or CREATED) to CANCELLED.
+public function processKitchenRejected(events:KitchenRejected event) returns Order|error {
+    return cancelOrderFromFailureEvent(event.orderId, event.reason, "KitchenRejected");
+}
+
+function cancelOrderFromFailureEvent(string orderId, string reason, string sourceEventName) returns Order|error {
+    Order? existing = check orderStore.get(orderId);
     if existing is () {
-        string msg = string `Order '${event.orderId}' not found for PaymentFailed event`;
+        string msg = string `Order '${orderId}' not found for ${sourceEventName} event`;
         log:printWarn(msg);
         return error(msg);
     }
 
     // Idempotent duplicate: already CANCELLED
     if existing.status == events:CANCELLED {
-        log:printInfo(string `Order '${event.orderId}' is already CANCELLED; ignoring duplicate PaymentFailed`);
+        log:printInfo(string `Order '${orderId}' is already CANCELLED; ignoring duplicate ${sourceEventName}`);
         return existing;
     }
 
     // Enforce cancellation guard: only CREATED or CONFIRMED orders can be cancelled
     if !isCancellable(existing.status) {
-        string msg = string `Order '${event.orderId}' cannot be cancelled in state '${existing.status}'`;
+        string msg = string `Order '${orderId}' cannot be cancelled in state '${existing.status}'`;
         log:printError(msg);
         return error(msg);
     }
@@ -176,13 +201,13 @@ public function processPaymentFailed(events:PaymentFailed event) returns Order|e
     // Enforce FSM transition from current state to CANCELLED
     StateTransitionResult checkResult = validateTransition(existing.status, events:CANCELLED);
     if !checkResult.allowed {
-        string reason = checkResult.rejectionReason ?: string `Illegal transition from '${existing.status}' to CANCELLED`;
-        log:printError(string `Disallowed transition for order '${event.orderId}': ${reason}`);
-        return error(reason);
+        string rejection = checkResult.rejectionReason ?: string `Illegal transition from '${existing.status}' to CANCELLED`;
+        log:printError(string `Disallowed transition for order '${orderId}': ${rejection}`);
+        return error(rejection);
     }
 
-    Order updated = check orderStore.updateStatus(event.orderId, events:CANCELLED, (), event.reason);
-    log:printInfo("Order updated to CANCELLED via PaymentFailed event", orderId = event.orderId, reason = event.reason);
+    Order updated = check orderStore.updateStatus(orderId, events:CANCELLED, (), reason);
+    log:printInfo(string `Order updated to CANCELLED via ${sourceEventName} event`, orderId = orderId, reason = reason);
     return updated;
 }
 
@@ -315,14 +340,32 @@ public function processKitchenReady(string orderId) returns Order|error {
     return updated;
 }
 
-# Helper function to process KitchenPreparing from JSON.
+# Helper function to process KitchenPreparing from JSON using shared event validators.
 public function processKitchenPreparingJson(json payload) returns Order|error {
-    string orderId = check payload.orderId;
-    return processKitchenPreparing(orderId);
+    events:OrderPreparing|error orderPrep = events:validateOrderPreparing(payload);
+    if orderPrep is events:OrderPreparing {
+        return processKitchenPreparing(orderPrep.orderId);
+    }
+    events:KitchenPreparing|error kitchenPrep = events:validateKitchenPreparing(payload);
+    if kitchenPrep is events:KitchenPreparing {
+        return processKitchenPreparing(kitchenPrep.orderId);
+    }
+    events:KitchenStatusEvent statusEvt = check events:validateKitchenStatus(payload);
+    if statusEvt.status != events:PREPARING {
+        return error("Validation failed: expected PREPARING kitchen status");
+    }
+    return processKitchenPreparing(statusEvt.orderId);
 }
 
-# Helper function to process KitchenReady from JSON.
+# Helper function to process KitchenReady from JSON using shared event validators.
 public function processKitchenReadyJson(json payload) returns Order|error {
-    string orderId = check payload.orderId;
-    return processKitchenReady(orderId);
+    events:KitchenOrderReady|error readyEvt = events:validateKitchenOrderReady(payload);
+    if readyEvt is events:KitchenOrderReady {
+        return processKitchenReady(readyEvt.orderId);
+    }
+    events:KitchenStatusEvent statusEvt = check events:validateKitchenStatus(payload);
+    if statusEvt.status != events:READY {
+        return error("Validation failed: expected READY kitchen status");
+    }
+    return processKitchenReady(statusEvt.orderId);
 }

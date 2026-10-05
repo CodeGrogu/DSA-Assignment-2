@@ -15,12 +15,17 @@ public isolated function isTransient(error err) returns boolean {
 
     string msg = strings:toLowerAscii(err.message());
 
-    // Explicit non-transient conditions (fail-fast)
+    // Explicit non-transient conditions (fail-fast on domain, schema, and business invariant errors)
     if msg.includes("syntax") || msg.includes("validation") ||
         msg.includes("illegal") || msg.includes("disallowed") ||
         msg.includes("bad request") || msg.includes("not found") ||
         msg.includes("unauthorized") || msg.includes("forbidden") ||
-        msg.includes("invalid payload") || msg.includes("deserialization") {
+        msg.includes("invalid") || msg.includes("deserialization") ||
+        msg.includes("insufficient stock") || msg.includes("duplicate") ||
+        msg.includes("already exists") || msg.includes("schema") ||
+        msg.includes("missing") || msg.includes("unknown") ||
+        msg.includes("unsupported") || msg.includes("mismatch") ||
+        msg.includes("malformed") || msg.includes("unrecognizable") {
         return false;
     }
 

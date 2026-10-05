@@ -7,7 +7,7 @@ import peerpressure/admin_domain as domain;
 final string AUDIT_FILE = "./audit.log";
 
 public function buildAuditRecord(domain:NotificationPayload payload, string status) returns domain:NotificationAuditRecord {
-    string now = time:utcToString(time:utcNow());
+    string now = payload.createdAt != "" ? payload.createdAt : time:utcToString(time:utcNow());
     return {
         notificationId: payload.notificationId,
         role: payload.role,
@@ -22,8 +22,6 @@ public function buildAuditRecord(domain:NotificationPayload payload, string stat
 
 public function saveAudit(domain:NotificationPayload payload, string status) returns error? {
     string now = time:utcToString(time:utcNow());
-
-    // Copy the payload field by field so we can stamp our own createdAt.
     domain:NotificationPayload filled = {
         notificationId: payload.notificationId,
         role: payload.role,
@@ -36,7 +34,6 @@ public function saveAudit(domain:NotificationPayload payload, string status) ret
         relatedEventId: payload.relatedEventId,
         createdAt: now
     };
-
     domain:NotificationAuditRecord entry = buildAuditRecord(filled, status);
 
     string line = string `${entry.sentAt} | ${entry.recipientId} | ${entry.channel.toString()} | ${entry.status} | ${entry.notificationId}`;

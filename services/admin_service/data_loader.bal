@@ -46,6 +46,59 @@ isolated function fetchLiveArray(string envVarName, string resourcePath) returns
     return [];
 }
 
+// Deduplicates a JSON object array by primary key field, preferring later (live) records.
+isolated function mergeAndDeduplicate(json[] seedItems, json[] liveItems, string idKey) returns json[] {
+    map<json> byId = {};
+    string[] orderedKeys = [];
+    json[] unkeyed = [];
+
+    foreach json item in seedItems {
+        if item is map<json> && item.hasKey(idKey) && item[idKey] is string {
+            string k = <string>item[idKey];
+            if !byId.hasKey(k) {
+                orderedKeys.push(k);
+            }
+            byId[k] = item;
+        } else {
+            unkeyed.push(item);
+        }
+    }
+
+    foreach json item in liveItems {
+        if item is map<json> && item.hasKey(idKey) && item[idKey] is string {
+            string k = <string>item[idKey];
+            if !byId.hasKey(k) {
+                orderedKeys.push(k);
+            }
+            byId[k] = item;
+        } else {
+            unkeyed.push(item);
+        }
+    }
+
+    json[] merged = [];
+    foreach string k in orderedKeys {
+        merged.push(byId.get(k));
+    }
+    foreach json item in unkeyed {
+        merged.push(item);
+    }
+    return merged;
+}
+
+// Checks whether an existing seed file on disk was explicitly emptied ("" or "{}").
+isolated function isSeedFileExplicitlyEmpty(string? customPath = ()) returns boolean {
+    string[] candidatePaths = getCandidatePaths(customPath);
+    foreach string path in candidatePaths {
+        string|error readResult = io:fileReadString(path);
+        if readResult is string {
+            string trimmed = readResult.trim();
+            return trimmed == "" || trimmed == "{}";
+        }
+    }
+    return false;
+}
+
 // Load the whole seed file as json safely.
 public isolated function loadSeed(string? customPath = ()) returns json {
     string[] candidatePaths = getCandidatePaths(customPath);
@@ -95,10 +148,10 @@ public isolated function loadOrders(string? customPath = ()) returns json[] {
             baseOrders = orders;
         }
     }
-    if customPath is () && baseOrders.length() > 0 {
+    if customPath is () && !isSeedFileExplicitlyEmpty(customPath) {
         json[] liveOrders = fetchLiveArray("ORDER_SERVICE_URL", "/orders");
-        foreach json item in liveOrders {
-            baseOrders.push(item);
+        if liveOrders.length() > 0 {
+            return mergeAndDeduplicate(baseOrders, liveOrders, "orderId");
         }
     }
     return baseOrders;
@@ -113,10 +166,10 @@ public isolated function loadPayments(string? customPath = ()) returns json[] {
             basePayments = payments;
         }
     }
-    if customPath is () && basePayments.length() > 0 {
+    if customPath is () && !isSeedFileExplicitlyEmpty(customPath) {
         json[] livePayments = fetchLiveArray("PAYMENT_SERVICE_URL", "/payments");
-        foreach json item in livePayments {
-            basePayments.push(item);
+        if livePayments.length() > 0 {
+            return mergeAndDeduplicate(basePayments, livePayments, "orderId");
         }
     }
     return basePayments;
@@ -131,10 +184,10 @@ public isolated function loadDeliveries(string? customPath = ()) returns json[] 
             baseDeliveries = deliveries;
         }
     }
-    if customPath is () && baseDeliveries.length() > 0 {
+    if customPath is () && !isSeedFileExplicitlyEmpty(customPath) {
         json[] liveDeliveries = fetchLiveArray("DELIVERY_SERVICE_URL", "/deliveries");
-        foreach json item in liveDeliveries {
-            baseDeliveries.push(item);
+        if liveDeliveries.length() > 0 {
+            return mergeAndDeduplicate(baseDeliveries, liveDeliveries, "orderId");
         }
     }
     return baseDeliveries;

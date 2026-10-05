@@ -1,9 +1,25 @@
 import ballerina/lang.'runtime as runtime;
 import ballerina/log;
+import ballerina/os;
 import ballerina/time;
 import ballerinax/kafka;
 
+import peerpressure/events;
+
 configurable string kafkaBootstrapServers = "kafka:9092";
+
+isolated function getEffectivePaymentKafkaServers() returns string {
+    string envBroker = os:getEnv("KAFKA_BROKER");
+    if envBroker.trim() != "" {
+        return envBroker.trim();
+    }
+    string envServers = os:getEnv("KAFKA_BOOTSTRAP_SERVERS");
+    if envServers.trim() != "" {
+        return envServers.trim();
+    }
+    return kafkaBootstrapServers;
+}
+
 configurable string orderTopic = "orders.created";
 configurable string sharedOrdersTopic = "orders.events";
 configurable string orderCancelledTopic = "orders.cancelled";
@@ -29,7 +45,7 @@ class PaymentEventPublisher {
             if currentProducer is kafka:Producer {
                 check currentProducer->send({topic, key: orderId.toBytes(), value: payload.toBytes()});
             } else {
-                kafka:Producer newProducer = check new (kafkaBootstrapServers, {clientId: "payment-service"});
+                kafka:Producer newProducer = check new (getEffectivePaymentKafkaServers(), {clientId: "payment-service"});
                 self.producer = newProducer;
                 check newProducer->send({topic, key: orderId.toBytes(), value: payload.toBytes()});
             }
@@ -56,13 +72,13 @@ function runPaymentConsumers() returns error? {
 }
 
 function consumePaymentEvents() returns error? {
-    kafka:Consumer orderConsumer = check new (kafkaBootstrapServers, {
+    kafka:Consumer orderConsumer = check new (getEffectivePaymentKafkaServers(), {
         groupId: paymentConsumerGroup,
         offsetReset: "earliest",
         autoCommit: false
     });
     check orderConsumer->subscribe([orderTopic]);
-    kafka:Consumer refundConsumer = check new (kafkaBootstrapServers, {
+    kafka:Consumer refundConsumer = check new (getEffectivePaymentKafkaServers(), {
         groupId: refundConsumerGroup,
         offsetReset: "earliest",
         autoCommit: false
@@ -166,6 +182,7 @@ function processOrder(OrderCreatedMessage orderEvent) returns error? {
         return persistFailedOrder(orderEvent, idempotencyKey, currency, reason, outcome);
     }
 
+    string now = currentTimestamp();
     PaymentTransaction payment = {
         transactionId: orderEvent.orderId + "-charge",
         orderId: orderEvent.orderId,
@@ -175,8 +192,10 @@ function processOrder(OrderCreatedMessage orderEvent) returns error? {
         method: paymentMethod,
         status: COMPLETED,
         idempotencyKey,
-        createdAt: currentTimestamp()
+        createdAt: now,
+        completedAt: now
     };
+    recordInMemoryPayment(payment);
     check persistCharge(payment);
     check publishCompleted(payment);
 }
@@ -194,45 +213,68 @@ function persistFailedOrder(OrderCreatedMessage orderEvent, string key, string c
         idempotencyKey: key,
         createdAt: currentTimestamp()
     };
+    recordInMemoryPayment(payment);
     check persistCharge(payment);
-    PaymentFailedEvent event = {
-        eventId: payment.transactionId + "-failed",
-        transactionId: payment.transactionId,
+    check publishFailed(payment, reason, code);
+}
+
+public isolated function buildCompletedEvent(PaymentTransaction payment) returns PaymentCompletedEvent {
+    string payId = payment.paymentId ?: payment.transactionId;
+    string completedAt = payment.completedAt ?: payment.createdAt;
+    return {
+        eventId: payment.transactionId + "-completed",
+        paymentId: payId,
         orderId: payment.orderId,
         customerId: payment.customerId,
         amount: payment.amount,
         currency: payment.currency,
         paymentMethod: payment.method,
-        status: FAILED,
-        reason,
-        errorCode: code,
-        failedAt: payment.createdAt,
-        timestamp: payment.createdAt
+        transactionReference: payment.transactionId,
+        completedAt: completedAt
     };
-    check publishEvent(paymentsEventsTopic, event.orderId, event);
-    if publishDedicatedPaymentTopics {
-        check publishEvent(paymentsFailedTopic, event.orderId, event);
-    }
+}
+
+public isolated function buildFailedEvent(PaymentTransaction payment, string reason, string errorCode) returns PaymentFailedEvent {
+    return {
+        eventId: payment.transactionId + "-failed",
+        orderId: payment.orderId,
+        customerId: payment.customerId,
+        amount: payment.amount,
+        reason: reason,
+        errorCode: errorCode,
+        failedAt: payment.createdAt
+    };
+}
+
+public isolated function buildRefundedEvent(PaymentTransaction refund) returns PaymentRefundedEvent {
+    string payId = refund.paymentId ?: refund.transactionId;
+    return {
+        eventId: refund.transactionId + "-refunded",
+        paymentId: payId,
+        orderId: refund.orderId,
+        customerId: refund.customerId,
+        amount: refund.amount,
+        currency: refund.currency,
+        paymentMethod: refund.method,
+        refundedAt: refund.createdAt
+    };
 }
 
 function publishCompleted(PaymentTransaction payment) returns error? {
-    PaymentCompletedEvent event = {
-        eventId: payment.transactionId + "-completed",
-        paymentId: payment.transactionId,
-        transactionId: payment.transactionId,
-        orderId: payment.orderId,
-        customerId: payment.customerId,
-        amount: payment.amount,
-        currency: payment.currency,
-        paymentMethod: payment.method,
-        status: COMPLETED,
-        transactionReference: payment.transactionId,
-        completedAt: payment.createdAt,
-        timestamp: payment.createdAt
-    };
-    check publishEvent(paymentsEventsTopic, event.orderId, event);
+    PaymentCompletedEvent event = buildCompletedEvent(payment);
+    json payload = events:paymentCompletedToJson(event);
+    check publishEvent(paymentsEventsTopic, event.orderId, payload);
     if publishDedicatedPaymentTopics {
-        check publishEvent(paymentsCompletedTopic, event.orderId, event);
+        check publishEvent(paymentsCompletedTopic, event.orderId, payload);
+    }
+}
+
+function publishFailed(PaymentTransaction payment, string reason, string errorCode) returns error? {
+    PaymentFailedEvent event = buildFailedEvent(payment, reason, errorCode);
+    json payload = events:paymentFailedToJson(event);
+    check publishEvent(paymentsEventsTopic, event.orderId, payload);
+    if publishDedicatedPaymentTopics {
+        check publishEvent(paymentsFailedTopic, event.orderId, payload);
     }
 }
 
@@ -264,21 +306,10 @@ function refundOrder(string orderId, string reason) returns error? {
         idempotencyKey: refundKey,
         createdAt: currentTimestamp()
     };
+    recordInMemoryPayment(refund);
     check persistRefund(refund);
-    PaymentRefundedEvent event = {
-        eventId: refund.transactionId + "-refunded",
-        paymentId: refund.transactionId,
-        transactionId: refund.transactionId,
-        orderId,
-        customerId: refund.customerId,
-        amount: refund.amount,
-        currency: refund.currency,
-        paymentMethod: refund.method,
-        status: REFUNDED,
-        refundedAt: refund.createdAt,
-        timestamp: refund.createdAt
-    };
-    check publishEvent(paymentsRefundedTopic, orderId, event);
+    PaymentRefundedEvent event = buildRefundedEvent(refund);
+    check publishEvent(paymentsRefundedTopic, orderId, events:paymentRefundedToJson(event));
     log:printInfo("Payment refunded", orderId = orderId, reason = reason);
 }
 

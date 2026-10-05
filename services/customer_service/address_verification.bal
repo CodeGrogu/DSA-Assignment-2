@@ -1,3 +1,5 @@
+import ballerina/lang.'float as floats;
+
 public isolated function verifyCustomerAddress(
         AddressVerificationRequest request
 ) returns AddressVerificationResponse|error {
@@ -71,31 +73,13 @@ isolated function calculateDistanceKm(
     float longitudeDifference = lon1 - lon2;
 
     // Convert degree differences to kilometres around Windhoek (lat ~-22.56°).
-    // 1 deg latitude ≈ 111.0 km, 1 deg longitude ≈ 111.32 * cos(-22.5609°) ≈ 102.5 km.
-    float latitudeKm = latitudeDifference * 111.0;
-    float longitudeKm = longitudeDifference * 102.5;
+    // 1 deg latitude ≈ 111.32 km, 1 deg longitude ≈ 111.32 * cos(-22.5609°) ≈ 102.8 km.
+    float latitudeKm = latitudeDifference * 111.32;
+    float longitudeKm = longitudeDifference * 111.32 * 0.9235;
 
     float distanceSquared =
         (latitudeKm * latitudeKm) +
         (longitudeKm * longitudeKm);
 
-    return calculateSquareRoot(distanceSquared);
-}
-
-// Calculate square root using Newton-Raphson method.
-isolated function calculateSquareRoot(float value) returns float {
-
-    if value <= 0.0 {
-        return 0.0;
-    }
-
-    float guess = value > 1.0 ? value / 2.0 : 1.0;
-    int iterations = 10;
-
-    while iterations > 0 {
-        guess = (guess + (value / guess)) / 2.0;
-        iterations -= 1;
-    }
-
-    return guess;
+    return distanceSquared <= 0.0 ? 0.0 : floats:sqrt(distanceSquared);
 }

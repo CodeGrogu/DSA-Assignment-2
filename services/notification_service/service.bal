@@ -55,6 +55,9 @@ service / on httpListener {
                 });
             }
         }
+        if allRecords.length() == 0 {
+            return queryAuditFromMongo();
+        }
         return allRecords;
     }
 
@@ -75,6 +78,14 @@ service / on httpListener {
             }
         }
 
+        if matching.length() == 0 {
+            json[] mongoRecords = queryAuditFromMongo();
+            foreach json item in mongoRecords {
+                if item is map<json> && item["recipientId"] == id {
+                    matching.push(item);
+                }
+            }
+        }
         if matching.length() == 0 {
             return http:NOT_FOUND;
         }

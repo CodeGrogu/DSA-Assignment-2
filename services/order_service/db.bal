@@ -69,7 +69,7 @@ public class OrderStore {
         if self.isConnected {
             mongodb:Collection? coll = self.collectionInstance;
             if coll is mongodb:Collection {
-                Order?|error found = coll->findOne({orderId: orderId}, targetType = Order);
+                Order?|error found = coll->findOne({orderId: orderId}, projection = {"_id": 0}, targetType = Order);
                 if found is Order {
                     lock {
                         self.inMemoryStore[orderId] = found.clone();
@@ -81,8 +81,28 @@ public class OrderStore {
         return ();
     }
 
-    # Retrieves all orders in the store.
+    # Retrieves all orders in the store, merging persisted MongoDB documents when connected.
     public function listAll() returns Order[] {
+        if self.isConnected {
+            mongodb:Collection? coll = self.collectionInstance;
+            if coll is mongodb:Collection {
+                stream<Order, error?>|error dbStream = coll->find({}, projection = {"_id": 0}, targetType = Order);
+                if dbStream is stream<Order, error?> {
+                    while true {
+                         record {|Order value;|}|error? nextOrd = dbStream.next();
+                        if nextOrd is () || nextOrd is error {
+                            break;
+                        }
+                        Order dbOrd = nextOrd.value;
+                        lock {
+                            if !self.inMemoryStore.hasKey(dbOrd.orderId) {
+                                self.inMemoryStore[dbOrd.orderId] = dbOrd.clone();
+                            }
+                        }
+                    }
+                }
+            }
+        }
         Order[] orders = [];
         lock {
             foreach Order ord in self.inMemoryStore {
@@ -123,7 +143,7 @@ public class OrderStore {
         if existing is () && self.isConnected {
             mongodb:Collection? coll = self.collectionInstance;
             if coll is mongodb:Collection {
-                Order?|error dbFound = coll->findOne({orderId: orderId}, targetType = Order);
+                Order?|error dbFound = coll->findOne({orderId: orderId}, projection = {"_id": 0}, targetType = Order);
                 if dbFound is Order {
                     existing = dbFound;
                 }
@@ -171,12 +191,11 @@ public class OrderStore {
 
     # Returns the count of active unfulfilled orders (not in terminal states DELIVERED or CANCELLED).
     public function getUnfulfilledOrderCount() returns int {
+        Order[] allOrders = self.listAll();
         int count = 0;
-        lock {
-            foreach Order ord in self.inMemoryStore {
-                if ord.status != events:DELIVERED && ord.status != events:CANCELLED {
-                    count += 1;
-                }
+        foreach Order ord in allOrders {
+            if ord.status != events:DELIVERED && ord.status != events:CANCELLED {
+                count += 1;
             }
         }
         return count;

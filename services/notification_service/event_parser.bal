@@ -164,7 +164,7 @@ isolated function inferEventType(map<json> data, string? topic) returns string? 
         return "delivery.completed";
     }
 
-    if data.hasKey("slaBreached") || data.hasKey("sla_breach") {
+    if data.hasKey("slaBreachAt") || data.hasKey("slaBreached") || data.hasKey("sla_breach") {
         return "delivery.sla_breach";
     }
 
@@ -188,18 +188,12 @@ isolated function inferEventType(map<json> data, string? topic) returns string? 
                 return "order.cancelled";
             }
             "COMPLETED" => {
-                if data.hasKey("paymentId") || data.hasKey("transactionId") || topic == "payments.completed" {
-                    return "payment.completed";
-                }
                 if data.hasKey("deliveryId") || topic == "delivery.status" {
                     return "delivery.completed";
                 }
                 return "payment.completed";
             }
             "FAILED" => {
-                if data.hasKey("paymentId") || data.hasKey("errorCode") || topic == "payments.failed" {
-                    return "payment.failed";
-                }
                 return "payment.failed";
             }
             "ASSIGNED" => {
@@ -213,13 +207,6 @@ isolated function inferEventType(map<json> data, string? topic) returns string? 
             }
             _ => {
             }
-        }
-    }
-
-    // Check paymentId with completedAt or status
-    if data.hasKey("paymentId") {
-        if data.hasKey("completedAt") {
-            return "payment.completed";
         }
     }
 
@@ -249,6 +236,9 @@ isolated function inferEventType(map<json> data, string? topic) returns string? 
             }
             "delivery.assigned" => {
                 return "delivery.assigned";
+            }
+            "delivery.sla_breach" => {
+                return "delivery.sla_breach";
             }
             "delivery.status" => {
                 if data.hasKey("deliveredAt") {
@@ -317,9 +307,4 @@ isolated function getStringField(map<json> data, string fieldName) returns strin
         }
     }
     return ();
-}
-
-// Parse a JSON string. Small wrapper so we can add logging later.
-function payloadFromJson(string text) returns json|error {
-    return text.fromJsonString();
 }

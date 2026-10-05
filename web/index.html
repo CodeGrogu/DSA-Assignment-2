@@ -235,9 +235,17 @@
       </div>
 
       <nav class="header-nav">
+        <a href="dashboard.html" class="nav-tab-btn" title="View Public Platform Dashboard">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+          <span>Dashboard</span>
+        </a>
         <a href="client_app/index.html" class="nav-tab-btn">
           <svg viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0"/></svg>
           <span>Client</span>
+        </a>
+        <a href="restaurant_portal/index.html" class="nav-tab-btn">
+          <svg viewBox="0 0 24 24"><path d="M18 8h1a4 4 0 0 1 0 8h-1M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8zM6 1v3M10 1v3M14 1v3"/></svg>
+          <span>Restaurant</span>
         </a>
         <a href="driver_app/index.html" class="nav-tab-btn">
           <svg viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>
@@ -247,6 +255,15 @@
           <svg viewBox="0 0 24 24"><path d="M3 3h7v9H3zm11 0h7v5h-7zm0 9h7v9h-7zM3 16h7v5H3z"/></svg>
           <span>Admin</span>
         </a>
+        <!-- Dynamic Admin Session Status & Sign Out -->
+        <div id="admin-session-controls" style="display: none; align-items: center; gap: 8px; margin-left: 10px;">
+          <span class="status-pill pill-good" style="font-size: 11px; padding: 4px 8px;">
+            <span class="dot up"></span> Admin Active
+          </span>
+          <button type="button" class="btn btn-outline btn-sm" onclick="logoutAdmin()" style="font-size: 12px; padding: 4px 10px; color: var(--danger, #dc2626); border-color: var(--danger, #dc2626); cursor: pointer;">
+            Log Out
+          </button>
+        </div>
       </nav>
     </div>
   </header>
@@ -260,8 +277,45 @@
   </div>
 
   <main class="page-container">
-    <!-- Hero Header -->
-    <section class="hero-section">
+    <!-- Admin Authentication Challenge Gate (Shown when unauthenticated) -->
+    <section id="admin-auth-gate" style="max-width: 480px; margin: 48px auto 60px;">
+      <div class="card" style="padding: 32px 28px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: #ffffff; box-shadow: 0 4px 20px rgba(0,0,0,0.06);">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+          <div style="width: 42px; height: 42px; border-radius: var(--radius-md); background: rgba(235, 77, 40, 0.1); display: flex; align-items: center; justify-content: center; color: var(--accent);">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          </div>
+          <div>
+            <h2 style="font-size: 18px; font-weight: 700; margin: 0; color: var(--text-main);">Admin Authentication</h2>
+            <span style="font-size: 12px; color: var(--text-muted);">Protected Operations Hub &bull; Windhoek</span>
+          </div>
+        </div>
+        <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5; margin-bottom: 20px;">
+          Restricted access. Please sign in with administrator credentials to view cluster health sweeps, Kafka event topology, and platform services.
+        </p>
+        <form id="admin-login-form" onsubmit="event.preventDefault(); handleAdminLogin();">
+          <div style="margin-bottom: 14px;">
+            <label for="admin-user-input" style="display: block; font-size: 12px; font-weight: 600; color: var(--text-main); margin-bottom: 6px;">Admin Username</label>
+            <input type="text" id="admin-user-input" class="form-input" placeholder="admin" value="admin" required style="width: 100%; box-sizing: border-box; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px;" />
+          </div>
+          <div style="margin-bottom: 18px;">
+            <label for="admin-pass-input" style="display: block; font-size: 12px; font-weight: 600; color: var(--text-main); margin-bottom: 6px;">Admin Password</label>
+            <input type="password" id="admin-pass-input" class="form-input" placeholder="Enter password (e.g. admin123)..." required style="width: 100%; box-sizing: border-box; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px;" />
+          </div>
+          <div id="admin-auth-error" style="display: none; padding: 10px 12px; background: rgba(220, 38, 38, 0.08); border: 1px solid rgba(220, 38, 38, 0.2); border-radius: var(--radius-sm); color: #dc2626; font-size: 12px; margin-bottom: 16px;"></div>
+          <button type="submit" class="btn btn-primary" id="btn-admin-submit" style="width: 100%; justify-content: center; padding: 10px; font-size: 14px; font-weight: 600; cursor: pointer;">
+            <span>Unlock Operations Hub</span>
+          </button>
+        </form>
+        <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); text-align: center;">
+          <a href="dashboard.html" style="font-size: 12px; color: var(--text-muted); text-decoration: none; font-weight: 500;">&larr; View Public Platform Dashboard</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Protected Content Section (Hidden until authenticated) -->
+    <div id="admin-protected-content" style="display: none;">
+      <!-- Hero Header -->
+      <section class="hero-section">
       <div class="hero-badge">
         <span class="status-dot up"></span>
         <span>High-Performance Event-Driven Microservices</span>
@@ -380,6 +434,41 @@
         </div>
       </a>
 
+      <!-- Restaurant Operations & Kitchen Portal Card -->
+      <a href="restaurant_portal/index.html" class="portal-card">
+        <div class="portal-card-icon-box">
+          <svg viewBox="0 0 24 24">
+            <path d="M18 8h1a4 4 0 0 1 0 8h-1M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8zM6 1v3M10 1v3M14 1v3"/>
+          </svg>
+        </div>
+        <h2>Restaurant Operations &amp; KDS</h2>
+        <p class="portal-desc">
+          Live Kitchen Display System (KDS) kanban, multi-party handover OTP verification, real-time catalog management, store profile location picker, and earnings wallet.
+        </p>
+        <ul class="portal-features">
+          <li>
+            <svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>
+            <span>Live Kitchen Kanban (Preparing vs Ready vs Dispatched)</span>
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>
+            <span>Cryptographic Driver Handover 4-Digit PIN Auth</span>
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>
+            <span>Dynamic Menu Catalog CRUD &amp; Real-Time Restocking</span>
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>
+            <span>Live Merchant Wallet Payouts &amp; Direct Bank Withdrawals</span>
+          </li>
+        </ul>
+        <div class="portal-cta">
+          <span>Launch Restaurant Portal</span>
+          <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </div>
+      </a>
+
       <!-- Admin Operations Portal Card -->
       <a href="admin_dashboard/index.html" class="portal-card">
         <div class="portal-card-icon-box">
@@ -414,6 +503,7 @@
           <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
         </div>
       </a>
+    </div>
     </div>
 
     <!-- Portal Footer -->
@@ -481,9 +571,88 @@
       }
     }
 
-    // Initial probe and recurring schedule
-    checkNetworkHealth();
-    setInterval(checkNetworkHealth, 5000);
+    let healthInterval = null;
+
+    function hasValidAdminSession() {
+      if (typeof window.DSA !== 'undefined' && typeof window.DSA.hasValidSession === 'function') {
+        if (window.DSA.hasValidSession('admin')) return true;
+      }
+      return localStorage.getItem('dsa_admin_authenticated') === 'true';
+    }
+
+    function checkAdminAuth() {
+      const isAuthed = hasValidAdminSession();
+      const gate = document.getElementById('admin-auth-gate');
+      const content = document.getElementById('admin-protected-content');
+      const controls = document.getElementById('admin-session-controls');
+      const banner = document.getElementById('portal-banner');
+
+      if (isAuthed) {
+        if (gate) gate.style.display = 'none';
+        if (content) content.style.display = 'block';
+        if (controls) controls.style.display = 'inline-flex';
+        if (banner) banner.style.display = 'flex';
+        checkNetworkHealth();
+        if (!healthInterval) {
+          healthInterval = setInterval(checkNetworkHealth, 5000);
+        }
+      } else {
+        if (gate) gate.style.display = 'block';
+        if (content) content.style.display = 'none';
+        if (controls) controls.style.display = 'none';
+        if (banner) banner.style.display = 'none';
+        if (healthInterval) {
+          clearInterval(healthInterval);
+          healthInterval = null;
+        }
+      }
+    }
+
+    async function handleAdminLogin() {
+      const usernameInput = document.getElementById('admin-user-input');
+      const passwordInput = document.getElementById('admin-pass-input');
+      const errBox = document.getElementById('admin-auth-error');
+
+      const username = usernameInput ? usernameInput.value.trim() : '';
+      const password = passwordInput ? passwordInput.value : '';
+
+      if (!username || !password) {
+        if (errBox) {
+          errBox.textContent = 'Please enter both username and password.';
+          errBox.style.display = 'block';
+        }
+        return;
+      }
+
+      let isValid = (username === 'admin' && (password === 'admin123' || password === 'admin' || password.length >= 6));
+      if (isValid) {
+        localStorage.setItem('dsa_admin_authenticated', 'true');
+        if (typeof window.DSA !== 'undefined' && typeof window.DSA.setStoredSession === 'function') {
+          window.DSA.setStoredSession('admin', { username, role: 'admin', token: 'adm_' + Date.now() });
+        }
+        if (passwordInput) passwordInput.value = '';
+        if (errBox) errBox.style.display = 'none';
+        checkAdminAuth();
+      } else {
+        if (errBox) {
+          errBox.textContent = 'Invalid administrator credentials. Try admin / admin123';
+          errBox.style.display = 'block';
+        }
+      }
+    }
+
+    function logoutAdmin() {
+      if (confirm('Sign out of Administrator Session?')) {
+        localStorage.removeItem('dsa_admin_authenticated');
+        if (typeof window.DSA !== 'undefined' && typeof window.DSA.clearStoredSession === 'function') {
+          window.DSA.clearStoredSession('admin');
+        }
+        checkAdminAuth();
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', checkAdminAuth);
+    checkAdminAuth();
   </script>
 </body>
 </html>

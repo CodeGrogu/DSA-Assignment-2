@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Restaurant Operations Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+  <!-- Leaflet CSS for Map GPS Picker -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="../shared.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="restaurant-theme">
+
+  <!-- TOP FLOATING HEADER -->
+  <header class="rest-header">
+    <div class="rest-header-inner">
+      <!-- Brand & Active Restaurant Identity (Strict Tenant Isolation) -->
+      <div class="rest-brand-group">
+        <div class="rest-brand-badge" title="Restaurant Operations">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 8h1a4 4 0 0 1 0 8h-1M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8zM6 1v3M10 1v3M14 1v3"/>
+          </svg>
+        </div>
+        <div class="rest-title-wrap">
+          <span class="rest-store-name" id="rest-store-name">Kapana Corner (Single Quarters)</span>
+          <span class="rest-badge-pill" id="rest-id-badge">Live Kitchen</span>
+        </div>
+      </div>
+
+      <!-- Segmented Navigation (Integrated into Main Header) -->
+      <nav class="rest-nav-segmented" role="tablist" aria-label="Portal Navigation">
+        <button type="button" role="tab" class="subnav-tab nav-segment-btn active" data-tab="tab-kds" onclick="switchTab('tab-kds')">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M15 3v18"/></svg>
+          <span>Kitchen Kanban</span>
+          <span class="tab-badge" id="kds-active-count">0</span>
+        </button>
+
+        <button type="button" role="tab" class="subnav-tab nav-segment-btn" data-tab="tab-menu" onclick="switchTab('tab-menu')">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+          <span>Menu &amp; Stock</span>
+          <span class="tab-badge" id="menu-items-count">0</span>
+        </button>
+
+        <button type="button" role="tab" class="subnav-tab nav-segment-btn" data-tab="tab-profile" onclick="switchTab('tab-profile')">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <span>Store Profile &amp; Location</span>
+        </button>
+      </nav>
+
+      <!-- Right Header Actions: Status, Informative Balance, Refresh & Hub -->
+      <div class="rest-header-actions">
+        <!-- Live Microservice Mesh Status Pill -->
+        <div class="rest-system-status status-online" id="rest-system-status" title="Microservice Mesh Connectivity">
+          <span class="pulse-dot"></span>
+          <span class="status-label" id="rest-status-text">Online</span>
+        </div>
+
+        <!-- Informative Merchant Balance Button -->
+        <button type="button" class="rest-balance-btn" onclick="openWalletDrawer()" title="View Merchant Wallet &amp; Payout Settlements">
+          <div class="balance-btn-icon">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+              <line x1="1" y1="10" x2="23" y2="10"></line>
+            </svg>
+          </div>
+          <div class="balance-btn-text">
+            <span class="balance-label">Merchant Balance</span>
+            <span class="balance-amount text-mono" id="header-wallet-balance">N$ 0.00</span>
+          </div>
+        </button>
+
+        <!-- Force Refresh -->
+        <button type="button" class="rest-icon-btn" onclick="refreshAllPortalData(true)" title="Force Refresh Live Data">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <polyline points="1 20 1 14 7 14"></polyline>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+          </svg>
+        </button>
+
+        <!-- Dynamic Restaurant Auth Actions -->
+        <button type="button" class="btn btn-outline btn-sm" id="btn-rest-logout" onclick="logoutRestaurant()" style="display: none;">
+          <span>Sign Out</span>
+        </button>
+        <button type="button" class="btn btn-primary btn-sm" id="btn-rest-signin" onclick="openRestaurantLoginModal()" style="display: none;">
+          <span>Restaurant Sign In</span>
+        </button>
+
+        <!-- Return to Central Hub -->
+        <a href="../index.html" class="rest-icon-btn" title="Back to Central Portal Hub">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+          </svg>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="rest-main">
+
+    <!-- ==================================================================== -->
+    <!-- TAB 1: KITCHEN DISPLAY SYSTEM (KDS) KANBAN -->
+    <!-- ==================================================================== -->
+    <section class="tab-pane active" id="tab-kds">
+      <div class="kds-header-bar">
+        <div>
+          <h2>Kitchen Order Queue</h2>
+          <p class="section-subtitle">Real-time order state progression, prep timers, and driver pickup handovers</p>
+        </div>
+        <div class="kds-summary-stats">
+          <div class="kds-stat-pill">
+            <span class="stat-dot dot-preparing"></span>
+            <span>Preparing: <strong id="count-stat-preparing">0</strong></span>
+          </div>
+          <div class="kds-stat-pill">
+            <span class="stat-dot dot-ready"></span>
+            <span>Ready for Pickup: <strong id="count-stat-ready">0</strong></span>
+          </div>
+          <div class="kds-stat-pill">
+            <span class="stat-dot dot-completed"></span>
+            <span>Handed Over: <strong id="count-stat-completed">0</strong></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- KANBAN BOARD -->
+      <div class="kanban-grid">
+        <!-- COLUMN 1: In Kitchen / Preparing -->
+        <div class="kanban-column column-preparing">
+          <div class="kanban-col-header">
+            <div class="col-title-group">
+              <span class="col-indicator-dot dot-preparing"></span>
+              <h3>In Kitchen / Preparing</h3>
+            </div>
+            <span class="col-count-badge" id="col-count-preparing">0</span>
+          </div>
+          <div class="kanban-cards-container" id="kanban-container-preparing" ondragover="handleKanbanDragOver(event)" ondragleave="handleKanbanDragLeave(event)" ondrop="handleKanbanDrop(event, 'PREPARING')">
+            <div class="empty-kanban-placeholder">
+              <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+              <p>No orders currently preparing</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- COLUMN 2: Ready for Courier Pickup -->
+        <div class="kanban-column column-ready">
+          <div class="kanban-col-header">
+            <div class="col-title-group">
+              <span class="col-indicator-dot dot-ready"></span>
+              <h3>Ready for Pick-Up</h3>
+            </div>
+            <span class="col-count-badge" id="col-count-ready">0</span>
+          </div>
+          <div class="kanban-cards-container" id="kanban-container-ready" ondragover="handleKanbanDragOver(event)" ondragleave="handleKanbanDragLeave(event)" ondrop="handleKanbanDrop(event, 'READY')">
+            <div class="empty-kanban-placeholder">
+              <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              <p>No orders awaiting driver pickup</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- COLUMN 3: Dispatched / Handed Over -->
+        <div class="kanban-column column-completed">
+          <div class="kanban-col-header">
+            <div class="col-title-group">
+              <span class="col-indicator-dot dot-completed"></span>
+              <h3>Collected &amp; En Route</h3>
+            </div>
+            <span class="col-count-badge" id="col-count-completed">0</span>
+          </div>
+          <div class="kanban-cards-container" id="kanban-container-completed" ondragover="handleKanbanDragOver(event)" ondragleave="handleKanbanDragLeave(event)" ondrop="handleKanbanDrop(event, 'COMPLETED')">
+            <div class="empty-kanban-placeholder">
+              <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>
+              <p>No recently dispatched orders</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================================================================== -->
+    <!-- TAB 2: MENU CATALOG & STOCK MANAGEMENT -->
+    <!-- ==================================================================== -->
+    <section class="tab-pane" id="tab-menu">
+      <div class="menu-header-bar">
+        <div>
+          <h2>Menu Catalog &amp; Live Stock</h2>
+          <p class="section-subtitle">Real-time inventory levels, dynamic pricing, and dish creation</p>
+        </div>
+        <div class="menu-actions">
+          <button type="button" class="btn-primary-action" onclick="openAddDishModal()">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            <span>Add New Dish</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Modern Inventory KPI Strip -->
+      <div class="menu-kpi-bar">
+        <div class="kpi-card">
+          <span class="kpi-num text-mono" id="kpi-total-items">0</span>
+          <span class="kpi-lbl">Total Dishes</span>
+        </div>
+        <div class="kpi-card kpi-success">
+          <span class="kpi-num text-mono" id="kpi-in-stock">0</span>
+          <span class="kpi-lbl">In Stock</span>
+        </div>
+        <div class="kpi-card kpi-warning">
+          <span class="kpi-num text-mono" id="kpi-low-stock">0</span>
+          <span class="kpi-lbl">Low Stock (&le;10)</span>
+        </div>
+        <div class="kpi-card kpi-danger">
+          <span class="kpi-num text-mono" id="kpi-sold-out">0</span>
+          <span class="kpi-lbl">Sold Out</span>
+        </div>
+      </div>
+
+      <!-- Minimalist Filter & Search Bar -->
+      <div class="menu-filter-bar">
+        <div class="filter-search-group">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <input type="text" id="menu-search-input" class="form-input" placeholder="Search dishes by name or description..." oninput="handleMenuFilterChange()" />
+        </div>
+        <div class="filter-select-group">
+          <select id="menu-category-filter" class="form-input" onchange="handleMenuFilterChange()">
+            <option value="ALL">All Categories</option>
+          </select>
+          <select id="menu-stock-filter" class="form-input" onchange="handleMenuFilterChange()">
+            <option value="ALL">All Stock Levels</option>
+            <option value="IN_STOCK">In Stock</option>
+            <option value="LOW_STOCK">Low Stock (&le;10)</option>
+            <option value="SOLD_OUT">Sold Out (0)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Menu Categories and Dish Cards -->
+      <div class="menu-categories-wrap" id="menu-categories-wrap">
+        <div class="loading-state-box">Loading restaurant menu from database...</div>
+      </div>
+    </section>
+
+    <!-- ==================================================================== -->
+    <!-- TAB 3: STORE PROFILE & LEAFLET GPS PICKER -->
+    <!-- ==================================================================== -->
+    <section class="tab-pane" id="tab-profile">
+      <!-- Full Viewport Interactive Background Map -->
+      <div id="restaurant-map" class="restaurant-map-background"></div>
+
+      <!-- Recenter Store Pin Floating Action Button -->
+      <button type="button" class="map-recenter-fab" onclick="recenterStoreMap()" title="Center Map on Store Location">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/>
+        </svg>
+        <span>Center Store Pin</span>
+      </button>
+
+      <!-- Floating Glassmorphic Profile & Hours Card -->
+      <aside class="profile-floating-panel" id="profile-floating-panel">
+        <div class="panel-header">
+          <div class="panel-title-wrap">
+            <div class="panel-badge">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            </div>
+            <div>
+              <h3>Store Profile &amp; Location</h3>
+              <p class="panel-subtitle">Windhoek GPS Dispatch Anchor</p>
+            </div>
+          </div>
+          <div class="panel-header-actions">
+            <button type="button" class="btn-panel-toggle" id="btn-toggle-hours" onclick="toggleHoursCollapse()" title="Toggle Operating Hours">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" id="icon-toggle-hours"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="panel-body">
+          <div class="form-group">
+            <label for="prof-name">Restaurant Brand Name</label>
+            <input type="text" id="prof-name" class="form-input" placeholder="e.g. Kapana Corner" />
+          </div>
+
+          <div class="form-group">
+            <label for="prof-address">Street Address</label>
+            <input type="text" id="prof-address" class="form-input" placeholder="e.g. Single Quarters, Katutura, Windhoek" />
+          </div>
+
+          <div class="form-group">
+            <label for="prof-contact">Official Phone Contact</label>
+            <input type="text" id="prof-contact" class="form-input text-mono" placeholder="+264 81 111 2222" />
+          </div>
+
+          <!-- Hidden GPS Coordinates (Map-Driven Selection) -->
+          <input type="hidden" id="prof-lat" />
+          <input type="hidden" id="prof-lon" />
+
+          <!-- Map Pin Selection Guidance Box -->
+          <div class="map-pin-hint-box">
+            <div class="map-pin-hint-icon">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                <circle cx="12" cy="10" r="3"></circle>
+              </svg>
+            </div>
+            <div class="map-pin-hint-text">
+              <div class="map-pin-hint-title">Click map or drag pin to update store location</div>
+              <div class="map-pin-hint-desc">Dispatch routing and courier delivery ETAs are calculated from this exact GPS pin.</div>
+            </div>
+          </div>
+
+          <!-- Collapsible Operating Hours -->
+          <div class="collapsible-section" id="profile-hours-collapsible">
+            <label class="section-label">Weekly Operating Hours</label>
+            <div class="operating-hours-table" id="operating-hours-list">
+              <!-- Dynamically populated rows -->
+            </div>
+          </div>
+
+          <!-- Settings & Danger Zone -->
+          <div class="danger-zone-section" id="profile-danger-zone" style="margin-top: 24px; padding-top: 18px; border-top: 1px solid rgba(239, 68, 68, 0.25);">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#ef4444" stroke-width="2">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/>
+                <line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+              <h4 style="margin: 0; color: #ef4444; font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Settings &amp; Danger Zone</h4>
+            </div>
+            <p style="margin: 0 0 12px 0; font-size: 0.8rem; color: var(--text-muted, #8b949e); line-height: 1.4;">
+              Irreversible account action. Permanently purges restaurant profile, active menu catalog, and branch routing coordinates.
+            </p>
+            <button type="button" class="btn-danger-action btn-block" id="btn-open-delete-restaurant" onclick="openDeleteRestaurantModal()" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.4); padding: 10px 16px; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s ease;">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                <line x1="10" y1="11" x2="10" y2="17"></line>
+                <line x1="14" y1="11" x2="14" y2="17"></line>
+              </svg>
+              <span>Permanently Delete Restaurant Account &amp; Menu Catalog</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="panel-footer">
+          <button type="button" class="btn-primary-action btn-block" onclick="saveStoreProfile()">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+            <span>Save Changes &amp; Pin</span>
+          </button>
+        </div>
+      </aside>
+    </section>
+
+  </main>
+
+  <!-- ==================================================================== -->
+  <!-- MODAL: HANDOVER VERIFICATION (4-DIGIT PIN AUTH) -->
+  <!-- ==================================================================== -->
+  <div class="modal-backdrop" id="handover-modal-backdrop" style="display: none;">
+    <div class="handover-modal-card">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div class="modal-icon-badge">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <div>
+            <h3>Driver Handover Verification</h3>
+            <p>Authenticate courier pickup with order 4-digit PIN</p>
+          </div>
+        </div>
+        <button type="button" class="btn-modal-close" onclick="closeHandoverModal()">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="handover-order-summary">
+          <div class="summary-line">
+            <span class="summary-label">Order Reference:</span>
+            <span class="summary-val text-mono" id="modal-handover-order-id">ORD-—</span>
+          </div>
+          <div class="summary-line">
+            <span class="summary-label">Customer:</span>
+            <span class="summary-val" id="modal-handover-customer-name">Customer</span>
+          </div>
+          <div class="summary-line">
+            <span class="summary-label">Client Phone Suffix:</span>
+            <span class="summary-val text-mono" id="modal-handover-client-suffix">...2222</span>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top: 16px;">
+          <label for="handover-pin-input">Enter 4-Digit Driver Handover PIN</label>
+          <input
+            type="text"
+            id="handover-pin-input"
+            class="pin-input text-mono"
+            maxlength="4"
+            placeholder="••••"
+            autocomplete="off"
+          />
+          <span class="form-hint">Driver displays this PIN on their active dispatch screen upon arrival.</span>
+        </div>
+
+        <div id="handover-error-alert" class="alert-box alert-danger" style="display: none;"></div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary-action" onclick="closeHandoverModal()">Cancel</button>
+        <button type="button" class="btn-primary-action" onclick="submitHandoverVerification()">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+          <span>Verify &amp; Handover</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================================================================== -->
+  <!-- MODAL: ADD NEW DISH (2-COLUMN LIVE DINER PREVIEW STUDIO) -->
+  <!-- ==================================================================== -->
+  <div class="modal-backdrop" id="dish-modal-backdrop" style="display: none;">
+    <div class="dish-modal-card">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <h3 id="dish-modal-title">Add Dish to Menu</h3>
+          <p id="dish-modal-subtitle">Create a new item in the restaurant's active menu catalog</p>
+        </div>
+        <button type="button" class="btn-modal-close" onclick="closeAddDishModal()">&times;</button>
+      </div>
+
+      <div class="dish-modal-split">
+        <!-- LEFT COLUMN: Form Inputs & Presets -->
+        <div class="dish-form-col" id="dish-studio-form">
+          <input type="hidden" id="dish-edit-id" value="" />
+          <input type="hidden" id="dish-edit-cat-id" value="" />
+          <!-- Category Selector & Preset Chips -->
+          <div class="form-group">
+            <label for="dish-category">Menu Category</label>
+            <div class="chip-select-group" id="dish-category-chips">
+              <!-- Dynamically populated category chips -->
+            </div>
+            <select id="dish-category" class="form-input" onchange="updateLiveDishPreview()"></select>
+          </div>
+
+          <div class="form-group">
+            <label for="dish-name">Dish Title</label>
+            <input type="text" id="dish-name" class="form-input" placeholder="e.g. Flame-Grilled Ribeye" oninput="updateLiveDishPreview()" />
+          </div>
+
+          <div class="form-group">
+            <label for="dish-desc">Description</label>
+            <textarea id="dish-desc" class="form-textarea" rows="2" placeholder="Ingredients, prep details..." oninput="updateLiveDishPreview()"></textarea>
+          </div>
+
+          <div class="form-row-2">
+            <div class="form-group">
+              <label for="dish-price">Price (N$)</label>
+              <input type="number" step="0.50" id="dish-price" class="form-input text-mono" placeholder="85.00" oninput="updateLiveDishPreview()" />
+            </div>
+            <div class="form-group">
+              <label for="dish-stock">Stock Quantity</label>
+              <input type="number" min="0" id="dish-stock" class="form-input text-mono" placeholder="50" value="50" oninput="updateLiveDishPreview()" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="dish-low-threshold">Low Stock Alert Threshold</label>
+            <input type="number" min="0" id="dish-low-threshold" class="form-input text-mono" placeholder="10" value="10" oninput="updateLiveDishPreview()" />
+          </div>
+
+          <!-- Dietary Tags Multi-Select Chips -->
+          <div class="form-group">
+            <label>Dietary Attributes</label>
+            <div class="dietary-chip-group" id="dish-dietary-chips">
+              <button type="button" class="diet-chip" data-tag="Halal" onclick="toggleDietaryChip(this)">Halal</button>
+              <button type="button" class="diet-chip" data-tag="High-Protein" onclick="toggleDietaryChip(this)">High-Protein</button>
+              <button type="button" class="diet-chip" data-tag="Vegetarian" onclick="toggleDietaryChip(this)">Vegetarian</button>
+              <button type="button" class="diet-chip" data-tag="Vegan" onclick="toggleDietaryChip(this)">Vegan</button>
+              <button type="button" class="diet-chip" data-tag="Gluten-Free" onclick="toggleDietaryChip(this)">Gluten-Free</button>
+              <button type="button" class="diet-chip" data-tag="Nut-Free" onclick="toggleDietaryChip(this)">Nut-Free</button>
+            </div>
+            <input type="hidden" id="dish-dietary" value="" />
+          </div>
+
+          <!-- 8 Curated Photo Presets -->
+          <div class="form-group">
+            <label>Curated Photo Presets (1-Click Selection)</label>
+            <div class="photo-preset-grid" id="dish-photo-presets">
+              <!-- Curated photo thumbnails -->
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="dish-image-url">Custom Image URL</label>
+            <input type="url" id="dish-image-url" class="form-input" placeholder="https://images.unsplash.com/..." oninput="handleImageUrlInput(this.value)" />
+          </div>
+        </div>
+
+        <!-- RIGHT COLUMN: Live Diner App Card Preview -->
+        <div class="dish-preview-col">
+          <div class="diner-preview-wrap">
+            <div class="preview-label">Live Diner App Preview</div>
+            <div class="dish-preview-card" id="dish-live-preview-card">
+              <!-- Dynamically synchronized live preview -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary-action" onclick="closeAddDishModal()">Cancel</button>
+        <button type="button" class="btn-primary-action" id="btn-submit-dish" onclick="submitDishStudio()">
+          <span id="btn-submit-dish-text">Save Item to Catalog</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================================================================== -->
+  <!-- MODAL: RESTAURANT LOGIN -->
+  <!-- ==================================================================== -->
+  <div class="modal-backdrop" id="restaurant-login-modal" style="display: none;">
+    <div class="handover-modal-card" style="max-width: 440px;">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div class="modal-icon-badge">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 8h1a4 4 0 0 1 0 8h-1M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8zM6 1v3M10 1v3M14 1v3"/>
+            </svg>
+          </div>
+          <div>
+            <h3>Restaurant Sign In</h3>
+            <p>Access Order Management &amp; Store Operations</p>
+          </div>
+        </div>
+        <button type="button" class="btn-modal-close" onclick="closeRestaurantLoginModal()">&times;</button>
+      </div>
+
+      <form id="restaurant-login-form" onsubmit="handleRestaurantLogin(event)">
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="rest-login-id">Restaurant ID / Manager Email</label>
+            <input
+              type="text"
+              id="rest-login-id"
+              name="rest-login-id"
+              class="form-input"
+              placeholder="e.g. R001 or manager@kapanacorner.na"
+              autocomplete="username"
+              required
+            />
+          </div>
+
+          <div class="form-group" style="margin-top: 14px;">
+            <label for="rest-login-password">Password</label>
+            <div style="position: relative; display: flex; align-items: center;">
+              <input
+                type="password"
+                id="rest-login-password"
+                name="rest-login-password"
+                class="form-input"
+                placeholder="Enter password"
+                autocomplete="current-password"
+                required
+                style="padding-right: 42px;"
+              />
+              <button
+                type="button"
+                id="btn-toggle-login-pass"
+                class="btn-icon-toggle"
+                onclick="togglePasswordVisibility('rest-login-password', this)"
+                style="position: absolute; right: 8px; background: none; border: none; cursor: pointer; color: var(--text-muted, #8b949e); padding: 4px; display: flex; align-items: center;"
+                title="Toggle password visibility"
+              >
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div id="rest-login-error" class="alert-box alert-danger" style="display: none; margin-top: 12px;"></div>
+
+          <div style="margin-top: 16px; text-align: center; font-size: 0.85rem;">
+            <span>New restaurant partner? </span>
+            <a href="javascript:void(0)" onclick="closeRestaurantLoginModal(); openRestaurantOnboardingModal();" style="color: var(--primary, #f59e0b); font-weight: 600; text-decoration: underline;">
+              Start Restaurant Onboarding
+            </a>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary-action" onclick="closeRestaurantLoginModal()">Cancel</button>
+          <button type="submit" class="btn-primary-action" id="btn-submit-rest-login">
+            <span>Sign In</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================================================================== -->
+  <!-- MODAL: 5-STEP RESTAURANT ONBOARDING WIZARD -->
+  <!-- ==================================================================== -->
+  <div class="modal-backdrop" id="restaurant-onboarding-modal" style="display: none;">
+    <div class="handover-modal-card wizard-modal-card" style="max-width: 680px; width: 100%; max-height: 90vh; overflow-y: auto;">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div class="modal-icon-badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b;">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+            </svg>
+          </div>
+          <div>
+            <h3>Restaurant Partner Onboarding</h3>
+            <p>5-step automated registration for the Windhoek delivery grid</p>
+          </div>
+        </div>
+        <button type="button" class="btn-modal-close" onclick="closeRestaurantOnboardingModal()">&times;</button>
+      </div>
+
+      <!-- Stepper Indicator -->
+      <div class="onboarding-stepper" style="display: flex; justify-content: space-between; margin-bottom: 24px; padding: 0 8px;">
+        <div class="stepper-step active" id="onboard-step-pill-1" data-step="1" style="flex: 1; text-align: center;">
+          <div class="step-num" style="width: 32px; height: 32px; border-radius: 50%; background: var(--primary, #f59e0b); color: #000; font-weight: 700; display: flex; align-items: center; justify-content: center; margin: 0 auto 6px auto; font-size: 0.85rem;">1</div>
+          <div class="step-name" style="font-size: 0.75rem; font-weight: 600;">Brand &amp; Auth</div>
+        </div>
+        <div class="stepper-step" id="onboard-step-pill-2" data-step="2" style="flex: 1; text-align: center;">
+          <div class="step-num" style="width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.1); color: var(--text-muted, #8b949e); font-weight: 700; display: flex; align-items: center; justify-content: center; margin: 0 auto 6px auto; font-size: 0.85rem;">2</div>
+          <div class="step-name" style="font-size: 0.75rem; font-weight: 500; color: var(--text-muted, #8b949e);">Windhoek GPS</div>
+        </div>
+        <div class="stepper-step" id="onboard-step-pill-3" data-step="3" style="flex: 1; text-align: center;">
+          <div class="step-num" style="width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.1); color: var(--text-muted, #8b949e); font-weight: 700; display: flex; align-items: center; justify-content: center; margin: 0 auto 6px auto; font-size: 0.85rem;">3</div>
+          <div class="step-name" style="font-size: 0.75rem; font-weight: 500; color: var(--text-muted, #8b949e);">Hours</div>
+        </div>
+        <div class="stepper-step" id="onboard-step-pill-4" data-step="4" style="flex: 1; text-align: center;">
+          <div class="step-num" style="width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.1); color: var(--text-muted, #8b949e); font-weight: 700; display: flex; align-items: center; justify-content: center; margin: 0 auto 6px auto; font-size: 0.85rem;">4</div>
+          <div class="step-name" style="font-size: 0.75rem; font-weight: 500; color: var(--text-muted, #8b949e);">Payout Bank</div>
+        </div>
+        <div class="stepper-step" id="onboard-step-pill-5" data-step="5" style="flex: 1; text-align: center;">
+          <div class="step-num" style="width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.1); color: var(--text-muted, #8b949e); font-weight: 700; display: flex; align-items: center; justify-content: center; margin: 0 auto 6px auto; font-size: 0.85rem;">5</div>
+          <div class="step-name" style="font-size: 0.75rem; font-weight: 500; color: var(--text-muted, #8b949e);">Starter Dish</div>
+        </div>
+      </div>
+
+      <!-- Step Panes -->
+      <form id="restaurant-onboarding-form" onsubmit="handleOnboardingSubmit(event)">
+        <!-- STEP 1: Restaurant Brand & Manager Credentials -->
+        <div class="onboarding-step-pane" id="onboard-step-1" data-step="1">
+          <h4 style="margin: 0 0 16px 0; font-size: 1rem; color: var(--primary, #f59e0b);">Step 1: Restaurant Brand &amp; Manager Credentials</h4>
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label for="onboard-brand-name">Restaurant Brand Name *</label>
+            <input type="text" id="onboard-brand-name" class="form-input" placeholder="e.g. Single Quarters Flame Grill" required />
+          </div>
+
+          <div class="form-row-2">
+            <div class="form-group" style="margin-bottom: 14px;">
+              <label for="onboard-manager-email">Manager / Portal Email *</label>
+              <input type="email" id="onboard-manager-email" class="form-input" placeholder="manager@restaurant.na" required />
+            </div>
+            <div class="form-group" style="margin-bottom: 14px;">
+              <label for="onboard-manager-phone">Official Phone Contact *</label>
+              <input type="tel" id="onboard-manager-phone" class="form-input text-mono" placeholder="+264 81 123 4567" required />
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label for="onboard-password">Password *</label>
+            <div style="position: relative; display: flex; align-items: center;">
+              <input type="password" id="onboard-password" class="form-input" placeholder="Create a secure password" required style="padding-right: 42px;" oninput="updatePasswordStrength(this.value)" />
+              <button type="button" class="btn-icon-toggle" onclick="togglePasswordVisibility('onboard-password', this)" style="position: absolute; right: 8px; background: none; border: none; cursor: pointer; color: var(--text-muted, #8b949e); padding: 4px;" title="Toggle password visibility">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </button>
+            </div>
+            <!-- Password Strength meter -->
+            <div class="password-strength-wrap" id="onboard-password-strength" style="margin-top: 8px;">
+              <div style="height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden;">
+                <div id="onboard-strength-meter" style="height: 100%; width: 0%; background: #ef4444; transition: width 0.3s ease, background 0.3s ease;"></div>
+              </div>
+              <div id="onboard-strength-text" style="font-size: 0.75rem; color: var(--text-muted, #8b949e); margin-top: 4px;">Password Strength: Enter a password</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- STEP 2: Windhoek Spatial Pinning -->
+        <div class="onboarding-step-pane" id="onboard-step-2" data-step="2" style="display: none;">
+          <h4 style="margin: 0 0 16px 0; font-size: 1rem; color: var(--primary, #f59e0b);">Step 2: Windhoek Spatial Pinning</h4>
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label for="onboard-suburb">Windhoek Suburb / Area *</label>
+            <select id="onboard-suburb" class="form-input" onchange="onOnboardSuburbChange(this.value)">
+              <option value="Katutura" selected>Katutura (Single Quarters)</option>
+              <option value="Windhoek Central">Windhoek Central</option>
+              <option value="Klein Windhoek">Klein Windhoek</option>
+              <option value="Eros">Eros</option>
+              <option value="Olympia">Olympia</option>
+              <option value="Pionierspark">Pionierspark</option>
+              <option value="Suiderhof">Suiderhof</option>
+              <option value="Khomasdal">Khomasdal</option>
+              <option value="Avis">Avis</option>
+              <option value="Hochland Park">Hochland Park</option>
+              <option value="Ludwigsdorf">Ludwigsdorf</option>
+            </select>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label for="onboard-address">Physical Street Address *</label>
+            <input type="text" id="onboard-address" class="form-input" placeholder="e.g. Single Quarters Market, Katutura, Windhoek" required />
+          </div>
+
+          <div class="form-row-2">
+            <div class="form-group" style="margin-bottom: 14px;">
+              <label for="onboard-lat">Dispatch Latitude *</label>
+              <input type="number" step="0.000001" id="onboard-lat" class="form-input text-mono" value="-22.5298" required />
+            </div>
+            <div class="form-group" style="margin-bottom: 14px;">
+              <label for="onboard-lng">Dispatch Longitude *</label>
+              <input type="number" step="0.000001" id="onboard-lng" class="form-input text-mono" value="17.0628" required />
+            </div>
+          </div>
+          <span class="form-hint" style="font-size: 0.75rem; color: var(--text-muted, #8b949e);">GPS pinning calibrates courier dispatch routing and delivery ETA calculation.</span>
+        </div>
+
+        <!-- STEP 3: Operating Hours -->
+        <div class="onboarding-step-pane" id="onboard-step-3" data-step="3" style="display: none;">
+          <h4 style="margin: 0 0 16px 0; font-size: 1rem; color: var(--primary, #f59e0b);">Step 3: Operating Hours</h4>
+          <p style="font-size: 0.8rem; color: var(--text-muted, #8b949e); margin-bottom: 12px;">Operating hours for kitchen shifts (Monday to Sunday):</p>
+          <div class="operating-hours-table" id="onboard-hours-list" style="display: flex; flex-direction: column; gap: 8px;">
+            <div class="hours-row" style="display: grid; grid-template-columns: 100px 1fr 1fr auto; align-items: center; gap: 10px; font-size: 0.85rem;">
+              <span style="font-weight: 600;">Monday</span>
+              <input type="time" class="form-input form-input-sm" id="onboard-hours-mon-open" value="08:00" />
+              <input type="time" class="form-input form-input-sm" id="onboard-hours-mon-close" value="21:00" />
+              <label style="display: flex; align-items: center; gap: 4px; font-size: 0.8rem; cursor: pointer;"><input type="checkbox" id="onboard-hours-mon-closed" /> Closed</label>
+            </div>
+            <div class="hours-row" style="display: grid; grid-template-columns: 100px 1fr 1fr auto; align-items: center; gap: 10px; font-size: 0.85rem;">
+              <span style="font-weight: 600;">Tuesday</span>
+              <input type="time" class="form-input form-input-sm" id="onboard-hours-tue-open" value="08:00" />
+              <input type="time" class="form-input form-input-sm" id="onboard-hours-tue-close" value="21:00" />
+              <label style="display: flex; align-items: center; gap: 4px; font-size: 0.8rem; cursor: pointer;"><input type="checkbox" id="onboard-hours-tue-closed" /> Closed</label>
+            </div>
+            <div class="hours-row" style="display: grid; grid-template-columns: 100px 1fr 1fr auto; align-items: center; gap: 10px; font-size: 0.85rem;">
+              <span style="font-weight: 600;">Wednesday</span>
+              <input type="time" class="form-input form-input-sm" id="onboard-hours-wed-open" value="08:00" />
+              <input type="time" class="form-input form-input-sm" id="onboard-hours-wed-close" value="21:00" />
+              <label style="display: flex; align-items: center; gap: 4px; font-size: 0.8rem; cursor: pointer;"><input type="checkbox" id="onboard-hours-wed-closed" /> Closed</label>
+            </div>
+            <div class="hours-row" style="display: grid; grid-template-columns: 100px 1fr 1fr auto; align-items: center; gap: 10px; font-size: 0.85rem;">
+              <span style="font-weight: 600;">Thursday</span>
+              <input type="time" class="form-input form-input-sm" id="onboard-hours-thu-open" value="08:00" />
+              <input type="time" class="form-input form-input-sm" id="onboard-hours-thu-close" value="21:00" />
+              <label style="display: flex; align-items: center; gap: 4px; font-size: 0.8rem; cursor: pointer;"><input type="checkbox" id="onboard-hours-thu-closed" /> Closed</label>
+            </div>
+            <div class="hours-row" style="display: grid; grid-template-columns: 100px 1fr 1fr auto; align-items: center; gap: 10px; font-size: 0.85rem;">
+              <span style="font-weight: 600;">Friday</span>
+              <input type="time" class="form-input form-input-sm" id="onboard-hours-fri-open" value="08:00" />
+              <input type="time" class="form-input form-input-sm" id="onboard-hours-fri-close" value="22:00" />
+              <label style="display: flex; align-items: center; gap: 4px; font-size: 0.8rem; cursor: pointer;"><input type="checkbox" id="onboard-hours-fri-closed" /> Closed</label>
+            </div>
+            <div class="hours-row" style="display: grid; grid-template-columns: 100px 1fr 1fr auto; align-items: center; gap: 10px; font-size: 0.85rem;">
+              <span style="font-weight: 600;">Saturday</span>
+              <input type="time" class="form-input form-input-sm" id="onboard-hours-sat-open" value="09:00" />
+              <input type="time" class="form-input form-input-sm" id="onboard-hours-sat-close" value="22:00" />
+              <label style="display: flex; align-items: center; gap: 4px; font-size: 0.8rem; cursor: pointer;"><input type="checkbox" id="onboard-hours-sat-closed" /> Closed</label>
+            </div>
+            <div class="hours-row" style="display: grid; grid-template-columns: 100px 1fr 1fr auto; align-items: center; gap: 10px; font-size: 0.85rem;">
+              <span style="font-weight: 600;">Sunday</span>
+              <input type="time" class="form-input form-input-sm" id="onboard-hours-sun-open" value="10:00" />
+              <input type="time" class="form-input form-input-sm" id="onboard-hours-sun-close" value="20:00" />
+              <label style="display: flex; align-items: center; gap: 4px; font-size: 0.8rem; cursor: pointer;"><input type="checkbox" id="onboard-hours-sun-closed" /> Closed</label>
+            </div>
+          </div>
+        </div>
+
+        <!-- STEP 4: Merchant Bank Payout Details -->
+        <div class="onboarding-step-pane" id="onboard-step-4" data-step="4" style="display: none;">
+          <h4 style="margin: 0 0 16px 0; font-size: 1rem; color: var(--primary, #f59e0b);">Step 4: Merchant Bank Payout Details</h4>
+          <p style="font-size: 0.8rem; color: var(--text-muted, #8b949e); margin-bottom: 12px;">Link bank account for weekly settlements &amp; instant on-demand withdrawals.</p>
+
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label for="onboard-bank-name">Bank Name *</label>
+            <select id="onboard-bank-name" class="form-input">
+              <option value="First National Bank (FNB Namibia)">First National Bank (FNB Namibia)</option>
+              <option value="Bank Windhoek">Bank Windhoek</option>
+              <option value="Standard Bank Namibia">Standard Bank Namibia</option>
+              <option value="Nedbank Namibia">Nedbank Namibia</option>
+            </select>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label for="onboard-bank-holder">Account Holder Name *</label>
+            <input type="text" id="onboard-bank-holder" class="form-input" placeholder="e.g. Single Quarters Kitchen CC" required />
+          </div>
+
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label for="onboard-bank-account">Account Number *</label>
+            <input type="text" id="onboard-bank-account" class="form-input text-mono" placeholder="e.g. 62810029381" required />
+          </div>
+        </div>
+
+        <!-- STEP 5: Starter Dishes Setup -->
+        <div class="onboarding-step-pane" id="onboard-step-5" data-step="5" style="display: none;">
+          <h4 style="margin: 0 0 16px 0; font-size: 1rem; color: var(--primary, #f59e0b);">Step 5: Starter Dishes Setup</h4>
+          <p style="font-size: 0.8rem; color: var(--text-muted, #8b949e); margin-bottom: 12px;">Create your first featured dish to publish on the diner marketplace.</p>
+
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label for="onboard-dish-title">Dish Title *</label>
+            <input type="text" id="onboard-dish-title" class="form-input" placeholder="e.g. Kapana Signature Beef Platter" required />
+          </div>
+
+          <div class="form-row-2">
+            <div class="form-group" style="margin-bottom: 14px;">
+              <label for="onboard-dish-price">Price in NAD *</label>
+              <input type="number" step="0.50" id="onboard-dish-price" class="form-input text-mono" placeholder="85.00" value="85.00" required />
+            </div>
+            <div class="form-group" style="margin-bottom: 14px;">
+              <label for="onboard-dish-category">Category *</label>
+              <select id="onboard-dish-category" class="form-input">
+                <option value="Mains">Mains</option>
+                <option value="Grills">Grills</option>
+                <option value="Traditional">Traditional</option>
+                <option value="Sides">Sides</option>
+                <option value="Combos">Combos</option>
+                <option value="Beverages">Beverages</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div id="onboard-error-alert" class="alert-box alert-danger" style="display: none; margin-top: 14px;"></div>
+
+        <!-- Wizard Navigation Footer -->
+        <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; margin-top: 24px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.08);">
+          <button type="button" class="btn-secondary-action" id="btn-onboard-prev" onclick="onboardPrevStep()" style="visibility: hidden;">
+            &larr; Previous Step
+          </button>
+          <div style="display: flex; gap: 10px;">
+            <button type="button" class="btn-secondary-action" onclick="closeRestaurantOnboardingModal()">Cancel</button>
+            <button type="button" class="btn-primary-action" id="btn-onboard-next" onclick="onboardNextStep()">
+              <span>Next Step &rarr;</span>
+            </button>
+            <button type="submit" class="btn-primary-action" id="btn-onboard-submit" style="display: none;">
+              <span>Complete Onboarding</span>
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================================================================== -->
+  <!-- MODAL: PERMANENTLY DELETE RESTAURANT CONFIRMATION -->
+  <!-- ==================================================================== -->
+  <div class="modal-backdrop" id="modal-delete-restaurant" style="display: none;">
+    <div class="handover-modal-card" style="max-width: 480px; border: 1px solid rgba(239, 68, 68, 0.4);">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div class="modal-icon-badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444;">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+          </div>
+          <div>
+            <h3 style="color: #ef4444;">Delete Restaurant Account</h3>
+            <p>Irreversible deletion of restaurant profile &amp; menu</p>
+          </div>
+        </div>
+        <button type="button" class="btn-modal-close" onclick="closeDeleteRestaurantModal()">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="alert-box alert-danger" style="display: block; margin-bottom: 16px; padding: 12px; border-radius: 8px; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); color: #fca5a5; font-size: 0.85rem; line-height: 1.4;">
+          <strong>Warning:</strong> This will permanently delete your restaurant account, wipe all dishes from the menu catalog, and remove this store from the Windhoek dispatch grid.
+        </div>
+
+        <div class="form-group">
+          <label for="delete-restaurant-confirm-name" style="display: block; margin-bottom: 6px; font-size: 0.85rem; font-weight: 600;">
+            Type restaurant name <span class="text-mono" id="delete-restaurant-target-name" style="color: #f87171; font-weight: 700;">Kapana Corner</span> to confirm:
+          </label>
+          <input
+            type="text"
+            id="delete-restaurant-confirm-name"
+            class="form-input"
+            placeholder="Type exact restaurant name to confirm..."
+            autocomplete="off"
+            oninput="handleDeleteRestaurantInput(this)"
+          />
+        </div>
+
+        <div id="delete-restaurant-error" class="alert-box alert-danger" style="display: none; margin-top: 12px;"></div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary-action" onclick="closeDeleteRestaurantModal()">Cancel</button>
+        <button
+          type="button"
+          class="btn-primary-action"
+          id="btn-confirm-delete-restaurant"
+          onclick="confirmDeleteRestaurant()"
+          disabled
+          style="background: #dc2626; border-color: #dc2626; opacity: 0.5; cursor: not-allowed;"
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          </svg>
+          <span>Delete Restaurant Permanently</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================================================================== -->
+  <!-- DRAWER: 5-TIER FINANCIAL WALLET & AUDIT LEDGER -->
+  <!-- ==================================================================== -->
+  <div class="drawer-backdrop" id="wallet-drawer-backdrop" style="display: none;" onclick="closeWalletDrawer()"></div>
+  <aside class="wallet-drawer" id="wallet-drawer">
+    <div class="drawer-header">
+      <div class="drawer-title-group">
+        <h3>Merchant Wallet &amp; Earnings</h3>
+        <p>Real-time order settlements &amp; payout withdrawals</p>
+      </div>
+      <button type="button" class="btn-modal-close" onclick="closeWalletDrawer()">&times;</button>
+    </div>
+
+    <div class="drawer-body">
+      <!-- Tier 1 & 2: Available Liquid Balance & Lifetime Revenue -->
+      <div class="merchant-balance-card">
+        <div class="balance-sublabel">Available for Withdrawal</div>
+        <div class="balance-big-amount text-mono" id="drawer-wallet-balance">N$ 0.00</div>
+        <div class="balance-meta-line">
+          <span>Total Lifetime Gross:</span>
+          <strong class="text-mono" id="drawer-wallet-total">N$ 0.00</strong>
+        </div>
+      </div>
+
+      <!-- Tier 3: Today's Shift Performance Metrics Strip -->
+      <div class="wallet-kpi-grid">
+        <div class="kpi-mini-card">
+          <div class="kpi-val text-mono" id="wallet-shift-orders">0</div>
+          <div class="kpi-lbl">Shift Orders</div>
+        </div>
+        <div class="kpi-mini-card">
+          <div class="kpi-val text-mono" id="wallet-shift-gross">N$ 0.00</div>
+          <div class="kpi-lbl">Shift Gross</div>
+        </div>
+        <div class="kpi-mini-card">
+          <div class="kpi-val text-mono" id="wallet-shift-net">N$ 0.00</div>
+          <div class="kpi-lbl">Net Earned (90%)</div>
+        </div>
+      </div>
+
+      <!-- Tier 4: Marketplace Commission Notice -->
+      <div class="commission-callout-card">
+        <strong>Marketplace Fee Structure:</strong> DSA charges a flat 10% platform facilitation fee per completed order. Net 90% is credited instantly upon driver handover with 0 bank delay.
+      </div>
+
+      <!-- Tier 5: Bank Withdrawal Terminal with Quick-Fill Amount Chips -->
+      <div class="payout-form-card">
+        <h4>Request Bank Withdrawal</h4>
+        <div class="form-group">
+          <label>Quick Amount Presets</label>
+          <div class="quick-amt-group">
+            <button type="button" class="chip-amt" onclick="setPayoutAmount(100)">N$ 100</button>
+            <button type="button" class="chip-amt" onclick="setPayoutAmount(250)">N$ 250</button>
+            <button type="button" class="chip-amt" onclick="setPayoutAmount(500)">N$ 500</button>
+            <button type="button" class="chip-amt chip-max" onclick="setPayoutMax()">Max Balance</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="payout-amount">Withdrawal Amount (N$)</label>
+          <input type="number" step="10" id="payout-amount" class="form-input text-mono" placeholder="250.00" />
+        </div>
+        <div class="form-group">
+          <label for="payout-bank">Bank Institution</label>
+          <select id="payout-bank" class="form-input">
+            <option value="First National Bank (FNB Namibia)">First National Bank (FNB Namibia)</option>
+            <option value="Bank Windhoek">Bank Windhoek</option>
+            <option value="Standard Bank Namibia">Standard Bank Namibia</option>
+            <option value="Nedbank Namibia">Nedbank Namibia</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="payout-account">Bank Account / IBAN</label>
+          <input type="text" id="payout-account" class="form-input text-mono" placeholder="62810029381" value="62810029381" />
+        </div>
+        <button type="button" class="btn-primary-action btn-block" onclick="submitPayoutWithdrawal()">
+          <span>Execute Payout Request</span>
+        </button>
+      </div>
+
+      <!-- Dual-Tab Audit Ledger: Order Settlements & Payout Withdrawals -->
+      <div class="settlement-history-card">
+        <div class="ledger-tab-bar">
+          <button type="button" class="ledger-tab-btn active" id="tab-btn-settlements" onclick="switchLedgerTab('settlements')">Order Settlements</button>
+          <button type="button" class="ledger-tab-btn" id="tab-btn-payouts" onclick="switchLedgerTab('payouts')">Payout Withdrawals</button>
+        </div>
+        <div class="settlement-list" id="settlement-list">
+          <div class="empty-kanban-placeholder">
+            <p>No recent settlements yet</p>
+          </div>
+        </div>
+        <div class="payout-list" id="payout-list" style="display: none;">
+          <div class="empty-kanban-placeholder">
+            <p>No payout withdrawals recorded this shift</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Shared Utilities -->
+  <script src="../shared.js"></script>
+  <!-- Restaurant Portal Controller -->
+  <script src="app.js"></script>
+</body>
+</html>

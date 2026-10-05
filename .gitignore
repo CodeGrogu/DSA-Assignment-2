@@ -83,3 +83,5 @@ desktop.ini
 !scripts/*.sh
 !scripts/*.ps1
 !docs/**/*.md
+
+.omo/

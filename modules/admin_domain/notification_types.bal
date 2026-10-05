@@ -27,7 +27,7 @@ public type NotificationAuditRecord record {|
 
 // Rule that says "when this event happens, notify this role
 // on this channel, at this severity".
-public type SubscriptionRule record {|
+public type SubscriptionRule readonly & record {|
     string eventType; // e.g. "order.created"
     RecipientRole recipient; // who gets told
     DeliveryChannel channel; // how they get told

@@ -58,22 +58,8 @@ function processNotificationRecord(byte[] raw, string? topic = ()) returns error
     handleParsedEvent(parsed);
 }
 
-function handleOne(byte[] raw, string? topic = ()) {
-    ParsedEvent? parsed = parseEnvelope(raw, topic);
-    if parsed is () {
-        return;
-    }
-    handleParsedEvent(parsed);
-}
-
 function handleParsedEvent(ParsedEvent parsed) {
     domain:SubscriptionRule[] rules = domain:rulesForEvent(parsed.eventType);
-    if rules.length() == 0 {
-        string altType = getAlternateEventType(parsed.eventType);
-        if altType != "" {
-            rules = domain:rulesForEvent(altType);
-        }
-    }
     if rules.length() == 0 {
         log:printInfo("No rules matched this event", eventType = parsed.eventType);
         return;
@@ -87,56 +73,6 @@ function handleParsedEvent(ParsedEvent parsed) {
         error? err = trap saveAudit(notif, "SENT");
         if err is error {
             log:printError("Audit write failed", 'error = err);
-        }
-    }
-}
-
-isolated function getAlternateEventType(string eventType) returns string {
-    match eventType {
-        "payment.completed" => {
-            return "payments.completed";
-        }
-        "payments.completed" => {
-            return "payment.completed";
-        }
-        "payment.failed" => {
-            return "payments.failed";
-        }
-        "payments.failed" => {
-            return "payment.failed";
-        }
-        "orders.created" => {
-            return "order.created";
-        }
-        "order.created" => {
-            return "orders.created";
-        }
-        "orders.confirmed" => {
-            return "order.confirmed";
-        }
-        "order.confirmed" => {
-            return "orders.confirmed";
-        }
-        "kitchen.orders.ready" => {
-            return "kitchen.order.ready";
-        }
-        "kitchen.order.ready" => {
-            return "kitchen.orders.ready";
-        }
-        "orders.preparing" => {
-            return "order.preparing";
-        }
-        "order.preparing" => {
-            return "orders.preparing";
-        }
-        "orders.cancelled" => {
-            return "order.cancelled";
-        }
-        "order.cancelled" => {
-            return "orders.cancelled";
-        }
-        _ => {
-            return "";
         }
     }
 }

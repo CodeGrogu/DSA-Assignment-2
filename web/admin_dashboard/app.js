@@ -46,22 +46,49 @@ let currentNotifRecipient = "cust-42";
  * so that requests reach the reverse proxy instead of hitting port 5500 (which returns 404).
  */
 function getCandidateUrls(port, path) {
-  const cleanPath = path.startsWith("/") ? path : `/${path}`;
-  const urls = [];
-  const isBrowser = typeof window !== "undefined" && window.location;
-
-  // 1. Only use relative /api/... if this page is directly served on the reverse proxy port (8080)
-  if (isBrowser && (window.location.port === "8080" || window.location.origin.includes(":8080"))) {
-    urls.push(`/api/${port}${cleanPath}`);
+  let cleanPath = path.startsWith("/") ? path : `/${path}`;
+  if (cleanPath.startsWith(`/api/${port}/`)) {
+    cleanPath = cleanPath.slice(`/api/${port}`.length);
+  } else if (cleanPath === `/api/${port}`) {
+    cleanPath = "/";
   }
 
-  // 2. Guaranteed reverse-proxy URLs (avoids hitting Live Server 5500 with relative paths)
+  const urls = [];
+  const isBrowser = typeof window !== "undefined" && window.location;
+  const isFileOrigin = isBrowser && (
+    window.location.protocol === "file:" ||
+    !window.location.hostname ||
+    window.location.origin === "null" ||
+    (window.location.origin && window.location.origin.startsWith("file:"))
+  );
+  const currentHost = isBrowser && window.location.hostname ? window.location.hostname : "localhost";
+  const currentPort = isBrowser && window.location.port ? window.location.port : "";
+  const isProxyServed = currentPort === "8080" || (isBrowser && window.location.origin && window.location.origin.includes(":8080"));
+
+  // 1. If running via file:/// origin OR served directly through reverse-proxy port 8080:
+  // Prioritize reverse-proxy (port 8080) to bypass browser null-origin CORS restrictions and IPv6 binding
+  if (isFileOrigin || isProxyServed) {
+    if (isProxyServed && !isFileOrigin) {
+      urls.push(`/api/${port}${cleanPath}`);
+    }
+    urls.push(`http://localhost:8080/api/${port}${cleanPath}`);
+    urls.push(`http://127.0.0.1:8080/api/${port}${cleanPath}`);
+    if (currentHost && currentHost !== "localhost" && currentHost !== "127.0.0.1") {
+      urls.push(`http://${currentHost}:8080/api/${port}${cleanPath}`);
+    }
+  }
+
+  // 2. Direct microservice ports (prefer localhost first for IPv6 Docker WSL2 compatibility, then 127.0.0.1)
+  urls.push(`http://${currentHost}:${port}${cleanPath}`);
+  if (currentHost !== "localhost") urls.push(`http://localhost:${port}${cleanPath}`);
+  if (currentHost !== "127.0.0.1") urls.push(`http://127.0.0.1:${port}${cleanPath}`);
+
+  // 3. Reverse-proxy candidates on port 8080 as fallbacks
   urls.push(`http://localhost:8080/api/${port}${cleanPath}`);
   urls.push(`http://127.0.0.1:8080/api/${port}${cleanPath}`);
-
-  // 3. Direct microservice ports (CORS/direct access fallback)
-  urls.push(`http://127.0.0.1:${port}${cleanPath}`);
-  urls.push(`http://localhost:${port}${cleanPath}`);
+  if (currentHost !== "localhost" && currentHost !== "127.0.0.1") {
+    urls.push(`http://${currentHost}:8080/api/${port}${cleanPath}`);
+  }
 
   return [...new Set(urls)];
 }
@@ -72,6 +99,9 @@ function getCandidateUrls(port, path) {
  */
 async function callApi(port, path, options = {}) {
   const cleanPath = path.startsWith("/") ? path : `/${path}`;
+  if (typeof window !== "undefined" && window.DSA?.cachedApiFetch) {
+    return window.DSA.cachedApiFetch(port, cleanPath, options);
+  }
   const timeoutMs = options.timeoutMs || 3500;
   const urls = getCandidateUrls(port, cleanPath);
 
@@ -114,8 +144,8 @@ async function callApi(port, path, options = {}) {
   throw lastError || new Error(`Failed to reach service on port ${port} across all candidate URLs`);
 }
 
-// Ensure apiFetch is an alias to callApi, NOT a recursive delegation
-if (typeof window !== "undefined") {
+// Ensure apiFetch is accessible if not already set by shared.js; DO NOT overwrite shared fetcher
+if (typeof window !== "undefined" && !window.apiFetch) {
   window.apiFetch = callApi;
 }
 
@@ -244,6 +274,12 @@ function switchTab(tabIdentifier) {
   if (!tabIdentifier || typeof document === "undefined") return;
   const targetId = TAB_NAME_MAP[tabIdentifier.toLowerCase()] || tabIdentifier;
 
+  if (typeof localStorage !== "undefined") {
+    try {
+      localStorage.setItem("dsa_admin_active_tab", targetId);
+    } catch (_) {}
+  }
+
   const tabButtons = document.querySelectorAll(".nav-tab-btn");
   const tabPanels = document.querySelectorAll(".view-section");
 
@@ -277,9 +313,22 @@ function switchTab(tabIdentifier) {
 }
 
 function getActiveTabId() {
-  if (typeof document === "undefined") return "tab-overview";
+  if (typeof document === "undefined") {
+    if (typeof localStorage !== "undefined") {
+      try {
+        return localStorage.getItem("dsa_admin_active_tab") || "tab-overview";
+      } catch (_) {}
+    }
+    return "tab-overview";
+  }
   const activePanel = document.querySelector(".view-section.active");
-  return activePanel ? activePanel.id : "tab-overview";
+  if (activePanel) return activePanel.id;
+  if (typeof localStorage !== "undefined") {
+    try {
+      return localStorage.getItem("dsa_admin_active_tab") || "tab-overview";
+    } catch (_) {}
+  }
+  return "tab-overview";
 }
 
 // ============================================================================
@@ -588,6 +637,10 @@ async function checkAuxiliaryHealth() {
 // ============================================================================
 
 async function loadRestaurantReport(from = "", to = "") {
+  const finTimeFromEl = typeof document !== "undefined" ? document.getElementById("fin-time-from") : null;
+  const finTimeToEl = typeof document !== "undefined" ? document.getElementById("fin-time-to") : null;
+  const finTimeFrom = finTimeFromEl && finTimeFromEl.value ? finTimeFromEl.value.trim() : "";
+  const finTimeTo = finTimeToEl && finTimeToEl.value ? finTimeToEl.value.trim() : "";
   const tbody = typeof document !== "undefined" ? document.getElementById("financial-report-body") : null;
   const tfoot = typeof document !== "undefined" ? document.getElementById("financial-report-foot") : null;
 
@@ -600,6 +653,8 @@ async function loadRestaurantReport(from = "", to = "") {
     const params = new URLSearchParams();
     if (from) params.set("from", from);
     if (to) params.set("to", to);
+    if (finTimeFrom) params.set("fromTime", finTimeFrom);
+    if (finTimeTo) params.set("toTime", finTimeTo);
     const queryString = params.toString();
     const endpoint = queryString ? `${ADMIN_RESTAURANT_REPORT}?${queryString}` : ADMIN_RESTAURANT_REPORT;
 
@@ -737,6 +792,7 @@ function applyFinPreset(preset) {
     btn.classList.toggle("active", btn.getAttribute("data-preset") === preset);
   });
 
+  saveAdminFilters();
   loadRestaurantReport(from, to);
 }
 
@@ -745,6 +801,10 @@ function applyFinPreset(preset) {
 // ============================================================================
 
 async function loadDriverReport(from = "", to = "") {
+  const slaTimeFromEl = typeof document !== "undefined" ? document.getElementById("sla-time-from") : null;
+  const slaTimeToEl = typeof document !== "undefined" ? document.getElementById("sla-time-to") : null;
+  const slaTimeFrom = slaTimeFromEl && slaTimeFromEl.value ? slaTimeFromEl.value.trim() : "";
+  const slaTimeTo = slaTimeToEl && slaTimeToEl.value ? slaTimeToEl.value.trim() : "";
   const tbody = typeof document !== "undefined" ? document.getElementById("driver-sla-body") : null;
   const tfoot = typeof document !== "undefined" ? document.getElementById("driver-sla-foot") : null;
 
@@ -757,6 +817,8 @@ async function loadDriverReport(from = "", to = "") {
     const params = new URLSearchParams();
     if (from) params.set("from", from);
     if (to) params.set("to", to);
+    if (slaTimeFrom) params.set("fromTime", slaTimeFrom);
+    if (slaTimeTo) params.set("toTime", slaTimeTo);
     const queryString = params.toString();
     const endpoint = queryString ? `${ADMIN_DRIVER_REPORT}?${queryString}` : ADMIN_DRIVER_REPORT;
 
@@ -929,6 +991,7 @@ function applySlaPreset(preset) {
     btn.classList.toggle("active", btn.getAttribute("data-preset") === preset);
   });
 
+  saveAdminFilters();
   loadDriverReport(from, to);
 }
 
@@ -1026,6 +1089,168 @@ function renderNotifTable() {
 // 9. EVENT LISTENERS & INITIALIZATION
 // ============================================================================
 
+function saveAdminFilters() {
+  if (typeof localStorage === "undefined" || typeof document === "undefined") return;
+
+  const activeFinChip = document.querySelector('.btn-preset[data-report="fin"].active');
+  const activeSlaChip = document.querySelector('.btn-preset[data-report="sla"].active');
+
+  const filters = {
+    financial: {
+      from: document.getElementById("fin-date-from")?.value || "",
+      to: document.getElementById("fin-date-to")?.value || "",
+      fromTime: document.getElementById("fin-time-from")?.value || "",
+      toTime: document.getElementById("fin-time-to")?.value || "",
+      preset: activeFinChip?.getAttribute("data-preset") || "",
+      search: document.getElementById("fin-search-input")?.value || ""
+    },
+    sla: {
+      from: document.getElementById("sla-date-from")?.value || "",
+      to: document.getElementById("sla-date-to")?.value || "",
+      fromTime: document.getElementById("sla-time-from")?.value || "",
+      toTime: document.getElementById("sla-time-to")?.value || "",
+      preset: activeSlaChip?.getAttribute("data-preset") || "",
+      compliance: document.getElementById("sla-compliance-filter")?.value || "all",
+      search: document.getElementById("sla-search-input")?.value || ""
+    },
+    notifications: {
+      recipient: document.getElementById("notif-recipient-input")?.value?.trim() || currentNotifRecipient || "",
+      channel: currentNotifChannel || "ALL"
+    },
+    activity: {
+      search: document.getElementById("activity-search-input")?.value || ""
+    }
+  };
+
+  try {
+    localStorage.setItem("dsa_admin_filters", JSON.stringify(filters));
+  } catch (_) {}
+}
+
+function restoreAdminFilters() {
+  if (typeof localStorage === "undefined" || typeof document === "undefined") return;
+
+  let filters;
+  try {
+    const raw = localStorage.getItem("dsa_admin_filters");
+    if (!raw) return;
+    filters = JSON.parse(raw);
+  } catch (_) {
+    return;
+  }
+  if (!filters || typeof filters !== "object") return;
+
+  // Restore Financial
+  if (filters.financial) {
+    const fin = filters.financial;
+    const finFrom = document.getElementById("fin-date-from");
+    const finTo = document.getElementById("fin-date-to");
+    const finFromTime = document.getElementById("fin-time-from");
+    const finToTime = document.getElementById("fin-time-to");
+    const finSearch = document.getElementById("fin-search-input");
+
+    if (finFrom && fin.from !== undefined) {
+      finFrom.value = fin.from;
+      finFrom.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    if (finTo && fin.to !== undefined) {
+      finTo.value = fin.to;
+      finTo.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    if (finFromTime && fin.fromTime !== undefined) {
+      finFromTime.value = fin.fromTime;
+      finFromTime.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    if (finToTime && fin.toTime !== undefined) {
+      finToTime.value = fin.toTime;
+      finToTime.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    if (finSearch && fin.search !== undefined) {
+      finSearch.value = fin.search;
+    }
+    if (fin.preset) {
+      document.querySelectorAll('.btn-preset[data-report="fin"]').forEach((btn) => {
+        btn.classList.toggle("active", btn.getAttribute("data-preset") === fin.preset);
+      });
+    }
+  }
+
+  // Restore SLA
+  if (filters.sla) {
+    const sla = filters.sla;
+    const slaFrom = document.getElementById("sla-date-from");
+    const slaTo = document.getElementById("sla-date-to");
+    const slaFromTime = document.getElementById("sla-time-from");
+    const slaToTime = document.getElementById("sla-time-to");
+    const slaCompliance = document.getElementById("sla-compliance-filter");
+    const slaSearch = document.getElementById("sla-search-input");
+
+    if (slaFrom && sla.from !== undefined) {
+      slaFrom.value = sla.from;
+      slaFrom.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    if (slaTo && sla.to !== undefined) {
+      slaTo.value = sla.to;
+      slaTo.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    if (slaFromTime && sla.fromTime !== undefined) {
+      slaFromTime.value = sla.fromTime;
+      slaFromTime.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    if (slaToTime && sla.toTime !== undefined) {
+      slaToTime.value = sla.toTime;
+      slaToTime.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    if (slaCompliance && sla.compliance !== undefined) {
+      slaCompliance.value = sla.compliance;
+    }
+    if (slaSearch && sla.search !== undefined) {
+      slaSearch.value = sla.search;
+    }
+    if (sla.preset) {
+      document.querySelectorAll('.btn-preset[data-report="sla"]').forEach((btn) => {
+        btn.classList.toggle("active", btn.getAttribute("data-preset") === sla.preset);
+      });
+    }
+  }
+
+  // Restore Notifications
+  if (filters.notifications) {
+    const notif = filters.notifications;
+    if (notif.recipient) {
+      currentNotifRecipient = notif.recipient;
+      const notifInput = document.getElementById("notif-recipient-input");
+      const notifSelect = document.getElementById("notif-recipient-select");
+      if (notifInput) notifInput.value = notif.recipient;
+      if (notifSelect) {
+        const exists = Array.from(notifSelect.options).some((o) => o.value === notif.recipient);
+        notifSelect.value = exists ? notif.recipient : "custom";
+        if (typeof toggleCustomRecipientInput === "function") {
+          toggleCustomRecipientInput(notifSelect.value === "custom");
+        }
+      }
+      document.querySelectorAll(".recipient-chip[data-recipient]").forEach((chip) => {
+        chip.classList.toggle("active", chip.getAttribute("data-recipient") === notif.recipient);
+      });
+    }
+    if (notif.channel) {
+      currentNotifChannel = notif.channel;
+      document.querySelectorAll(".btn-channel[data-channel]").forEach((btn) => {
+        btn.classList.toggle("active", btn.getAttribute("data-channel") === notif.channel);
+      });
+    }
+  }
+
+  // Restore Activity
+  if (filters.activity) {
+    const act = filters.activity;
+    const actSearch = document.getElementById("activity-search-input");
+    if (actSearch && act.search !== undefined) {
+      actSearch.value = act.search;
+    }
+  }
+}
+
 function setupEventListeners() {
   if (typeof document === "undefined") return;
 
@@ -1051,6 +1276,11 @@ function setupEventListeners() {
     intervalSelect.addEventListener("change", () => {
       const val = parseInt(intervalSelect.value, 10);
       autoRefreshIntervalMs = isNaN(val) ? 5000 : val;
+      if (typeof localStorage !== "undefined") {
+        try {
+          localStorage.setItem("dsa_admin_auto_refresh", String(autoRefreshIntervalMs));
+        } catch (_) {}
+      }
       if (autoRefreshIntervalMs > 0) {
         countdownRemainingSec = Math.round(autoRefreshIntervalMs / 1000);
         updateCountdownBadge();
@@ -1099,15 +1329,37 @@ function setupEventListeners() {
   const activitySearchInput = document.getElementById("activity-search-input");
   if (activitySearchInput) {
     activitySearchInput.addEventListener("input", () => {
+      saveAdminFilters();
       renderActivityTable();
     });
   }
+
+  // Financial & SLA date/time input change listeners for filter persistence
+  [
+    "fin-date-from",
+    "fin-date-to",
+    "fin-time-from",
+    "fin-time-to",
+    "sla-date-from",
+    "sla-date-to",
+    "sla-time-from",
+    "sla-time-to"
+  ].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener("change", () => saveAdminFilters());
+      el.addEventListener("input", () => saveAdminFilters());
+    }
+  });
 
   // Financial Report: Quick Date Presets
   document.querySelectorAll('.btn-preset[data-report="fin"]').forEach((btn) => {
     btn.addEventListener("click", () => {
       const preset = btn.getAttribute("data-preset");
-      if (preset) applyFinPreset(preset);
+      if (preset) {
+        applyFinPreset(preset);
+        saveAdminFilters();
+      }
     });
   });
 
@@ -1115,6 +1367,7 @@ function setupEventListeners() {
   const finSearchInput = document.getElementById("fin-search-input");
   if (finSearchInput) {
     finSearchInput.addEventListener("input", () => {
+      saveAdminFilters();
       renderFinancialTable();
     });
   }
@@ -1125,6 +1378,7 @@ function setupEventListeners() {
     finReportBtn.addEventListener("click", () => {
       const from = document.getElementById("fin-date-from")?.value || "";
       const to = document.getElementById("fin-date-to")?.value || "";
+      saveAdminFilters();
       loadRestaurantReport(from, to);
     });
   }
@@ -1133,6 +1387,7 @@ function setupEventListeners() {
   if (clearFinBtn) {
     clearFinBtn.addEventListener("click", () => {
       applyFinPreset("all");
+      saveAdminFilters();
     });
   }
 
@@ -1140,7 +1395,10 @@ function setupEventListeners() {
   document.querySelectorAll('.btn-preset[data-report="sla"]').forEach((btn) => {
     btn.addEventListener("click", () => {
       const preset = btn.getAttribute("data-preset");
-      if (preset) applySlaPreset(preset);
+      if (preset) {
+        applySlaPreset(preset);
+        saveAdminFilters();
+      }
     });
   });
 
@@ -1148,6 +1406,7 @@ function setupEventListeners() {
   const slaSearchInput = document.getElementById("sla-search-input");
   if (slaSearchInput) {
     slaSearchInput.addEventListener("input", () => {
+      saveAdminFilters();
       renderDriverTable();
     });
   }
@@ -1155,6 +1414,7 @@ function setupEventListeners() {
   const slaComplianceFilter = document.getElementById("sla-compliance-filter");
   if (slaComplianceFilter) {
     slaComplianceFilter.addEventListener("change", () => {
+      saveAdminFilters();
       renderDriverTable();
     });
   }
@@ -1165,6 +1425,7 @@ function setupEventListeners() {
     slaReportBtn.addEventListener("click", () => {
       const from = document.getElementById("sla-date-from")?.value || "";
       const to = document.getElementById("sla-date-to")?.value || "";
+      saveAdminFilters();
       loadDriverReport(from, to);
     });
   }
@@ -1173,6 +1434,7 @@ function setupEventListeners() {
   if (clearSlaBtn) {
     clearSlaBtn.addEventListener("click", () => {
       applySlaPreset("all");
+      saveAdminFilters();
     });
   }
 
@@ -1193,6 +1455,8 @@ function setupEventListeners() {
         toggleCustomRecipientInput(notifSelect.value === "custom");
         notifSelect.dispatchEvent(new Event("change", { bubbles: true }));
       }
+      currentNotifRecipient = recipient;
+      saveAdminFilters();
       loadNotifications(recipient);
     });
   });
@@ -1203,6 +1467,7 @@ function setupEventListeners() {
       document.querySelectorAll(".btn-channel").forEach((b) => b.classList.remove("active"));
       btn.classList.add("active");
       currentNotifChannel = btn.getAttribute("data-channel") || "ALL";
+      saveAdminFilters();
       renderNotifTable();
     });
   });
@@ -1219,6 +1484,8 @@ function setupEventListeners() {
         toggleCustomRecipientInput(false);
         if (notifInput) notifInput.value = notifSelect.value;
         syncRecipientChips(notifSelect.value);
+        currentNotifRecipient = notifSelect.value;
+        saveAdminFilters();
         loadNotifications(notifSelect.value);
       }
     });
@@ -1229,7 +1496,9 @@ function setupEventListeners() {
   if (searchNotifBtn && notifInput) {
     searchNotifBtn.addEventListener("click", () => {
       const val = notifInput.value.trim() || "cust-42";
+      currentNotifRecipient = val;
       syncRecipientChips(val);
+      saveAdminFilters();
       loadNotifications(val);
     });
 
@@ -1237,9 +1506,16 @@ function setupEventListeners() {
       if (e.key === "Enter") {
         e.preventDefault();
         const val = notifInput.value.trim() || "cust-42";
+        currentNotifRecipient = val;
         syncRecipientChips(val);
+        saveAdminFilters();
         loadNotifications(val);
       }
+    });
+
+    notifInput.addEventListener("input", () => {
+      currentNotifRecipient = notifInput.value.trim() || currentNotifRecipient;
+      saveAdminFilters();
     });
   }
 
@@ -1757,10 +2033,30 @@ function updateCountdownBadge() {
   }
 }
 
+let isVisibilityListenerAttached = false;
+
+function setupVisibilityListener() {
+  if (isVisibilityListenerAttached || typeof document === "undefined") return;
+  isVisibilityListenerAttached = true;
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) {
+      if (autoRefreshIntervalMs > 0) {
+        countdownRemainingSec = Math.round(autoRefreshIntervalMs / 1000);
+        updateCountdownBadge();
+      }
+      pollCycle();
+    }
+  });
+}
+
 function startTicker() {
+  setupVisibilityListener();
   if (tickerTimerId) clearInterval(tickerTimerId);
   tickerTimerId = setInterval(() => {
     if (autoRefreshIntervalMs <= 0) return;
+    if (typeof document !== "undefined" && document.hidden) {
+      return;
+    }
     countdownRemainingSec--;
     if (countdownRemainingSec <= 0) {
       countdownRemainingSec = Math.round(autoRefreshIntervalMs / 1000);
@@ -1816,9 +2112,28 @@ function pollCycle() {
 function initDefaults() {
   if (typeof document === "undefined") return;
 
+  const intervalSelect = document.getElementById("auto-refresh-interval");
+  if (typeof localStorage !== "undefined") {
+    try {
+      const savedInterval = localStorage.getItem("dsa_admin_auto_refresh");
+      if (savedInterval !== null && savedInterval !== undefined) {
+        const parsed = parseInt(savedInterval, 10);
+        if (!isNaN(parsed)) {
+          autoRefreshIntervalMs = parsed;
+          if (intervalSelect) {
+            intervalSelect.value = String(autoRefreshIntervalMs);
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
   countdownRemainingSec = Math.round(autoRefreshIntervalMs / 1000);
   updateCountdownBadge();
   startTicker();
+
+  // Restore filter and search queries before executing reports
+  restoreAdminFilters();
 
   // Initialize custom datepickers
   initCustomDatePickers();
@@ -1826,9 +2141,27 @@ function initDefaults() {
   // Initial data loading across tabs
   loadOverview();
   checkHealth();
-  loadRestaurantReport("", "");
-  loadDriverReport("", "");
-  loadNotifications("cust-42");
+
+  const finFrom = document.getElementById("fin-date-from")?.value || "";
+  const finTo = document.getElementById("fin-date-to")?.value || "";
+  loadRestaurantReport(finFrom, finTo);
+
+  const slaFrom = document.getElementById("sla-date-from")?.value || "";
+  const slaTo = document.getElementById("sla-date-to")?.value || "";
+  loadDriverReport(slaFrom, slaTo);
+
+  const recipient = document.getElementById("notif-recipient-input")?.value?.trim() || currentNotifRecipient || "cust-42";
+  loadNotifications(recipient);
+
+  // Restore saved active tab
+  if (typeof localStorage !== "undefined") {
+    try {
+      const savedTab = localStorage.getItem("dsa_admin_active_tab");
+      if (savedTab) {
+        switchTab(savedTab);
+      }
+    } catch (_) {}
+  }
 }
 
 // Bootstrap on DOM ready
@@ -1849,6 +2182,8 @@ const AdminApp = {
   callApi,
   apiFetch: callApi,
   initCustomDatePickers,
+  saveAdminFilters,
+  restoreAdminFilters,
   SERVICES,
   ADMIN_PORT,
   NOTIF_PORT,
@@ -1874,8 +2209,12 @@ const AdminApp = {
 if (typeof window !== "undefined") {
   window.AdminApp = AdminApp;
   window.callApi = callApi;
-  window.apiFetch = callApi;
+  if (!window.apiFetch) {
+    window.apiFetch = callApi;
+  }
   window.initCustomDatePickers = initCustomDatePickers;
+  window.saveAdminFilters = saveAdminFilters;
+  window.restoreAdminFilters = restoreAdminFilters;
 }
 
 if (typeof module !== "undefined" && module.exports) {

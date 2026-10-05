@@ -9,28 +9,55 @@
 
 /**
  * Resolves candidate URLs in priority order:
- * 1. If on port 8080: /api/${port}${cleanPath}
- * 2. http://localhost:8080/api/${port}${cleanPath}
- * 3. http://127.0.0.1:8080/api/${port}${cleanPath}
- * 4. http://127.0.0.1:${port}${cleanPath}
- * 5. http://localhost:${port}${cleanPath}
+ * 1. If running directly on reverse-proxy port 8080: relative /api/${port}${cleanPath}
+ * 2. Direct microservice port on matching browser hostname (e.g. http://127.0.0.1:9091 or http://localhost:9091)
+ * 3. Direct microservice port on fallback loopback interfaces (127.0.0.1, localhost)
+ * 4. Reverse-proxy candidates on port 8080
  */
 function getCandidateUrls(port, path) {
-  const cleanPath = path.startsWith('/') ? path : `/${path}`;
-  const urls = [];
+  let cleanPath = path.startsWith('/') ? path : `/${path}`;
+  if (cleanPath.startsWith(`/api/${port}/`)) {
+    cleanPath = cleanPath.slice(`/api/${port}`.length);
+  } else if (cleanPath === `/api/${port}`) {
+    cleanPath = '/';
+  }
 
+  const urls = [];
   const isBrowser = typeof window !== 'undefined' && window.location;
-  if (isBrowser) {
-    if (window.location.port === '8080') {
+  const isFileOrigin = isBrowser && (
+    window.location.protocol === 'file:' ||
+    !window.location.hostname ||
+    window.location.origin === 'null' ||
+    (window.location.origin && window.location.origin.startsWith('file:'))
+  );
+  const currentHost = (isBrowser && window.location.hostname) ? window.location.hostname : 'localhost';
+  const currentPort = isBrowser && window.location.port ? window.location.port : '';
+  const isProxyServed = currentPort === '8080' || (isBrowser && window.location.origin && window.location.origin.includes(':8080'));
+
+  // 1. If running via file:/// origin OR served directly through reverse-proxy port 8080:
+  // Prioritize reverse-proxy (port 8080) to bypass browser null-origin CORS restrictions and IPv6 binding
+  if (isFileOrigin || isProxyServed) {
+    if (isProxyServed && !isFileOrigin) {
       urls.push(`/api/${port}${cleanPath}`);
+    }
+    urls.push(`http://localhost:8080/api/${port}${cleanPath}`);
+    urls.push(`http://127.0.0.1:8080/api/${port}${cleanPath}`);
+    if (currentHost && currentHost !== 'localhost' && currentHost !== '127.0.0.1') {
+      urls.push(`http://${currentHost}:8080/api/${port}${cleanPath}`);
     }
   }
 
-  // Guaranteed CORS-free proxy candidates on port 8080
+  // 2. Direct microservice ports (prefer localhost first for IPv6 Docker WSL2 compatibility, then 127.0.0.1)
+  urls.push(`http://${currentHost}:${port}${cleanPath}`);
+  if (currentHost !== 'localhost') urls.push(`http://localhost:${port}${cleanPath}`);
+  if (currentHost !== '127.0.0.1') urls.push(`http://127.0.0.1:${port}${cleanPath}`);
+
+  // 3. Reverse-proxy candidates on port 8080 as fallbacks
   urls.push(`http://localhost:8080/api/${port}${cleanPath}`);
   urls.push(`http://127.0.0.1:8080/api/${port}${cleanPath}`);
-  urls.push(`http://localhost:${port}${cleanPath}`);
-  urls.push(`http://127.0.0.1:${port}${cleanPath}`);
+  if (currentHost !== 'localhost' && currentHost !== '127.0.0.1') {
+    urls.push(`http://${currentHost}:8080/api/${port}${cleanPath}`);
+  }
 
   return [...new Set(urls)];
 }
@@ -45,10 +72,10 @@ function resolveApiUrl(port, path) {
 
 /**
  * Resilient API fetch that tries prioritized candidate URLs.
- * Default timeout is 5000ms.
+ * Default timeout is 4000ms.
  */
 async function apiFetch(port, path, options = {}) {
-  const timeoutMs = options.timeoutMs || options.timeout || 5000;
+  const timeoutMs = options.timeoutMs || options.timeout || 4000;
   const urls = getCandidateUrls(port, path);
 
   let lastError = null;
@@ -67,6 +94,20 @@ async function apiFetch(port, path, options = {}) {
 
       const res = await fetch(url, fetchOpts);
       clearTimeout(timer);
+
+      // If proxy gateway error (502/503/504), continue to direct microservice candidate
+      if ((res.status === 502 || res.status === 503 || res.status === 504) && url.includes(':8080')) {
+        lastError = new Error(`Proxy gateway error (${res.status}) on ${url}`);
+        continue;
+      }
+
+      // If Live Server (or static server) returns 404 HTML, continue to next candidate
+      const contentType = res.headers ? res.headers.get('content-type') || '' : '';
+      if (res.status === 404 && contentType.includes('text/html')) {
+        lastError = new Error(`404 HTML from static server on ${url}`);
+        continue;
+      }
+
       return res;
     } catch (err) {
       clearTimeout(timer);
@@ -78,6 +119,9 @@ async function apiFetch(port, path, options = {}) {
   throw lastError || new Error(`Failed to reach service on port ${port} across all candidate URLs`);
 }
 
+// Immutable internal reference protecting shared fetcher from global scope hijacking
+const _internalApiFetch = apiFetch;
+
 /**
  * Checks service health on a specific port.
  * Calls apiFetch(port, '/health') and returns { up: boolean, latencyMs: number, data: object }.
@@ -85,7 +129,7 @@ async function apiFetch(port, path, options = {}) {
 async function probeHealth(port) {
   const start = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
   try {
-    const res = await apiFetch(port, '/health', { timeoutMs: 5000 });
+    const res = await _internalApiFetch(port, '/health', { timeoutMs: 5000 });
     const end = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
     const latencyMs = Math.max(1, Math.round(end - start));
 
@@ -98,6 +142,538 @@ async function probeHealth(port) {
   } catch (err) {
     return { up: false, latencyMs: 0, data: { error: err.message }, status: 'OFFLINE' };
   }
+}
+
+// ============================================================================
+// 1.5 DISTRIBUTED MULTI-TIER CACHING & OFFLINE PERSISTENCE ENGINE
+// ============================================================================
+
+function safeClone(obj) {
+  if (obj === undefined) return undefined;
+  if (typeof structuredClone === 'function') {
+    try {
+      return structuredClone(obj);
+    } catch (_) {}
+  }
+  try {
+    return JSON.parse(JSON.stringify(obj));
+  } catch (_) {
+    return obj;
+  }
+}
+
+function extractHeadersObj(headers) {
+  if (!headers) return {};
+  if (typeof headers.forEach === 'function') {
+    const obj = {};
+    headers.forEach((val, key) => { obj[key] = val; });
+    return obj;
+  }
+  if (typeof headers.entries === 'function') {
+    return Object.fromEntries(headers.entries());
+  }
+  return typeof headers === 'object' ? { ...headers } : {};
+}
+
+/**
+ * Creates a synthetic Response mimicking the browser Fetch Response interface
+ */
+function createCachedResponse(data, status = 200, headers = {}) {
+  let headerObj;
+  if (typeof Headers !== 'undefined') {
+    try {
+      headerObj = new Headers(headers);
+    } catch (_) {
+      headerObj = {
+        get: (k) => headers ? (headers[k] || headers[k.toLowerCase()] || null) : null,
+        has: (k) => Boolean(headers && (k in headers || k.toLowerCase() in headers))
+      };
+    }
+  } else {
+    headerObj = {
+      get: (k) => headers ? (headers[k] || headers[k.toLowerCase()] || null) : null,
+      has: (k) => Boolean(headers && (k in headers || k.toLowerCase() in headers))
+    };
+  }
+
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    statusText: status >= 200 && status < 300 ? 'OK' : `Status ${status}`,
+    headers: headerObj,
+    json: async () => safeClone(data),
+    text: async () => (typeof data === 'string' ? data : JSON.stringify(data)),
+    clone() {
+      return createCachedResponse(data, status, headers);
+    },
+    _cached: true
+  };
+}
+
+/**
+ * Multi-Tier Cache Engine (Tier 1 Memory + Tier 2 Persistent LocalStorage)
+ */
+const DSA_CacheEngine = {
+  _memoryCache: new Map(),
+  _inflightRequests: new Map(),
+
+  TTL: {
+    STATIC: 600000,       // 10 min: /restaurants, /menu, /items
+    SEMI_STATIC: 180000,  // 3 min: /customers, /addresses
+    POLL_METRICS: 15000,  // 15 sec: /health, /pricing/current, /notifications/recipient/
+    VOLATILE: 1500        // 1.5 sec: /orders/, /delivery/track/, /deliveries/ (memory memoization only)
+  },
+
+  getTtlForPath(path) {
+    const p = String(path || '').toLowerCase();
+    if (p.includes('/orders') || p.includes('/delivery/track') || p.includes('/deliveries')) {
+      return { ttlMs: this.TTL.VOLATILE, memoryOnly: true };
+    }
+    if (p.includes('/health') || p.includes('/pricing/current') || p.includes('/notifications/recipient')) {
+      return { ttlMs: this.TTL.POLL_METRICS, memoryOnly: false };
+    }
+    if (p.includes('/customers') || p.includes('/addresses')) {
+      return { ttlMs: this.TTL.SEMI_STATIC, memoryOnly: false };
+    }
+    if (p.includes('/restaurants') || p.includes('/menu') || p.includes('/items')) {
+      return { ttlMs: this.TTL.STATIC, memoryOnly: false };
+    }
+    return { ttlMs: 60000, memoryOnly: false };
+  },
+
+  get(key) {
+    // 1. Check Tier 1 (Memory)
+    if (this._memoryCache.has(key)) {
+      return this._memoryCache.get(key);
+    }
+    // 2. Check Tier 2 (Persistent localStorage)
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('dsa_cache:' + key);
+        if (raw) {
+          const entry = JSON.parse(raw);
+          if (entry && typeof entry === 'object' && entry.timestamp) {
+            this._memoryCache.set(key, entry);
+            return entry;
+          } else {
+            localStorage.removeItem('dsa_cache:' + key);
+          }
+        }
+      } catch (err) {
+        // Corrupted JSON - auto evict
+        try { localStorage.removeItem('dsa_cache:' + key); } catch (_) {}
+      }
+    }
+    return null;
+  },
+
+  set(key, data, ttlMs = 60000, status = 200, headers = {}, memoryOnly = false) {
+    const timestamp = Date.now();
+    const entry = { data, timestamp, ttlMs, status, headers };
+    this._memoryCache.set(key, entry);
+
+    if (!memoryOnly && typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem('dsa_cache:' + key, JSON.stringify(entry));
+      } catch (err) {
+        // QuotaExceededError - FIFO evict oldest 10 entries
+        this.evictOldest(10);
+        try {
+          localStorage.setItem('dsa_cache:' + key, JSON.stringify(entry));
+        } catch (_) {}
+      }
+    }
+    return entry;
+  },
+
+  invalidate(key) {
+    this._memoryCache.delete(key);
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.removeItem('dsa_cache:' + key);
+      } catch (_) {}
+    }
+  },
+
+  invalidatePrefix(prefix) {
+    for (const k of this._memoryCache.keys()) {
+      if (k.startsWith(prefix) || k.includes(prefix)) {
+        this._memoryCache.delete(k);
+      }
+    }
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const toRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith('dsa_cache:')) {
+            const innerKey = k.slice('dsa_cache:'.length);
+            if (innerKey.startsWith(prefix) || innerKey.includes(prefix)) {
+              toRemove.push(k);
+            }
+          }
+        }
+        for (const k of toRemove) {
+          localStorage.removeItem(k);
+        }
+      } catch (_) {}
+    }
+  },
+
+  evictOldest(count = 10) {
+    if (typeof localStorage === 'undefined') return;
+    try {
+      const items = [];
+      const corrupted = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('dsa_cache:')) {
+          try {
+            const raw = localStorage.getItem(k);
+            if (!raw) {
+              corrupted.push(k);
+              continue;
+            }
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed.timestamp === 'number') {
+              items.push({ storageKey: k, timestamp: parsed.timestamp });
+            } else {
+              corrupted.push(k);
+            }
+          } catch (_) {
+            corrupted.push(k);
+          }
+        }
+      }
+
+      for (const k of corrupted) {
+        try { localStorage.removeItem(k); } catch (_) {}
+      }
+
+      items.sort((a, b) => a.timestamp - b.timestamp);
+      const evictCount = Math.min(count, items.length);
+      for (let i = 0; i < evictCount; i++) {
+        try { localStorage.removeItem(items[i].storageKey); } catch (_) {}
+      }
+    } catch (_) {}
+  },
+
+  clear() {
+    this._memoryCache.clear();
+    this._inflightRequests.clear();
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const toRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith('dsa_cache:')) {
+            toRemove.push(k);
+          }
+        }
+        for (const k of toRemove) {
+          localStorage.removeItem(k);
+        }
+      } catch (_) {}
+    }
+  }
+};
+
+function invalidateRelatedMutationCache(path) {
+  const p = String(path || '').toLowerCase();
+  if (p.includes('order')) {
+    DSA_CacheEngine.invalidatePrefix('GET:8083:/orders');
+    DSA_CacheEngine.invalidatePrefix('/orders');
+    DSA_CacheEngine.invalidatePrefix('orders');
+  }
+  if (p.includes('deliver')) {
+    DSA_CacheEngine.invalidatePrefix('GET:8084:/delivery');
+    DSA_CacheEngine.invalidatePrefix('GET:8084:/deliveries');
+    DSA_CacheEngine.invalidatePrefix('/delivery');
+    DSA_CacheEngine.invalidatePrefix('/deliveries');
+    DSA_CacheEngine.invalidatePrefix('delivery');
+  }
+  if (p.includes('customer') || p.includes('address')) {
+    DSA_CacheEngine.invalidatePrefix('GET:8081:/customers');
+    DSA_CacheEngine.invalidatePrefix('GET:8081:/addresses');
+    DSA_CacheEngine.invalidatePrefix('/customers');
+    DSA_CacheEngine.invalidatePrefix('/addresses');
+    DSA_CacheEngine.invalidatePrefix('customers');
+  }
+  if (p.includes('restaurant') || p.includes('menu') || p.includes('item')) {
+    DSA_CacheEngine.invalidatePrefix('GET:8082:/restaurants');
+    DSA_CacheEngine.invalidatePrefix('GET:8082:/menu');
+    DSA_CacheEngine.invalidatePrefix('/restaurants');
+    DSA_CacheEngine.invalidatePrefix('/menu');
+    DSA_CacheEngine.invalidatePrefix('restaurants');
+  }
+  if (p.includes('notification')) {
+    DSA_CacheEngine.invalidatePrefix('GET:8085:/notifications');
+    DSA_CacheEngine.invalidatePrefix('/notifications');
+    DSA_CacheEngine.invalidatePrefix('notifications');
+  }
+  if (p.includes('pricing')) {
+    DSA_CacheEngine.invalidatePrefix('GET:8083:/pricing');
+    DSA_CacheEngine.invalidatePrefix('/pricing');
+  }
+}
+
+function triggerBackgroundRevalidate(port, path, options, cacheKey, ttlMs, memoryOnly) {
+  const bgKey = 'bg:' + cacheKey;
+  if (DSA_CacheEngine._inflightRequests.has(bgKey)) {
+    return;
+  }
+  const bgPromise = (async () => {
+    try {
+      const res = await _internalApiFetch(port, path, { ...options, _skipCache: true });
+      if (res && res.ok) {
+        let data;
+        const contentType = res.headers && typeof res.headers.get === 'function' ? res.headers.get('content-type') || '' : '';
+        if (contentType.includes('application/json')) {
+          data = await res.json();
+        } else {
+          const text = await res.text();
+          try { data = JSON.parse(text); } catch (_) { data = text; }
+        }
+        const headers = extractHeadersObj(res.headers);
+        DSA_CacheEngine.set(cacheKey, data, ttlMs, res.status, headers, memoryOnly);
+        if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function' && typeof CustomEvent !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('dsa:cache-updated', {
+            detail: { key: cacheKey, data, port, path }
+          }));
+        }
+      }
+    } catch (_) {
+      // Ignore background errors
+    } finally {
+      DSA_CacheEngine._inflightRequests.delete(bgKey);
+    }
+  })();
+  DSA_CacheEngine._inflightRequests.set(bgKey, bgPromise);
+}
+
+/**
+ * Public async wrapper over apiFetch using SWR and mutation invalidation rules.
+ */
+async function cachedApiFetch(port, path, options = {}) {
+  const method = (options.method || 'GET').toUpperCase();
+
+  // Mutation Invalidation Contract
+  if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
+    const res = await _internalApiFetch(port, path, options);
+    invalidateRelatedMutationCache(path);
+    return res;
+  }
+
+  // GET requests - SWR & Inflight Promise Sharing
+  const cacheKey = options.cacheKey || `${method}:${port}:${path}`;
+  const inflightKey = `${method}:${port}:${path}`;
+
+  const { ttlMs: defaultTtl, memoryOnly: defaultMemoryOnly } = DSA_CacheEngine.getTtlForPath(path);
+  const ttlMs = options.ttlMs !== undefined ? options.ttlMs : defaultTtl;
+  const memoryOnly = options.memoryOnly !== undefined ? options.memoryOnly : defaultMemoryOnly;
+
+  // Cache Check
+  if (!options.bypassCache && !options._skipCache) {
+    const cachedEntry = DSA_CacheEngine.get(cacheKey);
+    if (cachedEntry) {
+      const age = Date.now() - cachedEntry.timestamp;
+      const isFresh = age < (cachedEntry.ttlMs || ttlMs);
+
+      if (isFresh) {
+        return createCachedResponse(cachedEntry.data, cachedEntry.status, cachedEntry.headers);
+      }
+
+      // Cache Hit + Stale (SWR)
+      if (options.swr !== false) {
+        triggerBackgroundRevalidate(port, path, options, cacheKey, ttlMs, memoryOnly);
+        return createCachedResponse(cachedEntry.data, cachedEntry.status, cachedEntry.headers);
+      }
+    }
+  }
+
+  // Cache Miss or Forced Synchronous Revalidate
+  if (DSA_CacheEngine._inflightRequests.has(inflightKey)) {
+    return DSA_CacheEngine._inflightRequests.get(inflightKey);
+  }
+
+  const fetchPromise = (async () => {
+    try {
+      const res = await _internalApiFetch(port, path, options);
+      if (res.ok) {
+        let data;
+        const contentType = res.headers && typeof res.headers.get === 'function' ? res.headers.get('content-type') || '' : '';
+        if (contentType.includes('application/json')) {
+          data = await res.json();
+        } else {
+          const text = await res.text();
+          try { data = JSON.parse(text); } catch (_) { data = text; }
+        }
+        const headers = extractHeadersObj(res.headers);
+        DSA_CacheEngine.set(cacheKey, data, ttlMs, res.status, headers, memoryOnly);
+        return createCachedResponse(data, res.status, headers);
+      }
+      return res;
+    } finally {
+      DSA_CacheEngine._inflightRequests.delete(inflightKey);
+    }
+  })();
+
+  DSA_CacheEngine._inflightRequests.set(inflightKey, fetchPromise);
+  return fetchPromise;
+}
+
+/**
+ * Persistent State Keeper with quota fallback and cross-tab/event sync
+ */
+const DSA_StateKeeper = {
+  _prefix: 'dsa_state:',
+
+  get(key, defaultValue = null) {
+    if (typeof localStorage === 'undefined') return defaultValue;
+    try {
+      const raw = localStorage.getItem(this._prefix + key);
+      if (raw === null || raw === undefined) return defaultValue;
+      return JSON.parse(raw);
+    } catch (_) {
+      try { localStorage.removeItem(this._prefix + key); } catch (e) {}
+      return defaultValue;
+    }
+  },
+
+  set(key, value) {
+    if (typeof localStorage === 'undefined') return false;
+    try {
+      const serialized = JSON.stringify(value);
+      localStorage.setItem(this._prefix + key, serialized);
+      this.broadcast(key, value);
+      return true;
+    } catch (err) {
+      if (typeof DSA_CacheEngine !== 'undefined' && typeof DSA_CacheEngine.evictOldest === 'function') {
+        DSA_CacheEngine.evictOldest(10);
+        try {
+          localStorage.setItem(this._prefix + key, JSON.stringify(value));
+          this.broadcast(key, value);
+          return true;
+        } catch (_) {}
+      }
+      return false;
+    }
+  },
+
+  remove(key) {
+    if (typeof localStorage === 'undefined') return;
+    try {
+      localStorage.removeItem(this._prefix + key);
+      this.broadcast(key, null);
+    } catch (_) {}
+  },
+
+  broadcast(key, value) {
+    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+      try {
+        window.dispatchEvent(new CustomEvent('dsa:state-changed', {
+          detail: { key, value }
+        }));
+      } catch (_) {}
+    }
+  }
+};
+
+/**
+ * Visibility-Aware Poller Helper that throttles background tabs
+ */
+function createVisibilityAwarePoller(callback, options = {}) {
+  const activeIntervalMs = options.activeIntervalMs || 5000;
+  const hiddenIntervalMs = options.hiddenIntervalMs || 60000;
+  const immediateOnVisible = options.immediateOnVisible !== false;
+
+  let timerId = null;
+  let isRunning = false;
+  let currentInterval = activeIntervalMs;
+
+  async function tick() {
+    if (!isRunning) return;
+    try {
+      await callback();
+    } catch (err) {
+      console.warn('[DSA Poller] Error in poll callback:', err);
+    }
+  }
+
+  function scheduleNext(interval) {
+    clear();
+    if (!isRunning) return;
+    currentInterval = interval || (isDocumentHidden() ? hiddenIntervalMs : activeIntervalMs);
+    timerId = setTimeout(async () => {
+      await tick();
+      scheduleNext(currentInterval);
+    }, currentInterval);
+  }
+
+  function clear() {
+    if (timerId) {
+      clearTimeout(timerId);
+      timerId = null;
+    }
+  }
+
+  function isDocumentHidden() {
+    return typeof document !== 'undefined' && Boolean(document.hidden);
+  }
+
+  function handleVisibilityChange() {
+    if (!isRunning) return;
+    if (isDocumentHidden()) {
+      scheduleNext(hiddenIntervalMs);
+    } else {
+      if (immediateOnVisible) {
+        clear();
+        tick().finally(() => {
+          scheduleNext(activeIntervalMs);
+        });
+      } else {
+        scheduleNext(activeIntervalMs);
+      }
+    }
+  }
+
+  function start() {
+    if (isRunning) return;
+    isRunning = true;
+    if (typeof document !== 'undefined' && document.addEventListener) {
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+    }
+    if (immediateOnVisible) {
+      tick().finally(() => {
+        scheduleNext(isDocumentHidden() ? hiddenIntervalMs : activeIntervalMs);
+      });
+    } else {
+      scheduleNext(isDocumentHidden() ? hiddenIntervalMs : activeIntervalMs);
+    }
+  }
+
+  function stop() {
+    isRunning = false;
+    clear();
+    if (typeof document !== 'undefined' && document.removeEventListener) {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }
+  }
+
+  function restart(newInterval) {
+    stop();
+    if (newInterval) {
+      currentInterval = newInterval;
+    }
+    start();
+  }
+
+  return {
+    start,
+    stop,
+    restart,
+    tick
+  };
 }
 
 // ============================================================================
@@ -116,6 +692,96 @@ function calculateETA(distanceKm) {
   if (distanceKm <= 0.05) return "Arrived";
   const mins = Math.max(1, Math.round((distanceKm / 30.0) * 60));
   return `~${mins} min${mins > 1 ? "s" : ""}`;
+}
+
+function calculateBearing(lat1, lon1, lat2, lon2) {
+  const toRad = Math.PI / 180;
+  const toDeg = 180 / Math.PI;
+  const phi1 = lat1 * toRad;
+  const phi2 = lat2 * toRad;
+  const dLon = (lon2 - lon1) * toRad;
+  const y = Math.sin(dLon) * Math.cos(phi2);
+  const x = Math.cos(phi1) * Math.sin(phi2) - Math.sin(phi1) * Math.cos(phi2) * Math.cos(dLon);
+  return (Math.atan2(y, x) * toDeg + 360) % 360;
+}
+
+async function fetchRoadRoute(origin, destination, options = {}) {
+  // Normalize coordinates: detect GeoJSON [lon, lat] vs Leaflet [lat, lon]
+  let lat1 = Number(origin.lat ?? origin.latitude ?? (Array.isArray(origin) ? (origin[0] < 0 ? origin[0] : origin[1]) : -22.5609));
+  let lon1 = Number(origin.lon ?? origin.lng ?? origin.longitude ?? (Array.isArray(origin) ? (origin[0] > 0 ? origin[0] : origin[1]) : 17.0658));
+  let lat2 = Number(destination.lat ?? destination.latitude ?? (Array.isArray(destination) ? (destination[0] < 0 ? destination[0] : destination[1]) : -22.5695));
+  let lon2 = Number(destination.lon ?? destination.lng ?? destination.longitude ?? (Array.isArray(destination) ? (destination[0] > 0 ? destination[0] : destination[1]) : 17.0850));
+
+  // Windhoek bounds guard: Latitude is negative (-22.x), Longitude is positive (+17.x)
+  if (lat1 > 0 && lon1 < 0) { const temp = lat1; lat1 = lon1; lon1 = temp; }
+  if (lat2 > 0 && lon2 < 0) { const temp = lat2; lat2 = lon2; lon2 = temp; }
+
+  const routeKey = `${lat1.toFixed(4)},${lon1.toFixed(4)}_${lat2.toFixed(4)},${lon2.toFixed(4)}`;
+  if (typeof DSA_CacheEngine !== 'undefined') {
+    const cached = DSA_CacheEngine.get(routeKey);
+    if (cached && cached.data) {
+      return cached.data;
+    }
+  }
+
+  try {
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timeoutId = controller ? setTimeout(() => controller.abort(), 3500) : null;
+    const url = `https://router.project-osrm.org/route/v1/driving/${lon1},${lat1};${lon2},${lat2}?overview=full&geometries=geojson`;
+    const res = await fetch(url, { signal: controller ? controller.signal : undefined });
+    if (timeoutId) clearTimeout(timeoutId);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.routes && data.routes[0] && data.routes[0].geometry && data.routes[0].geometry.coordinates) {
+        const osrmCoords = data.routes[0].geometry.coordinates; // [[lon, lat], ...]
+        const coordinates = osrmCoords.map(c => [c[1], c[0]]); // Leaflet [lat, lon]
+        const waypoints = osrmCoords.map(c => ({ lat: c[1], lng: c[0] }));
+        const distanceKm = Number((data.routes[0].distance / 1000).toFixed(2));
+        const durationMins = Math.max(1, Math.round(data.routes[0].duration / 60));
+        const routeResult = { coordinates, waypoints, distanceKm, durationMins, source: 'osrm' };
+        if (typeof DSA_CacheEngine !== 'undefined') {
+          DSA_CacheEngine.set(routeKey, routeResult, 7200000);
+        }
+        return routeResult;
+      }
+    }
+  } catch (_) {}
+
+  // Fallback: Realistic Windhoek arterial road corridor spline connecting origin to destination
+  const tVals = [0.0, 0.08, 0.16, 0.25, 0.35, 0.45, 0.55, 0.65, 0.75, 0.84, 0.92, 1.0];
+  const roadWiggle = [
+    [0.0, 0.0],
+    [0.0006, 0.0008],
+    [0.0014, 0.0012],
+    [0.0022, 0.0019],
+    [0.0018, 0.0025],
+    [0.0009, 0.0021],
+    [-0.0002, 0.0015],
+    [-0.0008, 0.0022],
+    [0.0004, 0.0028],
+    [0.0015, 0.0021],
+    [0.0009, 0.0011],
+    [0.0, 0.0]
+  ];
+  const sign = lon2 >= lon1 ? 1 : -1;
+  const coordinates = tVals.map((t, idx) => {
+    const lat = lat1 + (lat2 - lat1) * t + roadWiggle[idx][0];
+    const lon = lon1 + (lon2 - lon1) * t + roadWiggle[idx][1] * sign;
+    return [Number(lat.toFixed(6)), Number(lon.toFixed(6))];
+  });
+  const waypoints = coordinates.map(c => ({ lat: c[0], lng: c[1] }));
+  const dist = calculateDistanceKm(lat1, lon1, lat2, lon2) * 1.25;
+  const fallbackResult = {
+    coordinates,
+    waypoints,
+    distanceKm: Number(dist.toFixed(2)),
+    durationMins: Math.max(1, Math.round((dist / 30.0) * 60)),
+    source: 'corridor_fallback'
+  };
+  if (typeof DSA_CacheEngine !== 'undefined') {
+    DSA_CacheEngine.set(routeKey, fallbackResult, 7200000);
+  }
+  return fallbackResult;
 }
 
 // ============================================================================
@@ -150,6 +816,140 @@ function escapeHtml(str) {
     .replace(/'/g, "&#039;");
 }
 
+function formatAddress(addr, options = {}) {
+  const fallback = options.defaultText || "Windhoek Central";
+  if (!addr) return fallback;
+
+  if (typeof addr === 'string') {
+    const trimmed = addr.trim();
+    if (trimmed === "" || trimmed === "[object Object]") return fallback;
+    if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+      try {
+        return formatAddress(JSON.parse(trimmed), options);
+      } catch (_) {}
+    }
+    return trimmed;
+  }
+
+  if (typeof addr === 'object') {
+    const street = addr.street || addr.streetAddress || addr.addressLine1 || addr.address || addr.name || "";
+    const suburb = addr.suburb || addr.neighborhood || addr.area || "";
+    const city = addr.city || addr.town || "Windhoek";
+    const parts = [street, suburb, city].filter(p => typeof p === 'string' && p.trim().length > 0 && p.trim() !== "[object Object]");
+    if (parts.length > 0) return parts.join(", ");
+    if (addr.latitude || addr.lat) {
+      const lat = Number(addr.latitude || addr.lat);
+      const lon = Number(addr.longitude || addr.lon || addr.lng);
+      if (!isNaN(lat) && !isNaN(lon)) return `Windhoek (${lat.toFixed(4)}, ${lon.toFixed(4)})`;
+    }
+  }
+  return fallback;
+}
+
+function formatFriendlyOrderId(id) {
+  if (!id) return "ORD-—";
+  const str = String(id).trim();
+  if (/^ORD-[A-Z0-9]{4,8}$/i.test(str)) return str.toUpperCase();
+  const uuidMatch = str.match(/([a-f0-9]{4,8})/i) || str.match(/[a-f0-9]{6,8}$/i);
+  if (uuidMatch) {
+    const token = uuidMatch[0].replace(/[^a-f0-9]/gi, "").slice(0, 6).toUpperCase();
+    if (token) return `ORD-#${token}`;
+  }
+  const clean = str.replace(/[^a-zA-Z0-9]/g, "");
+  return `ORD-#${clean.slice(-6).toUpperCase()}`;
+}
+
+// ============================================================================
+// 2.2 NAME RESOLVERS & RIBBON POLYLINE ENGINE
+// ============================================================================
+const KNOWN_CUSTOMERS = {
+  "CUST-001": "Amelia Shilongo",
+  "CUST-002": "Daniel Amutenya",
+  "CUST-003": "Maria Ndeitunga",
+  "CUST-004": "Lukas Haikali",
+  "CUST-005": "Selma Shikongo"
+};
+
+const KNOWN_DRIVERS = {
+  "drv_001": "Tomas Nekundi",
+  "drv_002": "Maria Shilongo",
+  "drv_003": "Lukas Hamutenya",
+  "drv_004": "Selma Amukoto",
+  "drv_005": "Johannes Nuuyoma",
+  "drv_006": "Ndapewa Shifotoka",
+  "drv_007": "Petrus Shipanga",
+  "drv_008": "Aina Shikongo"
+};
+
+const KNOWN_RESTAURANTS = {
+  "R001": "Kapana Corner",
+  "R002": "Joe's Beerhouse",
+  "R003": "The Stellenbosch Wine Bar and Bistro",
+  "R004": "Kubata Restaurant",
+  "R005": "Garnish Restaurant"
+};
+
+function resolveCustomerName(idOrObj) {
+  if (!idOrObj) return "Verified Customer";
+  if (typeof idOrObj === "object") {
+    if (idOrObj.name) return idOrObj.name;
+    if (idOrObj.id && KNOWN_CUSTOMERS[idOrObj.id]) return KNOWN_CUSTOMERS[idOrObj.id];
+    return "Verified Customer";
+  }
+  const id = String(idOrObj).trim();
+  return KNOWN_CUSTOMERS[id] || "Verified Customer";
+}
+
+function resolveDriverName(idOrObj) {
+  if (!idOrObj) return "Verified Courier";
+  if (typeof idOrObj === "object") {
+    if (idOrObj.name) return idOrObj.name;
+    if (idOrObj.id && KNOWN_DRIVERS[idOrObj.id]) return KNOWN_DRIVERS[idOrObj.id];
+    return "Verified Courier";
+  }
+  const id = String(idOrObj).trim();
+  return KNOWN_DRIVERS[id] || "Verified Courier";
+}
+
+function resolveRestaurantName(idOrObj) {
+  if (!idOrObj) return "Live Kitchen";
+  if (typeof idOrObj === "object") {
+    if (idOrObj.name) return idOrObj.name;
+    if (idOrObj.id && KNOWN_RESTAURANTS[idOrObj.id]) return KNOWN_RESTAURANTS[idOrObj.id];
+    return "Live Kitchen";
+  }
+  const id = String(idOrObj).trim();
+  return KNOWN_RESTAURANTS[id] || "Live Kitchen";
+}
+
+function createRibbonPolylineGroup(latLngs, options = {}) {
+  if (typeof L === "undefined" || !latLngs || latLngs.length === 0) return null;
+  const casingColor = options.casingColor || "#ffffff";
+  const casingWeight = options.casingWeight || 8;
+  const casingOpacity = options.casingOpacity ?? 0.95;
+  const coreColor = options.coreColor || "#eb4d28";
+  const coreWeight = options.coreWeight || 4.5;
+  const coreOpacity = options.coreOpacity ?? 1.0;
+
+  const casing = L.polyline(latLngs, {
+    color: casingColor,
+    weight: casingWeight,
+    opacity: casingOpacity,
+    lineCap: "round",
+    lineJoin: "round"
+  });
+
+  const core = L.polyline(latLngs, {
+    color: coreColor,
+    weight: coreWeight,
+    opacity: coreOpacity,
+    lineCap: "round",
+    lineJoin: "round"
+  });
+
+  return L.layerGroup([casing, core]);
+}
+
 // Modal Helpers
 function openModal(modalId) {
   if (typeof document === 'undefined') return;
@@ -181,6 +981,71 @@ function setupTabNavigation(navContainerSelector, activeClass = "active") {
       if (targetPanel) targetPanel.classList.add(activeClass);
     });
   });
+}
+
+/**
+ * Smart Positioning for floating popups (menus, datetime cards).
+ * Automatically flips UP when space below is constrained.
+ * Automatically aligns RIGHT when space to the right is constrained.
+ * Clamps width and height to fit comfortably inside the container/viewport.
+ */
+function positionFloatingPopup(wrapper, popupEl, options = {}) {
+  const isMenu = options.isMenu || false;
+  const isCard = options.isCard || false;
+  const defaultHeight = options.defaultHeight || (isCard ? 310 : 220);
+  const minHeight = 110;
+
+  // Find enclosing container (modal, drawer, or viewport)
+  const container = wrapper.closest('.modal-card, .modal-dialog, .cart-drawer, .drawer-body, .cart-items-scroll') || null;
+  const triggerRect = wrapper.getBoundingClientRect();
+  const viewportHeight = window.innerHeight;
+  const viewportWidth = window.innerWidth;
+
+  // Vertical space calculation
+  let spaceBelow = viewportHeight - triggerRect.bottom - 16;
+  let spaceAbove = triggerRect.top - 16;
+
+  if (container) {
+    const cRect = container.getBoundingClientRect();
+    const cSpaceBelow = cRect.bottom - triggerRect.bottom - 16;
+    const cSpaceAbove = triggerRect.top - cRect.top - 16;
+    spaceBelow = Math.min(spaceBelow, cSpaceBelow);
+    spaceAbove = Math.min(spaceAbove, cSpaceAbove);
+  }
+
+  // Determine if it should flip UP
+  const shouldFlipUp = (spaceBelow < defaultHeight) && (spaceAbove > spaceBelow);
+
+  if (shouldFlipUp) {
+    wrapper.classList.add('open-up');
+    popupEl.style.top = 'auto';
+    popupEl.style.bottom = isCard ? 'calc(100% + 6px)' : 'calc(100% + 4px)';
+    const maxH = Math.max(minHeight, Math.min(defaultHeight, spaceAbove));
+    popupEl.style.maxHeight = `${Math.floor(maxH)}px`;
+  } else {
+    wrapper.classList.remove('open-up');
+    popupEl.style.bottom = 'auto';
+    popupEl.style.top = isCard ? 'calc(100% + 6px)' : 'calc(100% + 4px)';
+    const maxH = Math.max(minHeight, Math.min(defaultHeight, spaceBelow));
+    popupEl.style.maxHeight = `${Math.floor(maxH)}px`;
+  }
+
+  // Horizontal space & container boundary calculation
+  const containerRight = container ? container.getBoundingClientRect().right - 12 : viewportWidth - 12;
+  const maxAvailableWidth = container ? Math.min(container.clientWidth - 24, viewportWidth - 24) : viewportWidth - 24;
+
+  popupEl.style.maxWidth = `${Math.floor(Math.max(160, maxAvailableWidth))}px`;
+
+  // For datetime card: width is ~290px; for menu: width is at least trigger width
+  const targetWidth = isCard ? 290 : Math.max(triggerRect.width, popupEl.scrollWidth || 0);
+
+  if (triggerRect.left + targetWidth > containerRight) {
+    popupEl.style.left = 'auto';
+    popupEl.style.right = '0';
+  } else {
+    popupEl.style.left = '0';
+    popupEl.style.right = 'auto';
+  }
 }
 
 /**
@@ -239,8 +1104,17 @@ function initCustomDropdownMenus(root = document) {
     menu.className = 'custom-dropdown-menu';
     menu.setAttribute('role', 'listbox');
 
+    function updateSingleOptionState() {
+      const isSingle = select.options.length <= 1;
+      wrapper.classList.toggle('single-option', isSingle);
+      chevron.style.display = isSingle ? 'none' : '';
+    }
+
+    // Rebuild Menu items
     function rebuildMenu() {
       menu.innerHTML = '';
+      updateSingleOptionState();
+
       if (select.options.length === 0) {
         const emptyItem = document.createElement('div');
         emptyItem.className = 'custom-dropdown-item disabled';
@@ -286,13 +1160,20 @@ function initCustomDropdownMenus(root = document) {
     rebuildMenu();
     wrapper.appendChild(menu);
 
-    // Toggle open/close
+    // Toggle open/close with smart positioning
     trigger.addEventListener('click', (e) => {
       e.stopPropagation();
+      // If only 1 or 0 options, do not open dropdown menu
+      if (select.options.length <= 1) {
+        return;
+      }
       const isOpen = wrapper.classList.contains('open');
       closeAllDropdowns();
+      closeAllDatePickers();
       if (!isOpen) {
+        rebuildMenu();
         wrapper.classList.add('open');
+        positionFloatingPopup(wrapper, menu, { isMenu: true, defaultHeight: 220 });
       }
     });
 
@@ -317,18 +1198,25 @@ function initCustomDropdownMenus(root = document) {
 
 function closeAllDropdowns() {
   if (typeof document === 'undefined') return;
-  document.querySelectorAll('.custom-dropdown-root.open').forEach(el => el.classList.remove('open'));
+  document.querySelectorAll('.custom-dropdown-root.open').forEach(el => {
+    el.classList.remove('open', 'open-up');
+  });
 }
 
 function closeAllDatePickers() {
   if (typeof document === 'undefined') return;
-  document.querySelectorAll('.custom-datetime-root.open').forEach(el => el.classList.remove('open'));
+  document.querySelectorAll('.custom-datetime-root.open').forEach(el => {
+    el.classList.remove('open', 'open-up');
+  });
 }
 
 if (typeof document !== 'undefined') {
   document.addEventListener('click', (e) => {
     if (!e.target.closest('.custom-dropdown-root')) {
       closeAllDropdowns();
+    }
+    if (!e.target.closest('.custom-datetime-root')) {
+      closeAllDatePickers();
     }
   });
 
@@ -339,11 +1227,18 @@ if (typeof document !== 'undefined') {
     }
   });
 
-  document.addEventListener('click', (e) => {
-    if (!e.target.closest('.custom-datetime-root')) {
+  window.addEventListener('resize', () => {
+    closeAllDropdowns();
+    closeAllDatePickers();
+  });
+
+  document.addEventListener('scroll', (e) => {
+    const activePopup = document.querySelector('.custom-dropdown-root.open .custom-dropdown-menu, .custom-datetime-root.open .custom-datetime-card');
+    if (activePopup && !activePopup.contains(e.target)) {
+      closeAllDropdowns();
       closeAllDatePickers();
     }
-  });
+  }, true);
 
   // Close modals on backdrop click to ensure no click-blocking overlay ever lingers
   document.addEventListener('click', (e) => {
@@ -374,10 +1269,16 @@ if (typeof document !== 'undefined') {
     document.querySelectorAll('.custom-dropdown-root').forEach(wrap => {
       const sel = wrap.querySelector('select');
       const lbl = wrap.querySelector('.custom-dropdown-label');
-      if (sel && lbl && sel.options[sel.selectedIndex]) {
-        const expected = sel.options[sel.selectedIndex].text;
-        if (lbl.textContent !== expected) {
-          lbl.textContent = expected;
+      const arr = wrap.querySelector('.custom-dropdown-arrow');
+      if (sel) {
+        const isSingle = sel.options.length <= 1;
+        wrap.classList.toggle('single-option', isSingle);
+        if (arr) arr.style.display = isSingle ? 'none' : '';
+        if (lbl && sel.options[sel.selectedIndex]) {
+          const expected = sel.options[sel.selectedIndex].text;
+          if (lbl.textContent !== expected) {
+            lbl.textContent = expected;
+          }
         }
       }
     });
@@ -421,9 +1322,13 @@ function initCustomDateTimePickers(root = document) {
     const isDateTime = input.type === 'datetime-local';
     const isDate = input.type === 'date' || isDateTime;
 
-    // Create wrapper
+    // Create wrapper - only preserve sizing/modifier classes, NOT form control styles like form-input
+    const modifierClasses = (input.className || '')
+      .split(/\s+/)
+      .filter((c) => c && !['form-input', 'input-text', 'form-control', 'form-select'].includes(c))
+      .join(' ');
     const wrapper = document.createElement('div');
-    wrapper.className = 'custom-datetime-root ' + (input.className || '');
+    wrapper.className = 'custom-datetime-root' + (modifierClasses ? ' ' + modifierClasses : '') + (input.classList.contains('select-sm') ? ' select-sm' : '');
     if (input.id) wrapper.setAttribute('data-target-input', input.id);
 
     // Hide native input visually but keep accessible
@@ -740,13 +1645,24 @@ function initCustomDateTimePickers(root = document) {
         });
 
         const hrInput = document.createElement('input');
-        hrInput.type = 'number';
+        hrInput.type = 'text';
+        hrInput.inputMode = 'numeric';
+        hrInput.pattern = '[0-9]*';
+        hrInput.maxLength = 2;
         hrInput.className = 'custom-time-input-box';
-        hrInput.min = '0';
-        hrInput.max = '23';
         hrInput.value = String(selectedHour).padStart(2, '0');
         hrInput.addEventListener('click', (e) => e.stopPropagation());
-        hrInput.addEventListener('change', () => {
+        hrInput.addEventListener('input', () => {
+          let clean = hrInput.value.replace(/\D/g, '');
+          if (clean.length > 2) clean = clean.slice(0, 2);
+          hrInput.value = clean;
+          let v = parseInt(clean, 10);
+          if (!isNaN(v)) {
+            selectedHour = Math.max(0, Math.min(23, v));
+            applyTimeChange();
+          }
+        });
+        hrInput.addEventListener('blur', () => {
           let v = parseInt(hrInput.value, 10);
           if (isNaN(v)) v = 0;
           selectedHour = Math.max(0, Math.min(23, v));
@@ -792,13 +1708,24 @@ function initCustomDateTimePickers(root = document) {
         });
 
         const minInput = document.createElement('input');
-        minInput.type = 'number';
+        minInput.type = 'text';
+        minInput.inputMode = 'numeric';
+        minInput.pattern = '[0-9]*';
+        minInput.maxLength = 2;
         minInput.className = 'custom-time-input-box';
-        minInput.min = '0';
-        minInput.max = '59';
         minInput.value = String(selectedMinute).padStart(2, '0');
         minInput.addEventListener('click', (e) => e.stopPropagation());
-        minInput.addEventListener('change', () => {
+        minInput.addEventListener('input', () => {
+          let clean = minInput.value.replace(/\D/g, '');
+          if (clean.length > 2) clean = clean.slice(0, 2);
+          minInput.value = clean;
+          let v = parseInt(clean, 10);
+          if (!isNaN(v)) {
+            selectedMinute = Math.max(0, Math.min(59, v));
+            applyTimeChange();
+          }
+        });
+        minInput.addEventListener('blur', () => {
           let v = parseInt(minInput.value, 10);
           if (isNaN(v)) v = 0;
           selectedMinute = Math.max(0, Math.min(59, v));
@@ -1006,7 +1933,7 @@ function initCustomDateTimePickers(root = document) {
     renderCard();
     wrapper.appendChild(card);
 
-    // Toggle open
+    // Toggle open with smart positioning
     trigger.addEventListener('click', (e) => {
       e.stopPropagation();
       const isOpen = wrapper.classList.contains('open');
@@ -1015,16 +1942,8 @@ function initCustomDateTimePickers(root = document) {
       if (!isOpen) {
         syncStateFromInput();
         renderCard();
-        // Position card appropriately
-        const rect = wrapper.getBoundingClientRect();
-        if (rect.right + 300 > window.innerWidth && rect.right > 300) {
-          card.style.left = 'auto';
-          card.style.right = '0';
-        } else {
-          card.style.left = '0';
-          card.style.right = 'auto';
-        }
         wrapper.classList.add('open');
+        positionFloatingPopup(wrapper, card, { isCard: true, defaultHeight: isDate ? 320 : 250 });
       }
     });
 
@@ -1056,18 +1975,115 @@ function closeAllDatePickers() {
 // - Attribution: gmp_git_agentskills_v1
 // ============================================================================
 
+let _resolvedMapApiKey = null;
+
 const GOOGLE_MAPS_CONFIG = {
   mapId: "DEMO_MAP_ID",
   attributionTag: "gmp_git_agentskills_v1",
   coordinates: {
     windhoekCentral: { lat: -22.5609, lng: 17.0658 },
-    restaurantR001: { lat: -22.5609, lng: 17.0658 },
+    restaurantLocation: { lat: -22.5609, lng: 17.0658 },
     customerDelivery: { lat: -22.5695, lng: 17.0850 },
     courierLocation: { lat: -22.5700, lng: 17.0800 }
   }
 };
 
 let _gmpLoaderPromise = null;
+
+async function resolveMapApiKey() {
+  if (_resolvedMapApiKey) return _resolvedMapApiKey;
+  if (typeof window !== 'undefined' && window.MAP_API_KEY) {
+    _resolvedMapApiKey = window.MAP_API_KEY;
+    return _resolvedMapApiKey;
+  }
+  if (typeof window !== 'undefined') {
+    const local = localStorage.getItem('map_api_key') || localStorage.getItem('google_maps_api_key');
+    if (local) {
+      _resolvedMapApiKey = local;
+      return _resolvedMapApiKey;
+    }
+  }
+  const isBrowser = typeof window !== 'undefined' && window.location;
+  const isFileOrigin = isBrowser && (
+    window.location.protocol === 'file:' ||
+    !window.location.hostname ||
+    window.location.origin === 'null' ||
+    (window.location.origin && window.location.origin.startsWith('file:'))
+  );
+  const endpoints = isFileOrigin
+    ? ['http://localhost:8080/api/config', 'http://127.0.0.1:8080/api/config']
+    : ['/api/config', 'http://localhost:8080/api/config', 'http://127.0.0.1:8080/api/config'];
+  for (const ep of endpoints) {
+    try {
+      const res = await fetch(ep);
+      if (res.ok) {
+        const data = await res.json();
+        const key = data.mapApiKey || data.MAP_API_KEY || '';
+        if (key) {
+          _resolvedMapApiKey = key;
+          if (typeof window !== 'undefined') window.MAP_API_KEY = key;
+          return _resolvedMapApiKey;
+        }
+      }
+    } catch (_) {}
+  }
+  if (typeof process !== 'undefined' && process.env && process.env.MAP_API_KEY) {
+    _resolvedMapApiKey = process.env.MAP_API_KEY;
+    return _resolvedMapApiKey;
+  }
+  return _resolvedMapApiKey || '';
+}
+
+function getMapApiKeySync() {
+  if (_resolvedMapApiKey) return _resolvedMapApiKey;
+  if (typeof window !== 'undefined') {
+    return window.MAP_API_KEY || localStorage.getItem('map_api_key') || localStorage.getItem('google_maps_api_key') || '';
+  }
+  if (typeof process !== 'undefined' && process.env) {
+    return process.env.MAP_API_KEY || '';
+  }
+  return '';
+}
+
+function getCartoTileUrl(style = 'voyager', apiKey = '') {
+  const key = apiKey || getMapApiKeySync();
+  if (key) {
+    return `https://{s}.basemaps.cartocdn.com/rastertiles/${style}/{z}/{x}/{y}{r}.png?key=${encodeURIComponent(key)}`;
+  }
+  // Esri World Street Map keyless, block-free, watermark-free fallback
+  return 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
+}
+
+function getWatermarkFreeTileUrl() {
+  return 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
+}
+
+function getEsriTileUrl() {
+  return 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
+}
+
+function getMapTileConfig(provider = 'auto', apiKey = '') {
+  const key = apiKey || getMapApiKeySync();
+  if (provider === 'carto' && key) {
+    return {
+      url: `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=${encodeURIComponent(key)}`,
+      options: {
+        subdomains: 'abcd',
+        maxZoom: 20,
+        attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+      }
+    };
+  }
+  // Default to Esri World Street Map for keyless reliability (no 403 blocks, no watermarks)
+  return {
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+    options: {
+      maxZoom: 19,
+      attribution: 'Tiles &copy; Esri &mdash; Source: Esri, DeLorme, USGS, METI'
+    },
+    fallbackUrl: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+  };
+}
 
 /**
  * Modern Google Maps API Dynamic Script Loader with @googlemaps/js-api-loader fallback pattern.
@@ -1093,7 +2109,7 @@ function loadGoogleMapsLibraries(customKey = "") {
       }).catch(reject);
     }
 
-    const key = customKey || window.GOOGLE_MAPS_API_KEY || localStorage.getItem("google_maps_api_key") || "";
+    const key = customKey || window.GOOGLE_MAPS_API_KEY || window.MAP_API_KEY || getMapApiKeySync() || localStorage.getItem("google_maps_api_key") || "";
 
     // Bootstrap dynamic script loader
     const script = document.createElement("script");
@@ -1175,19 +2191,309 @@ function createCustomMarkerElement({ type, title, subtitle }) {
   return wrapper;
 }
 
+// ============================================================================
+// 5. AUTHENTICATION, PASSWORD VALIDATION & SECURITY UTILITIES
+// ============================================================================
+
+function validatePassword(password, confirmPassword = null) {
+  const p = String(password || "");
+  const checks = {
+    length: p.length >= 8 && p.length <= 64,
+    uppercase: /[A-Z]/.test(p),
+    lowercase: /[a-z]/.test(p),
+    number: /[0-9]/.test(p),
+    special: /[^A-Za-z0-9]/.test(p),
+    match: confirmPassword !== null ? p === String(confirmPassword) : true
+  };
+
+  const errors = [];
+  if (!checks.length) errors.push("Password must be between 8 and 64 characters.");
+  if (!checks.uppercase) errors.push("Password must include at least one uppercase letter (A-Z).");
+  if (!checks.lowercase) errors.push("Password must include at least one lowercase letter (a-z).");
+  if (!checks.number) errors.push("Password must include at least one number (0-9).");
+  if (!checks.special) errors.push("Password must include at least one special symbol (!@#$%^&*...).");
+  if (!checks.match) errors.push("Passwords do not match.");
+
+  let score = 0;
+  if (p.length >= 8) score++;
+  if (p.length >= 12) score++;
+  if (checks.uppercase && checks.lowercase) score++;
+  if (checks.number && checks.special) score++;
+  if (score > 4) score = 4;
+
+  const isValid = checks.length && checks.uppercase && checks.lowercase && checks.number && checks.special && checks.match;
+  return { isValid, score, errors, checks };
+}
+
+function evaluatePasswordStrength(password) {
+  const { score, checks } = validatePassword(password);
+  const levels = [
+    { score: 0, label: "Very Weak", color: "#ef4444", percent: 15 },
+    { score: 1, label: "Weak", color: "#f97316", percent: 35 },
+    { score: 2, label: "Fair", color: "#eab308", percent: 60 },
+    { score: 3, label: "Good", color: "#06b6d4", percent: 80 },
+    { score: 4, label: "Strong", color: "#22c55e", percent: 100 }
+  ];
+  return { ...levels[score], checks };
+}
+
+async function hashPassword(password) {
+  const str = String(password || "");
+  if (typeof crypto !== 'undefined' && crypto.subtle && typeof TextEncoder !== 'undefined') {
+    const msgBuffer = new TextEncoder().encode(str);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+  // Fallback for simple environments
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  const hex = Math.abs(hash).toString(16).padStart(8, '0');
+  return hex.repeat(8).slice(0, 64);
+}
+
+function getStoredSession(role = 'customer') {
+  try {
+    if (typeof localStorage === 'undefined') return null;
+    const raw = localStorage.getItem('dsa_session_' + role);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (data && data.token) return data;
+    return null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function setStoredSession(role, userObject) {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    const session = {
+      role,
+      token: 'jwt_' + role + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9),
+      loginAt: new Date().toISOString(),
+      user: userObject
+    };
+    localStorage.setItem('dsa_session_' + role, JSON.stringify(session));
+    return session;
+  } catch (_) {
+    return null;
+  }
+}
+
+function clearStoredSession(role = 'customer') {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    localStorage.removeItem('dsa_session_' + role);
+  } catch (_) {}
+}
+
+function hasValidSession(role = 'customer') {
+  return getStoredSession(role) !== null;
+}
+
+// ============================================================================
+// 6. RESTAURANT REGISTRY, SEED COORDINATES & MAP CARD GENERATION
+// ============================================================================
+
+var RESTAURANT_VISUAL_REGISTRY = (typeof window !== 'undefined' && window.RESTAURANT_VISUAL_REGISTRY) || {
+  R001: {
+    name: "Kapana Corner",
+    tag: "Katutura",
+    rating: "4.9 ★",
+    deliveryTime: "15-25 min",
+    image: "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80",
+    desc: "Authentic charcoal-grilled beef kapana, fresh chili salsa & golden vetkoek straight from the embers."
+  },
+  R002: {
+    name: "Namibian Potjie Kitchen",
+    tag: "Windhoek CBD",
+    rating: "4.8 ★",
+    deliveryTime: "25-35 min",
+    image: "https://images.unsplash.com/photo-1547496502-affa22d38842?auto=format&fit=crop&w=800&q=80",
+    desc: "Slow-simmered cast-iron campfire potjiekos, tender braised oxtail & freshly baked roosterkoek."
+  },
+  R003: {
+    name: "Oshakati Traditional Kitchen",
+    tag: "Northern Flavors",
+    rating: "4.7 ★",
+    deliveryTime: "20-30 min",
+    image: "https://images.unsplash.com/photo-1512058564366-18510be2db19?auto=format&fit=crop&w=800&q=80",
+    desc: "Free-range Oshiwambo chicken, steamed mahangu pap, wild spinach & authentic Owambo flavors."
+  },
+  R004: {
+    name: "Windhoek Braai House",
+    tag: "Klein Windhoek",
+    rating: "4.9 ★",
+    deliveryTime: "15-25 min",
+    image: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=800&q=80",
+    desc: "Prime flame-grilled Kalahari game steaks, spiced boerewors braai skewers & garlic roosterkoek."
+  },
+  R005: {
+    name: "Desert Cafe & Grill",
+    tag: "Coastal Flavors",
+    rating: "4.8 ★",
+    deliveryTime: "20-30 min",
+    image: "https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=800&q=80",
+    desc: "Atlantic fresh line fish, gourmet wild oryx burgers, coastal cafe delights & cold craft sodas."
+  }
+};
+
+var DEFAULT_RESTAURANT_VISUAL = (typeof window !== 'undefined' && window.DEFAULT_RESTAURANT_VISUAL) || {
+  tag: "Windhoek",
+  rating: "4.8 ★",
+  deliveryTime: "20-30 min",
+  image: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80",
+  desc: "Fresh artisan dishes, local specialties, and fast delivery across Windhoek."
+};
+if (typeof window !== 'undefined') {
+  window.DEFAULT_RESTAURANT_VISUAL = DEFAULT_RESTAURANT_VISUAL;
+}
+
+var DEFAULT_SEED_RESTAURANTS = (typeof window !== 'undefined' && window.DEFAULT_SEED_RESTAURANTS) || [
+  {
+    id: "R001",
+    name: "Kapana Corner",
+    address: "Single Quarters, Katutura, Windhoek",
+    lat: -22.5333,
+    lng: 17.0658,
+    contactNumber: "+264 61 299 1101"
+  },
+  {
+    id: "R002",
+    name: "Namibian Potjie Kitchen",
+    address: "Independence Ave, Windhoek CBD, Windhoek",
+    lat: -22.5601,
+    lng: 17.0836,
+    contactNumber: "+264 61 299 1102"
+  },
+  {
+    id: "R003",
+    name: "Oshakati Traditional Kitchen",
+    address: "Mandume Ndemufayo Ave, Windhoek",
+    lat: -22.5510,
+    lng: 17.0720,
+    contactNumber: "+264 61 299 1103"
+  },
+  {
+    id: "R004",
+    name: "Windhoek Braai House",
+    address: "Sam Nujoma Drive, Klein Windhoek, Windhoek",
+    lat: -22.5608,
+    lng: 17.0805,
+    contactNumber: "+264 61 299 1104"
+  },
+  {
+    id: "R005",
+    name: "Desert Cafe & Grill",
+    address: "Robert Mugabe Ave, Windhoek Central",
+    lat: -22.5720,
+    lng: 17.0890,
+    contactNumber: "+264 61 299 1105"
+  }
+];
+
+function createRestaurantMapCardHtml(restaurant, options = {}) {
+  const isClient = options && options.isClient === true;
+  if (!restaurant) return '<div class="restaurant-popup-card">No restaurant information</div>';
+
+  const rId = String(restaurant.id || 'R001');
+  const visual = RESTAURANT_VISUAL_REGISTRY[rId] || DEFAULT_RESTAURANT_VISUAL;
+  const name = restaurant.name || visual.name || 'Windhoek Kitchen';
+  const tag = visual.tag || 'Local Kitchen';
+  const rating = visual.rating || '4.8 ★';
+  const deliveryTime = visual.deliveryTime || '20-30 min';
+  const imgUrl = visual.image || DEFAULT_RESTAURANT_VISUAL.image;
+  const desc = visual.desc || 'Fresh artisan dishes and fast local delivery.';
+  const address = restaurant.address || 'Windhoek, Namibia';
+  const phone = restaurant.contactNumber || restaurant.phone || '+264 61 299 1100';
+
+  const esc = (typeof escapeHtml === 'function') ? escapeHtml : (str => String(str || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
+
+  const actionSection = isClient
+    ? `<button type="button" class="btn btn-sm btn-primary restaurant-popup-action-btn" onclick="if(typeof window.openRestaurantCatalogFromMap==='function'){window.openRestaurantCatalogFromMap('${esc(rId)}');}">View Menu &amp; Catalog</button>`
+    : `<div class="restaurant-popup-driver-note"><span class="driver-note-label">Pickup Kitchen</span><span class="driver-note-contact">${esc(phone)}</span></div>`;
+
+  return `
+    <div class="restaurant-popup-card" data-restaurant-id="${esc(rId)}">
+      <div class="restaurant-popup-media">
+        <img src="${imgUrl}" alt="${esc(name)}" class="restaurant-popup-img" loading="lazy" />
+      </div>
+      <div class="restaurant-popup-content">
+        <div class="restaurant-popup-tag-row">
+          <span class="restaurant-popup-tag">${esc(tag)}</span>
+          <span class="restaurant-popup-rating">${esc(rating)}</span>
+        </div>
+        <h4 class="restaurant-popup-title">${esc(name)}</h4>
+        <p class="restaurant-popup-desc">${esc(desc)}</p>
+        <div class="restaurant-popup-meta">
+          <span class="meta-address"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg> ${esc(address)}</span>
+          <span class="meta-eta"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg> ${esc(deliveryTime)}</span>
+        </div>
+        ${actionSection}
+      </div>
+    </div>
+  `;
+}
+
 // Browser global export
 if (typeof window !== 'undefined') {
   window.GOOGLE_MAPS_CONFIG = GOOGLE_MAPS_CONFIG;
   window.loadGoogleMapsLibraries = loadGoogleMapsLibraries;
   window.createCustomMarkerElement = createCustomMarkerElement;
+  window.resolveMapApiKey = resolveMapApiKey;
+  window.getMapApiKeySync = getMapApiKeySync;
+  window.getCartoTileUrl = getCartoTileUrl;
+  window.getMapTileConfig = getMapTileConfig;
+  window.getWatermarkFreeTileUrl = getWatermarkFreeTileUrl;
+  window.getEsriTileUrl = getEsriTileUrl;
+  window.calculateBearing = calculateBearing;
+  window.fetchRoadRoute = fetchRoadRoute;
+  window.formatAddress = formatAddress;
+  window.formatFriendlyOrderId = formatFriendlyOrderId;
+  window.resolveCustomerName = resolveCustomerName;
+  window.resolveDriverName = resolveDriverName;
+  window.resolveRestaurantName = resolveRestaurantName;
+  window.createRibbonPolylineGroup = createRibbonPolylineGroup;
+  window.validatePassword = validatePassword;
+  window.evaluatePasswordStrength = evaluatePasswordStrength;
+  window.hashPassword = hashPassword;
+  window.getStoredSession = getStoredSession;
+  window.setStoredSession = setStoredSession;
+  window.clearStoredSession = clearStoredSession;
+  window.hasValidSession = hasValidSession;
+  window.DSA_CacheEngine = DSA_CacheEngine;
+  window.cachedApiFetch = cachedApiFetch;
+  window.DSA_StateKeeper = DSA_StateKeeper;
+  window.createVisibilityAwarePoller = createVisibilityAwarePoller;
+  window.createCachedResponse = createCachedResponse;
+  window.RESTAURANT_VISUAL_REGISTRY = RESTAURANT_VISUAL_REGISTRY;
+  window.DEFAULT_SEED_RESTAURANTS = DEFAULT_SEED_RESTAURANTS;
+  window.createRestaurantMapCardHtml = createRestaurantMapCardHtml;
 
   window.DSA = {
     getCandidateUrls,
     resolveApiUrl,
     apiFetch,
     probeHealth,
+    DSA_CacheEngine,
+    cachedApiFetch,
+    DSA_StateKeeper,
+    createVisibilityAwarePoller,
+    createCachedResponse,
     calculateDistanceKm,
     calculateETA,
+    calculateBearing,
+    fetchRoadRoute,
+    formatAddress,
+    formatFriendlyOrderId,
+    resolveCustomerName,
+    resolveDriverName,
+    resolveRestaurantName,
+    createRibbonPolylineGroup,
     setText,
     formatMoney,
     formatNumber,
@@ -1201,7 +2507,23 @@ if (typeof window !== 'undefined') {
     closeAllDatePickers,
     GOOGLE_MAPS_CONFIG,
     loadGoogleMapsLibraries,
-    createCustomMarkerElement
+    createCustomMarkerElement,
+    resolveMapApiKey,
+    getMapApiKeySync,
+    getCartoTileUrl,
+    getMapTileConfig,
+    getWatermarkFreeTileUrl,
+    getEsriTileUrl,
+    validatePassword,
+    evaluatePasswordStrength,
+    hashPassword,
+    getStoredSession,
+    setStoredSession,
+    clearStoredSession,
+    hasValidSession,
+    RESTAURANT_VISUAL_REGISTRY,
+    DEFAULT_SEED_RESTAURANTS,
+    createRestaurantMapCardHtml
   };
   window.sharedApiFetch = apiFetch;
   window.sharedProbeHealth = probeHealth;
@@ -1216,8 +2538,21 @@ if (typeof module !== 'undefined' && module.exports) {
     resolveApiUrl,
     apiFetch,
     probeHealth,
+    DSA_CacheEngine,
+    cachedApiFetch,
+    DSA_StateKeeper,
+    createVisibilityAwarePoller,
+    createCachedResponse,
     calculateDistanceKm,
     calculateETA,
+    calculateBearing,
+    fetchRoadRoute,
+    formatAddress,
+    formatFriendlyOrderId,
+    resolveCustomerName,
+    resolveDriverName,
+    resolveRestaurantName,
+    createRibbonPolylineGroup,
     setText,
     formatMoney,
     formatNumber,
@@ -1229,7 +2564,23 @@ if (typeof module !== 'undefined' && module.exports) {
     closeAllDropdowns,
     GOOGLE_MAPS_CONFIG,
     loadGoogleMapsLibraries,
-    createCustomMarkerElement
+    createCustomMarkerElement,
+    resolveMapApiKey,
+    getMapApiKeySync,
+    getCartoTileUrl,
+    getMapTileConfig,
+    getWatermarkFreeTileUrl,
+    getEsriTileUrl,
+    validatePassword,
+    evaluatePasswordStrength,
+    hashPassword,
+    getStoredSession,
+    setStoredSession,
+    clearStoredSession,
+    hasValidSession,
+    RESTAURANT_VISUAL_REGISTRY,
+    DEFAULT_SEED_RESTAURANTS,
+    createRestaurantMapCardHtml
   };
 }
 

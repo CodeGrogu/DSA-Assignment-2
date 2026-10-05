@@ -86,7 +86,7 @@ public final SubscriptionRule SLA_BREACH_DRIVER = {
 };
 
 // The full matrix. Notification service loops over this.
-public final SubscriptionRule[] SUBSCRIPTION_MATRIX = [
+public final readonly & SubscriptionRule[] SUBSCRIPTION_MATRIX = [
     ORDER_CREATED,
     ORDER_CONFIRMED,
     ORDER_READY,
@@ -99,11 +99,35 @@ public final SubscriptionRule[] SUBSCRIPTION_MATRIX = [
     SLA_BREACH_DRIVER
 ];
 
+isolated function normalizeSubscriptionEventType(string eventType) returns string {
+    match eventType {
+        "orders.created" => {
+            return "order.created";
+        }
+        "orders.confirmed" => {
+            return "order.confirmed";
+        }
+        "kitchen.orders.ready" => {
+            return "kitchen.order.ready";
+        }
+        "payment.completed" => {
+            return "payments.completed";
+        }
+        "payment.failed" => {
+            return "payments.failed";
+        }
+        _ => {
+            return eventType;
+        }
+    }
+}
+
 // Quick lookup: give an event type, get every rule that matches.
-public function rulesForEvent(string eventType) returns SubscriptionRule[] {
+public isolated function rulesForEvent(string eventType) returns SubscriptionRule[] {
+    string normalized = normalizeSubscriptionEventType(eventType);
     SubscriptionRule[] matches = [];
     foreach SubscriptionRule rule in SUBSCRIPTION_MATRIX {
-        if rule.eventType == eventType {
+        if rule.eventType == normalized {
             matches.push(rule);
         }
     }

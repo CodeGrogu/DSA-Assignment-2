@@ -344,10 +344,16 @@ log("===========================================================================
   const fallbackPayments = [
     {
       "paymentId": "PAY-SEED-001",
+      "transactionId": "TXN-SEED-001",
       "orderId": "ORD-SEED-001",
+      "customerId": "CUST-001",
       "amount": 145.00,
+      "currency": "NAD",
+      "method": "CARD",
+      "paymentMethod": "CARD",
       "status": "COMPLETED",
       "idempotencyKey": "IDEM-PAY-001-ORD-001",
+      "createdAt": "2026-10-01T12:01:30Z",
       "completedAt": "2026-10-01T12:01:30Z"
     }
   ];

@@ -27,6 +27,15 @@ configurable string deliveryStatusTopic = "delivery.status";
 configurable string deliveryEventsTopic = "delivery.events";
 configurable string deliveryConsumerGroup = "delivery-service-group";
 
+isolated mongodb:Client? sharedDeliveryMongoClient = ();
+
+isolated final kafka_client:ResilientProducer deliveryEventProducer = new ({
+    bootstrapServers: getEffectiveKafkaBroker(),
+    clientId: "delivery-service-producer",
+    maxRetries: 2,
+    retryBackoffSeconds: 0.5
+});
+
 isolated map<domain:Driver> inMemoryDrivers = {
     "drv_001": {
         id: "drv_001",
@@ -75,6 +84,54 @@ isolated map<domain:Driver> inMemoryDrivers = {
             latitude: -22.5630d,
             longitude: 17.0600d
         }
+    },
+    "drv_005": {
+        id: "drv_005",
+        name: "Johannes Nuuyoma",
+        phone: "+264812345605",
+        vehicleCategory: "VAN",
+        availability: "AVAILABLE",
+        state: "AVAILABLE",
+        location: {
+            latitude: -22.5742d,
+            longitude: 17.0951d
+        }
+    },
+    "drv_006": {
+        id: "drv_006",
+        name: "Ndapewa Shifotoka",
+        phone: "+264812345606",
+        vehicleCategory: "BICYCLE",
+        availability: "AVAILABLE",
+        state: "AVAILABLE",
+        location: {
+            latitude: -22.5554d,
+            longitude: 17.0798d
+        }
+    },
+    "drv_007": {
+        id: "drv_007",
+        name: "Petrus Shipanga",
+        phone: "+264812345607",
+        vehicleCategory: "MOTORCYCLE",
+        availability: "AVAILABLE",
+        state: "AVAILABLE",
+        location: {
+            latitude: -22.5831d,
+            longitude: 17.0719d
+        }
+    },
+    "drv_008": {
+        id: "drv_008",
+        name: "Aina Shikongo",
+        phone: "+264812345608",
+        vehicleCategory: "CAR",
+        availability: "OFFLINE",
+        state: "OFFLINE",
+        location: {
+            latitude: -22.5398d,
+            longitude: 17.0735d
+        }
     }
 };
 
@@ -95,6 +152,46 @@ isolated map<json> inMemoryDeliveries = {
     }
 };
 
+isolated function resolveRestaurantCoordinates(string restaurantId) returns domain:LocationCoordinates {
+    match restaurantId {
+        "R001"|"rest_katutura_01" => {
+            return {latitude: -22.5333d, longitude: 17.0658d};
+        }
+        "R002"|"rest_windhoek_02" => {
+            return {latitude: -22.5601d, longitude: 17.0836d};
+        }
+        "R003" => {
+            return {latitude: -17.7833d, longitude: 15.6887d};
+        }
+        "R004" => {
+            return {latitude: -22.5608d, longitude: 17.0805d};
+        }
+        "R005" => {
+            return {latitude: -22.6792d, longitude: 14.5266d};
+        }
+        _ => {
+            return {latitude: -22.5609d, longitude: 17.0658d};
+        }
+    }
+}
+
+isolated function setDriverAvailability(string driverId, domain:DriverAvailability availability, domain:DriverState state) {
+    lock {
+        if inMemoryDrivers.hasKey(driverId) {
+            domain:Driver drv = inMemoryDrivers.get(driverId);
+            inMemoryDrivers[driverId] = {
+                id: drv.id,
+                name: drv.name,
+                phone: drv.phone,
+                vehicleCategory: drv.vehicleCategory,
+                availability: availability,
+                state: state,
+                location: drv.location
+            };
+        }
+    }
+}
+
 isolated function getEffectiveKafkaBroker() returns string {
     string envBroker = os:getEnv("KAFKA_BROKER");
     if envBroker != "" {
@@ -113,6 +210,38 @@ isolated function getEffectiveMongoUri() returns string {
         return envUri;
     }
     return mongoUri;
+}
+
+isolated function getDeliveryMongoClient() returns mongodb:Client? {
+    if !enableMongo && os:getEnv("MONGO_URI") == "" {
+        return ();
+    }
+    lock {
+        mongodb:Client? existing = sharedDeliveryMongoClient;
+        if existing is mongodb:Client {
+            return existing;
+        }
+        mongodb:Client|error created = trap new ({connection: getEffectiveMongoUri()});
+        if created is mongodb:Client {
+            sharedDeliveryMongoClient = created;
+            return created;
+        }
+        return ();
+    }
+}
+
+isolated function getDeliveriesCollection() returns mongodb:Collection? {
+    mongodb:Client? mongoClient = getDeliveryMongoClient();
+    if mongoClient is mongodb:Client {
+        mongodb:Database|error db = mongoClient->getDatabase(mongoDatabase);
+        if db is mongodb:Database {
+            mongodb:Collection|error coll = db->getCollection("deliveries");
+            if coll is mongodb:Collection {
+                return coll;
+            }
+        }
+    }
+    return ();
 }
 
 # Calculates spherical Haversine distance in kilometers between two geographic coordinates.
@@ -172,84 +301,61 @@ isolated function isDeliveryTaskStatus(string status) returns boolean {
 }
 
 isolated function persistDeliveryToMongoAsync(map<json> deliveryDoc) {
-    if !enableMongo && os:getEnv("MONGO_URI") == "" {
-        return;
-    }
-    mongodb:Client|error mongoClient = trap new ({connection: getEffectiveMongoUri()});
-    if mongoClient is mongodb:Client {
-        mongodb:Database|error db = mongoClient->getDatabase(mongoDatabase);
-        if db is mongodb:Database {
-            mongodb:Collection|error coll = db->getCollection("deliveries");
-            if coll is mongodb:Collection {
-                string orderId = (deliveryDoc["orderId"] ?: "").toString();
-                mongodb:Update update = {"set": deliveryDoc};
-                mongodb:UpdateResult|error upd = coll->updateOne({"orderId": orderId}, update, {upsert: true});
-                if upd is error {
-                    log:printWarn("Failed to upsert delivery in MongoDB", 'error = upd);
-                }
-            }
+    mongodb:Collection? coll = getDeliveriesCollection();
+    if coll is mongodb:Collection {
+        string orderId = (deliveryDoc["orderId"] ?: "").toString();
+        mongodb:Update update = {"set": deliveryDoc};
+        mongodb:UpdateResult|error upd = coll->updateOne({"orderId": orderId}, update, {upsert: true});
+        if upd is error {
+            log:printWarn("Failed to upsert delivery in MongoDB", 'error = upd);
         }
     }
 }
 
-isolated function publishDeliveryEventsAsync(string orderId, string deliveryId, string driverId, string driverName, string driverPhone, string status, domain:LocationCoordinates coords, string now) {
+isolated function publishDeliveryEventsAsync(string orderId, string deliveryId, string driverId, string driverName, string driverPhone, string status, domain:LocationCoordinates coords, string now, string customerId = "") {
     if !enableKafka && os:getEnv("KAFKA_BROKER") == "" && os:getEnv("KAFKA_BOOTSTRAP_SERVERS") == "" {
         return;
     }
-    kafka_client:ResilientProducer producer = new ({
-        bootstrapServers: getEffectiveKafkaBroker(),
-        clientId: "delivery-service-producer",
-        maxRetries: 2,
-        retryBackoffSeconds: 0.5
-    });
 
     if status == "DRIVER_ASSIGNED" {
         events:DeliveryAssignedEvent assignedEvt = {
             eventId: uuid:createType4AsString(),
             deliveryId: deliveryId,
             orderId: orderId,
+            customerId: customerId,
             driverId: driverId,
             driverName: driverName,
             driverPhone: driverPhone,
             assignedAt: now
         };
         json assignedJson = events:deliveryAssignedToJson(assignedEvt);
-        error? pubErr1 = producer.publishJson(deliveryAssignedTopic, assignedJson, driverId);
-        error? pubErr2 = producer.publishJson(deliveryEventsTopic, assignedJson, orderId);
-    } else if status == "OUT_FOR_DELIVERY" || status == "IN_TRANSIT" {
-        events:DeliveryStatusUpdated pickupEvt = {
+        error? pubErr1 = deliveryEventProducer.publishJson(deliveryAssignedTopic, assignedJson, driverId);
+        error? pubErr2 = deliveryEventProducer.publishJson(deliveryEventsTopic, assignedJson, orderId);
+        if pubErr1 is error || pubErr2 is error {
+            log:printWarn("Delivery assigned event publish failed", orderId = orderId);
+        }
+    } else if status == "OUT_FOR_DELIVERY" || status == "IN_TRANSIT" || status == "DELIVERED" {
+        events:DeliveryStatus eventStatus = status == "DELIVERED" ? events:DELIVERED : events:PICKED_UP;
+        events:DeliveryStatusUpdated statusEvt = {
             eventId: uuid:createType4AsString(),
             deliveryId: deliveryId,
             orderId: orderId,
+            customerId: customerId,
             driverId: driverId,
-            status: events:PICKED_UP,
+            status: eventStatus,
             currentLocation: {
                 latitude: coords.latitude,
                 longitude: coords.longitude
             },
             updatedAt: now
         };
-        json pickupJson = events:deliveryStatusUpdatedToJson(pickupEvt);
-        error? pubErr1 = producer.publishJson(deliveryStatusTopic, pickupJson, orderId);
-        error? pubErr2 = producer.publishJson(deliveryEventsTopic, pickupJson, orderId);
-    } else if status == "DELIVERED" {
-        events:DeliveryStatusUpdated deliveredEvt = {
-            eventId: uuid:createType4AsString(),
-            deliveryId: deliveryId,
-            orderId: orderId,
-            driverId: driverId,
-            status: events:DELIVERED,
-            currentLocation: {
-                latitude: coords.latitude,
-                longitude: coords.longitude
-            },
-            updatedAt: now
-        };
-        json deliveredJson = events:deliveryStatusUpdatedToJson(deliveredEvt);
-        error? pubErr1 = producer.publishJson(deliveryStatusTopic, deliveredJson, orderId);
-        error? pubErr2 = producer.publishJson(deliveryEventsTopic, deliveredJson, orderId);
+        json statusJson = events:deliveryStatusUpdatedToJson(statusEvt);
+        error? pubErr1 = deliveryEventProducer.publishJson(deliveryStatusTopic, statusJson, orderId);
+        error? pubErr2 = deliveryEventProducer.publishJson(deliveryEventsTopic, statusJson, orderId);
+        if pubErr1 is error || pubErr2 is error {
+            log:printWarn("Delivery status event publish failed", orderId = orderId);
+        }
     }
-    error? closeErr = producer.close();
 }
 
 function init() {
@@ -314,11 +420,9 @@ function pollKitchenReadyTopic() returns error? {
 isolated function processKitchenReadyBytes(byte[] payloadBytes) returns error? {
     json parsed = check kafka_client:safeParseJson(payloadBytes);
     events:KitchenOrderReady readyEvent = check events:validateKitchenOrderReady(parsed);
-    domain:LocationCoordinates restaurantCoords = {
-        latitude: -22.5609d,
-        longitude: 17.0658d
-    };
+    domain:LocationCoordinates restaurantCoords = resolveRestaurantCoordinates(readyEvent.restaurantId);
     domain:Driver assignedDriver = selectNearestAvailableDriver(restaurantCoords);
+    setDriverAvailability(assignedDriver.id, "BUSY", "ASSIGNED");
     string now = time:utcToString(time:utcNow());
     string deliveryId = "del_" + readyEvent.orderId;
     decimal distKm = calculateDistanceKm(assignedDriver.location, restaurantCoords);
@@ -327,6 +431,7 @@ isolated function processKitchenReadyBytes(byte[] payloadBytes) returns error? {
     map<json> deliveryRecord = {
         deliveryId: deliveryId,
         orderId: readyEvent.orderId,
+        customerId: readyEvent.customerId,
         driverId: assignedDriver.id,
         driverName: assignedDriver.name,
         status: "DRIVER_ASSIGNED",
@@ -346,7 +451,23 @@ isolated function processKitchenReadyBytes(byte[] payloadBytes) returns error? {
         }
     }
     _ = start persistDeliveryToMongoAsync(deliveryRecord.cloneReadOnly());
-    _ = start publishDeliveryEventsAsync(readyEvent.orderId, deliveryId, assignedDriver.id, assignedDriver.name, assignedDriver.phone, "DRIVER_ASSIGNED", assignedDriver.location, now);
+    _ = start publishDeliveryEventsAsync(readyEvent.orderId, deliveryId, assignedDriver.id, assignedDriver.name, assignedDriver.phone, "DRIVER_ASSIGNED", assignedDriver.location, now, readyEvent.customerId);
+    if etaMins > 45 && (enableKafka || os:getEnv("KAFKA_BROKER") != "" || os:getEnv("KAFKA_BOOTSTRAP_SERVERS") != "") {
+        json slaEvt = {
+            eventId: uuid:createType4AsString(),
+            eventType: "delivery.sla_breach",
+            deliveryId: deliveryId,
+            orderId: readyEvent.orderId,
+            customerId: readyEvent.customerId,
+            driverId: assignedDriver.id,
+            estimatedMinutes: etaMins,
+            slaBreachAt: now
+        };
+        error? slaErr = deliveryEventProducer.publishJson("delivery.sla_breach", slaEvt, readyEvent.orderId);
+        if slaErr is error {
+            log:printWarn("Failed to publish SLA breach event", orderId = readyEvent.orderId);
+        }
+    }
 }
 
 @http:ServiceConfig {
@@ -389,6 +510,27 @@ service / on new http:Listener(port) {
     }
 
     isolated resource function get deliveries() returns json[] {
+        mongodb:Collection? coll = getDeliveriesCollection();
+        if coll is mongodb:Collection {
+            stream<map<json>, error?>|error dbStream = coll->find({}, projection = {"_id": 0});
+            if dbStream is stream<map<json>, error?> {
+                while true {
+                    record {|map<json> value;|}|error? nextDoc = dbStream.next();
+                    if nextDoc is () || nextDoc is error {
+                        break;
+                    }
+                    map<json> doc = nextDoc.value;
+                    json ordId = doc["orderId"];
+                    if ordId is string {
+                        lock {
+                            if !inMemoryDeliveries.hasKey(ordId) {
+                                inMemoryDeliveries[ordId] = doc.cloneReadOnly();
+                            }
+                        }
+                    }
+                }
+            }
+        }
         lock {
             json[] results = [];
             map<boolean> seenOrders = {};
@@ -417,6 +559,16 @@ service / on new http:Listener(port) {
         }
         if cached !is () {
             return cached;
+        }
+        mongodb:Collection? coll = getDeliveriesCollection();
+        if coll is mongodb:Collection {
+            map<json>?|error found = coll->findOne({"orderId": orderId}, projection = {"_id": 0});
+            if found is map<json> {
+                lock {
+                    inMemoryDeliveries[orderId] = found.cloneReadOnly();
+                }
+                return found;
+            }
         }
         return <http:NotFound>{
             body: {
@@ -484,13 +636,23 @@ service / on new http:Listener(port) {
         string status = "DRIVER_ASSIGNED";
         json statusJson = payload["status"];
         if statusJson is string && statusJson.trim() != "" {
-            status = statusJson.trim();
+            string rawStatus = statusJson.trim();
+            status = rawStatus == "IN_TRANSIT" ? "OUT_FOR_DELIVERY" : rawStatus;
+        }
+        if !isDeliveryTaskStatus(status) {
+            return <http:BadRequest>{
+                body: {
+                    "error": "InvalidDeliveryStatus",
+                    "message": string `Unsupported delivery status '${status}'`
+                }
+            };
         }
 
         string now = time:utcToString(time:utcNow());
         string assignedAt = now;
         string? pickedUpAt = ();
         string? deliveredAt = ();
+        string customerId = "";
 
         json? existingJson = ();
         lock {
@@ -508,10 +670,23 @@ service / on new http:Listener(port) {
             if prevPicked is string && prevPicked != "" {
                 pickedUpAt = prevPicked;
             }
+            json prevCustomer = existingJson["customerId"];
+            if prevCustomer is string && prevCustomer != "" {
+                customerId = prevCustomer;
+            }
             json prevStatusJson = existingJson["status"];
-            if prevStatusJson is string && prevStatusJson != status {
-                if isDeliveryTaskStatus(prevStatusJson) && isDeliveryTaskStatus(status) {
-                    domain:DeliveryTaskStatus|error prevTyped = prevStatusJson.cloneWithType(domain:DeliveryTaskStatus);
+            if prevStatusJson is string {
+                string normalizedPrev = prevStatusJson == "IN_TRANSIT" ? "OUT_FOR_DELIVERY" : prevStatusJson;
+                if normalizedPrev != status {
+                    if !isDeliveryTaskStatus(normalizedPrev) || !isDeliveryTaskStatus(status) {
+                        return <http:BadRequest>{
+                            body: {
+                                "error": "IllegalStateTransition",
+                                "message": string `Illegal delivery state transition from '${prevStatusJson}' to '${status}'`
+                            }
+                        };
+                    }
+                    domain:DeliveryTaskStatus|error prevTyped = normalizedPrev.cloneWithType(domain:DeliveryTaskStatus);
                     domain:DeliveryTaskStatus|error nextTyped = status.cloneWithType(domain:DeliveryTaskStatus);
                     if prevTyped is domain:DeliveryTaskStatus && nextTyped is domain:DeliveryTaskStatus {
                         domain:DeliveryTaskStatus|error transitioned = domain:transitionDelivery(prevTyped, nextTyped);
@@ -528,10 +703,18 @@ service / on new http:Listener(port) {
             }
         }
 
-        if status == "OUT_FOR_DELIVERY" || status == "IN_TRANSIT" {
-            pickedUpAt = now;
+        if status == "DRIVER_ASSIGNED" {
+            setDriverAvailability(driverId, "BUSY", "ASSIGNED");
+        } else if status == "OUT_FOR_DELIVERY" || status == "IN_TRANSIT" || status == "AT_RESTAURANT" {
+            if status == "OUT_FOR_DELIVERY" || status == "IN_TRANSIT" {
+                pickedUpAt = now;
+                setDriverAvailability(driverId, "BUSY", "DELIVERING");
+            } else {
+                setDriverAvailability(driverId, "BUSY", "ASSIGNED");
+            }
         } else if status == "DELIVERED" {
             deliveredAt = now;
+            setDriverAvailability(driverId, "AVAILABLE", "AVAILABLE");
         }
 
         domain:LocationCoordinates windhoekRef = {
@@ -564,7 +747,7 @@ service / on new http:Listener(port) {
         }
 
         _ = start persistDeliveryToMongoAsync(deliveryRecord.cloneReadOnly());
-        _ = start publishDeliveryEventsAsync(orderId, deliveryId, driverId, driverName, driverPhone, status, coords, now);
+        _ = start publishDeliveryEventsAsync(orderId, deliveryId, driverId, driverName, driverPhone, status, coords, now, customerId);
 
         return <http:Created>{body: deliveryRecord};
     }

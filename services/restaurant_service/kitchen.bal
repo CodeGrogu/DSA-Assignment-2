@@ -1,5 +1,6 @@
 import ballerina/lang.runtime as runtime;
 import ballerina/log;
+import ballerina/os;
 import ballerina/time;
 import ballerina/uuid;
 import ballerinax/kafka;
@@ -9,17 +10,29 @@ import peerpressure/events as events;
 configurable string kafkaBootstrapServers = "kafka:9092";
 configurable decimal kitchenCookingDurationSeconds = 30.0d;
 
+isolated function getEffectiveKitchenKafkaServers() returns string {
+    string envBroker = os:getEnv("KAFKA_BROKER");
+    if envBroker.trim() != "" {
+        return envBroker.trim();
+    }
+    string envServers = os:getEnv("KAFKA_BOOTSTRAP_SERVERS");
+    if envServers.trim() != "" {
+        return envServers.trim();
+    }
+    return kafkaBootstrapServers;
+}
+
 final string ordersConfirmedTopic = "orders.confirmed";
 final string kitchenReadyTopic = "kitchen.orders.ready";
 
-listener kafka:Listener kitchenListener = new (kafkaBootstrapServers, {
+listener kafka:Listener kitchenListener = new (getEffectiveKitchenKafkaServers(), {
     groupId: "restaurant-kitchen-service",
     topics: [ordersConfirmedTopic],
     offsetReset: kafka:OFFSET_RESET_EARLIEST,
     autoCommit: false
 });
 
-final kafka:Producer kitchenProducer = check new (kafkaBootstrapServers, {
+final kafka:Producer kitchenProducer = check new (getEffectiveKitchenKafkaServers(), {
     acks: kafka:ACKS_ALL,
     enableIdempotence: true
 });
@@ -30,8 +43,24 @@ service on kitchenListener {
             do {
                 string payloadText = check string:fromBytes(consumerRecord.value);
                 json payload = check payloadText.fromJsonString();
-                events:OrderConfirmedEvent confirmedOrder = check payload.cloneWithType();
-                check startKitchenPreparation(confirmedOrder);
+                events:OrderConfirmedEvent confirmedOrder = check events:validateOrderConfirmed(payload);
+                error? prepErr = startKitchenPreparation(confirmedOrder);
+                if prepErr is error {
+                    log:printWarn("Kitchen rejected confirmed order; publishing kitchen.rejected", orderId = confirmedOrder.orderId, 'error = prepErr);
+                    events:KitchenRejectedEvent rejectionEvt = {
+                        eventId: uuid:createType1AsString(),
+                        orderId: confirmedOrder.orderId,
+                        customerId: confirmedOrder.customerId,
+                        restaurantId: confirmedOrder.restaurantId,
+                        reason: prepErr.message(),
+                        rejectedAt: time:utcToString(time:utcNow())
+                    };
+                    _ = check kitchenProducer->send({
+                        topic: "kitchen.rejected",
+                        key: confirmedOrder.orderId.toBytes(),
+                        value: events:kitchenRejectedToJson(rejectionEvt).toJsonString().toBytes()
+                    });
+                }
             } on fail error err {
                 log:printError("Failed processing kitchen order record; skipping poison pill", err);
             }
@@ -52,35 +81,32 @@ function startKitchenPreparation(events:OrderConfirmedEvent confirmedOrder) retu
     }
     Restaurant restaurant = restaurantResult;
 
-    events:OrderItem[] decrementedItems = [];
+    [string, int][] decrementedItems = [];
     foreach events:OrderItem item in confirmedOrder.items {
         if item.quantity <= 0 {
-            foreach events:OrderItem prior in decrementedItems {
-                _ = check incrementMenuItemStock(confirmedOrder.restaurantId, prior.itemId, prior.quantity);
-            }
+            rollbackReservedStock(confirmedOrder.restaurantId, decrementedItems);
             return error("Confirmed order item quantity must be positive");
         }
         boolean stockDecremented = check decrementMenuItemStock(
                 confirmedOrder.restaurantId, item.itemId, item.quantity);
         if !stockDecremented {
-            foreach events:OrderItem prior in decrementedItems {
-                _ = check incrementMenuItemStock(confirmedOrder.restaurantId, prior.itemId, prior.quantity);
-            }
+            rollbackReservedStock(confirmedOrder.restaurantId, decrementedItems);
             return error("Insufficient stock for menu item " + item.itemId);
         }
-        decrementedItems.push(item);
+        decrementedItems.push([item.itemId, item.quantity]);
     }
 
     events:OrderPreparingEvent preparingEvent = {
         eventId: uuid:createType1AsString(),
         orderId: confirmedOrder.orderId,
+        customerId: confirmedOrder.customerId,
         restaurantId: confirmedOrder.restaurantId,
         preparingStartedAt: time:utcToString(time:utcNow())
     };
     check kitchenProducer->send({
         topic: "orders.preparing",
         key: confirmedOrder.orderId.toBytes(),
-        value: preparingEvent.toJsonString().toBytes()
+        value: events:orderPreparingToJson(preparingEvent).toJsonString().toBytes()
     });
 
     _ = start runKitchenPreparationJob(confirmedOrder, restaurant.address);
@@ -114,12 +140,12 @@ function completeKitchenPreparation(events:OrderConfirmedEvent confirmedOrder, s
     events:KitchenReadyEvent readyEvent = {
         eventId: uuid:createType1AsString(),
         orderId: confirmedOrder.orderId,
+        customerId: confirmedOrder.customerId,
         restaurantId: confirmedOrder.restaurantId,
         pickupAddress,
         pickupReadyAt: time:utcToString(time:utcNow())
     };
-    json payload = readyEvent;
-    string serializedPayload = payload.toJsonString();
+    string serializedPayload = events:kitchenOrderReadyToJson(readyEvent).toJsonString();
 
     check kitchenProducer->send({
         topic: kitchenReadyTopic,

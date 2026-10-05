@@ -43,6 +43,32 @@ service / on new http:Listener(port) {
         return metrics:getMetricsResponse();
     }
 
+    resource function get customers() returns http:Response {
+        time:Utc startTime = time:utcNow();
+        Customer[]|error listResult = listAllCustomers();
+        if listResult is error {
+            return handleDaoError(listResult, "GET", "/customers", startTime);
+        }
+        json[] out = [];
+        foreach Customer c in listResult {
+            out.push(customerToJson(c));
+        }
+        return respondWithMetric(http:STATUS_OK, out, "GET", "/customers", startTime);
+    }
+
+    resource function get customers/[string customerId]/addresses() returns http:Response {
+        time:Utc startTime = time:utcNow();
+        string path = string `/customers/${customerId}/addresses`;
+        if customerId.trim().length() == 0 {
+            return respondWithMetric(http:STATUS_BAD_REQUEST, {message: "Customer ID cannot be empty"}, "GET", path, startTime);
+        }
+        Customer|error result = getCustomerById(customerId);
+        if result is error {
+            return handleDaoError(result, "GET", path, startTime);
+        }
+        return respondWithMetric(http:STATUS_OK, result.addresses, "GET", path, startTime);
+    }
+
     resource function post customers(@http:Payload json payload)
             returns http:Response {
         time:Utc startTime = time:utcNow();
@@ -86,25 +112,8 @@ service / on new http:Listener(port) {
         }
 
         error? result = insertCustomer(customer);
-
-        if result is DuplicateEmailError {
-            return respondWithMetric(
-                    http:STATUS_CONFLICT,
-                    {message: "Customer email already exists"},
-                    "POST",
-                    path,
-                    startTime
-            );
-        }
-
         if result is error {
-            return respondWithMetric(
-                    http:STATUS_INTERNAL_SERVER_ERROR,
-                    {message: result.message()},
-                    "POST",
-                    path,
-                    startTime
-            );
+            return handleDaoError(result, "POST", path, startTime);
         }
 
         return respondWithMetric(
@@ -132,25 +141,8 @@ service / on new http:Listener(port) {
         }
 
         Customer|error result = getCustomerById(customerId);
-
         if result is error {
-            if result is CustomerNotFoundError || result.message() == "Customer not found" {
-                return respondWithMetric(
-                        http:STATUS_NOT_FOUND,
-                        {message: "Customer not found"},
-                        "GET",
-                        path,
-                        startTime
-                );
-            }
-
-            return respondWithMetric(
-                    http:STATUS_INTERNAL_SERVER_ERROR,
-                    {message: result.message()},
-                    "GET",
-                    path,
-                    startTime
-            );
+            return handleDaoError(result, "GET", path, startTime);
         }
 
         return respondWithMetric(
@@ -213,29 +205,9 @@ service / on new http:Listener(port) {
             );
         }
 
-        error? result = updateCustomerAddress(
-                customerId,
-                address
-        );
-
+        error? result = updateCustomerAddress(customerId, address);
         if result is error {
-            if result is CustomerNotFoundError || result.message() == "Customer not found" {
-                return respondWithMetric(
-                        http:STATUS_NOT_FOUND,
-                        {message: "Customer not found"},
-                        "POST",
-                        path,
-                        startTime
-                );
-            }
-
-            return respondWithMetric(
-                    http:STATUS_INTERNAL_SERVER_ERROR,
-                    {message: result.message()},
-                    "POST",
-                    path,
-                    startTime
-            );
+            return handleDaoError(result, "POST", path, startTime);
         }
 
         return respondWithMetric(
@@ -285,61 +257,14 @@ service / on new http:Listener(port) {
             );
         }
 
-        error? result = setDefaultAddress(
-                customerId,
-                request.addressId
-        );
-
+        error? result = setDefaultAddress(customerId, request.addressId);
         if result is error {
-            if result is CustomerNotFoundError || result.message() == "Customer not found" {
-                return respondWithMetric(
-                        http:STATUS_NOT_FOUND,
-                        {message: "Customer not found"},
-                        "PUT",
-                        path,
-                        startTime
-                );
-            }
-
-            if result is AddressNotFoundError || result.message() == "Address not found" {
-                return respondWithMetric(
-                        http:STATUS_NOT_FOUND,
-                        {message: "Address not found"},
-                        "PUT",
-                        path,
-                        startTime
-                );
-            }
-
-            return respondWithMetric(
-                    http:STATUS_INTERNAL_SERVER_ERROR,
-                    {message: result.message()},
-                    "PUT",
-                    path,
-                    startTime
-            );
+            return handleDaoError(result, "PUT", path, startTime);
         }
 
         Customer|error customerResult = getCustomerById(customerId);
-
         if customerResult is error {
-            if customerResult is CustomerNotFoundError || customerResult.message() == "Customer not found" {
-                return respondWithMetric(
-                        http:STATUS_NOT_FOUND,
-                        {message: "Customer not found"},
-                        "PUT",
-                        path,
-                        startTime
-                );
-            }
-
-            return respondWithMetric(
-                    http:STATUS_INTERNAL_SERVER_ERROR,
-                    {message: customerResult.message()},
-                    "PUT",
-                    path,
-                    startTime
-            );
+            return handleDaoError(customerResult, "PUT", path, startTime);
         }
 
         return respondWithMetric(
@@ -399,52 +324,14 @@ service / on new http:Listener(port) {
             );
         }
 
-        error? result = updateCustomerProfile(
-                customerId,
-                profile.name,
-                profile.phone
-        );
-
+        error? result = updateCustomerProfile(customerId, profile.name, profile.phone);
         if result is error {
-            if result is CustomerNotFoundError || result.message() == "Customer not found" {
-                return respondWithMetric(
-                        http:STATUS_NOT_FOUND,
-                        {message: "Customer not found"},
-                        "PUT",
-                        path,
-                        startTime
-                );
-            }
-
-            return respondWithMetric(
-                    http:STATUS_INTERNAL_SERVER_ERROR,
-                    {message: result.message()},
-                    "PUT",
-                    path,
-                    startTime
-            );
+            return handleDaoError(result, "PUT", path, startTime);
         }
 
         Customer|error customerResult = getCustomerById(customerId);
-
         if customerResult is error {
-            if customerResult is CustomerNotFoundError || customerResult.message() == "Customer not found" {
-                return respondWithMetric(
-                        http:STATUS_NOT_FOUND,
-                        {message: "Customer not found"},
-                        "PUT",
-                        path,
-                        startTime
-                );
-            }
-
-            return respondWithMetric(
-                    http:STATUS_INTERNAL_SERVER_ERROR,
-                    {message: customerResult.message()},
-                    "PUT",
-                    path,
-                    startTime
-            );
+            return handleDaoError(customerResult, "PUT", path, startTime);
         }
 
         return respondWithMetric(
@@ -471,45 +358,81 @@ service / on new http:Listener(port) {
             );
         }
 
-        error? result = deleteCustomerAddress(
-                customerId,
-                addressId
-        );
-
+        error? result = deleteCustomerAddress(customerId, addressId);
         if result is error {
-            if result is CustomerNotFoundError || result.message() == "Customer not found" {
-                return respondWithMetric(
-                        http:STATUS_NOT_FOUND,
-                        {message: "Customer not found"},
-                        "DELETE",
-                        path,
-                        startTime
-                );
-            }
-
-            if result is AddressNotFoundError || result.message() == "Address not found" {
-                return respondWithMetric(
-                        http:STATUS_NOT_FOUND,
-                        {message: "Address not found"},
-                        "DELETE",
-                        path,
-                        startTime
-                );
-            }
-
-            return respondWithMetric(
-                    http:STATUS_INTERNAL_SERVER_ERROR,
-                    {message: result.message()},
-                    "DELETE",
-                    path,
-                    startTime
-            );
+            return handleDaoError(result, "DELETE", path, startTime);
         }
 
         return respondWithMetric(
                 http:STATUS_OK,
                 {message: "Address deleted successfully"},
                 "DELETE",
+                path,
+                startTime
+        );
+    }
+
+    resource function put customers/[string customerId]/addresses/[string addressId](
+            @http:Payload json payload)
+            returns http:Response {
+        time:Utc startTime = time:utcNow();
+        string path = string `/customers/${customerId}/addresses/${addressId}`;
+
+        if customerId.trim().length() == 0 || addressId.trim().length() == 0 {
+            return respondWithMetric(
+                    http:STATUS_BAD_REQUEST,
+                    {message: "Customer ID and Address ID cannot be empty"},
+                    "PUT",
+                    path,
+                    startTime
+            );
+        }
+
+        CustomerAddress|error addressResult = payload.cloneWithType(CustomerAddress);
+        if addressResult is error {
+            return respondWithMetric(
+                    http:STATUS_BAD_REQUEST,
+                    {message: "Payload validation failure: " + addressResult.message()},
+                    "PUT",
+                    path,
+                    startTime
+            );
+        }
+
+        CustomerAddress address = addressResult;
+        address.id = addressId;
+
+        string? addrValErr = validateCustomerAddress(address);
+        if addrValErr is string {
+            return respondWithMetric(
+                    http:STATUS_BAD_REQUEST,
+                    {message: addrValErr},
+                    "PUT",
+                    path,
+                    startTime
+            );
+        }
+
+        error? coordinateResult = validateNamibiaCoordinates(address.location);
+        if coordinateResult is error {
+            return respondWithMetric(
+                    http:STATUS_BAD_REQUEST,
+                    {message: coordinateResult.message()},
+                    "PUT",
+                    path,
+                    startTime
+            );
+        }
+
+        error? result = updateExistingCustomerAddress(customerId, addressId, address);
+        if result is error {
+            return handleDaoError(result, "PUT", path, startTime);
+        }
+
+        return respondWithMetric(
+                http:STATUS_OK,
+                address,
+                "PUT",
                 path,
                 startTime
         );
@@ -546,23 +469,7 @@ service / on new http:Listener(port) {
 
         Customer|error customer = getCustomerById(customerId);
         if customer is error {
-            if customer is CustomerNotFoundError || customer.message() == "Customer not found" {
-                return respondWithMetric(
-                        http:STATUS_NOT_FOUND,
-                        {message: "Customer not found"},
-                        "GET",
-                        path,
-                        startTime
-                );
-            }
-
-            return respondWithMetric(
-                    http:STATUS_INTERNAL_SERVER_ERROR,
-                    {message: customer.message()},
-                    "GET",
-                    path,
-                    startTime
-            );
+            return handleDaoError(customer, "GET", path, startTime);
         }
 
         http:Client|error orderClient = getOrderClient();
@@ -597,6 +504,19 @@ service / on new http:Listener(port) {
                 startTime
         );
     }
+}
+
+function handleDaoError(error err, string method, string path, time:Utc startTime) returns http:Response {
+    if err is DuplicateEmailError {
+        return respondWithMetric(http:STATUS_CONFLICT, {message: "Customer email already exists"}, method, path, startTime);
+    }
+    if err is CustomerNotFoundError || err.message() == "Customer not found" {
+        return respondWithMetric(http:STATUS_NOT_FOUND, {message: "Customer not found"}, method, path, startTime);
+    }
+    if err is AddressNotFoundError || err.message() == "Address not found" {
+        return respondWithMetric(http:STATUS_NOT_FOUND, {message: "Address not found"}, method, path, startTime);
+    }
+    return respondWithMetric(http:STATUS_INTERNAL_SERVER_ERROR, {message: err.message()}, method, path, startTime);
 }
 
 function processVerifyAddress(json payload, string path) returns http:Response {

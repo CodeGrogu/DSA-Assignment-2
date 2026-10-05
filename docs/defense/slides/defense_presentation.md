@@ -171,7 +171,7 @@ Existing `KitchenOrderReady` and `DeliveryStatusUpdated` records/aliases remain 
 | Customer | MongoDB `customer_db`, `customers` collection |
 | Order | MongoDB `order_db`, `orders` + in-memory cache |
 | Restaurant | MongoDB `restaurant_db`, `restaurants` with indexed per-item atomic stock updates |
-| Payment | MongoDB `payments_db` (`transactions`, `payment_ledger`, `idempotency_keys`) |
+| Payment | MongoDB `payments_db` (`transactions`, `ledger_entries`, `idempotency_keys`) |
 | Delivery | MongoDB `delivery_db`, `deliveries` + in-memory tracking cache |
 | Notification | Appends audit rows to `./audit.log` and persists to MongoDB `notification_db`, `notifications` |
 | Admin | Loads baseline `seed_data.json` and merges live snapshots from Order, Payment, and Delivery APIs |
