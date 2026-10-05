@@ -1,6 +1,9 @@
 port = 9091
-baseDeliveryFee = 0.0
-defaultSurgeMultiplier = 1.0
+baseDeliveryFee = 15.0
+maxSurgeMultiplier = 3.0
+minSurgeMultiplier = 1.0
+enableTimeOfDayPeak = true
+timezoneOffsetHours = 2.0
 enableMongo = true
 mongoUri = "mongodb://root:password@localhost:27017/order_db?authSource=admin"
 mongoDatabase = "order_db"

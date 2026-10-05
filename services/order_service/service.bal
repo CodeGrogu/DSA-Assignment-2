@@ -6,8 +6,6 @@ import peerpressure/events as events;
 import peerpressure/metrics as metrics;
 
 configurable int port = 9091;
-configurable decimal baseDeliveryFee = 0.0;
-configurable decimal defaultSurgeMultiplier = 1.0;
 
 service / on new http:Listener(port) {
 
@@ -32,6 +30,50 @@ service / on new http:Listener(port) {
         return metrics:getMetricsResponse();
     }
 
+    # Dynamic surge pricing quote endpoint for specified supply and demand parameters.
+    resource function get pricing/quote(int unfulfilledOrders, int availableDrivers) returns PricingQuote|http:BadRequest {
+        time:Utc startTime = time:utcNow();
+
+        if unfulfilledOrders < 0 || availableDrivers < 0 {
+            ErrorResponse errResp = {
+                'error: "BadRequest",
+                message: "unfulfilledOrders and availableDrivers must be non-negative integers",
+                timestamp: currentTimestamp()
+            };
+            time:Utc endTime = time:utcNow();
+            decimal durationMs = time:utcDiffSeconds(endTime, startTime) * 1000d;
+            metrics:recordHttpRequest("GET", "/pricing/quote", 400, durationMs, "order_service");
+            return <http:BadRequest>{body: errResp};
+        }
+
+        PricingQuote quote = pricingEngine.getQuote(unfulfilledOrders, availableDrivers);
+
+        time:Utc endTime = time:utcNow();
+        decimal durationMs = time:utcDiffSeconds(endTime, startTime) * 1000d;
+        metrics:recordHttpRequest("GET", "/pricing/quote", 200, durationMs, "order_service");
+
+        return quote;
+    }
+
+    # Retrieves real-time platform dynamic surge pricing quote for current supply and demand.
+    resource function get pricing/current() returns PricingQuote {
+        time:Utc startTime = time:utcNow();
+
+        // Refresh unfulfilled orders count from orderStore if store demand exceeds tracked count
+        int storeOrders = orderStore.getUnfulfilledOrderCount();
+        if storeOrders > pricingEngine.getUnfulfilledOrders() {
+            pricingEngine.setSupplyDemand(storeOrders, pricingEngine.getAvailableDrivers());
+        }
+
+        PricingQuote quote = pricingEngine.getCurrentQuote();
+
+        time:Utc endTime = time:utcNow();
+        decimal durationMs = time:utcDiffSeconds(endTime, startTime) * 1000d;
+        metrics:recordHttpRequest("GET", "/pricing/current", 200, durationMs, "order_service");
+
+        return quote;
+    }
+
     # Creates a new customer order with validated items and delivery location.
     resource function post orders(@http:Payload CreateOrderRequest payload) returns http:Created|http:BadRequest|http:InternalServerError {
         time:Utc startTime = time:utcNow();
@@ -51,10 +93,16 @@ service / on new http:Listener(port) {
             itemsTotal = itemsTotal + (item.price * <decimal>item.quantity);
         }
 
-        decimal deliveryFee = baseDeliveryFee;
-        decimal surgeMultiplier = defaultSurgeMultiplier;
-        // Total amount strictly equals sum of item subtotals per peerpressure/events contract specification
-        decimal totalAmount = itemsTotal;
+        // Dynamically evaluate quote using live store state
+        int activeUnfulfilled = orderStore.getUnfulfilledOrderCount();
+        if activeUnfulfilled > pricingEngine.getUnfulfilledOrders() {
+            pricingEngine.setSupplyDemand(activeUnfulfilled, pricingEngine.getAvailableDrivers());
+        }
+
+        PricingQuote quote = pricingEngine.getCurrentQuote();
+        decimal deliveryFee = quote.deliveryFee;
+        decimal surgeMultiplier = quote.surgeMultiplier;
+        decimal totalAmount = itemsTotal + deliveryFee;
 
         string generatedId = string `ord_${time:utcNow()[0]}_${uuid:createType4AsString()}`;
         string now = currentTimestamp();
@@ -85,6 +133,9 @@ service / on new http:Listener(port) {
             };
             return <http:InternalServerError>{body: errResp};
         }
+
+        // Dynamically update pricing engine state with live store metrics
+        pricingEngine.setSupplyDemand(orderStore.getUnfulfilledOrderCount(), pricingEngine.getAvailableDrivers());
 
         error? pubErr = orderEventProducer.publishOrderCreated(newOrder);
         if pubErr is error {
@@ -183,6 +234,9 @@ service / on new http:Listener(port) {
             };
             return <http:Conflict>{body: errResp};
         }
+
+        // Dynamically update pricing engine state with live store metrics upon cancellation
+        pricingEngine.setSupplyDemand(orderStore.getUnfulfilledOrderCount(), pricingEngine.getAvailableDrivers());
 
         string cancelledAt = currentTimestamp();
         error? pubErr = orderEventProducer.publishOrderCancelled(orderId, reason, "CUSTOMER", cancelledAt);

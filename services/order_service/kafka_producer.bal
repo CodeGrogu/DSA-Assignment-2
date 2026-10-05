@@ -45,6 +45,17 @@ public class OrderEventProducer {
                 specialInstructions: item.specialInstructions.cloneReadOnly()
             };
 
+        if 'order.deliveryFee > 0.0d {
+            eventItems.push({
+                itemId: "DELIVERY_FEE",
+                itemName: "Dynamic Delivery Fee",
+                quantity: 1,
+                unitPrice: 'order.deliveryFee,
+                subtotal: 'order.deliveryFee,
+                specialInstructions: [].cloneReadOnly()
+            });
+        }
+
         events:OrderCreated event = {
             eventId: uuid:createType4AsString(),
             orderId: 'order.orderId,

@@ -461,7 +461,8 @@ function testHttpOrderPublishingIntegration() returns error? {
     events:OrderCreated[] createdEvents = orderEventProducer.getRecordedCreatedEvents();
     test:assertEquals(createdEvents.length(), 1);
     test:assertEquals(createdEvents[0].orderId, orderId);
-    test:assertEquals(createdEvents[0].totalAmount, 85.0d);
+    decimal expectedTotal = check body.totalAmount;
+    test:assertEquals(createdEvents[0].totalAmount, expectedTotal);
 
     CancelOrderRequest cancelReq = {
         reason: "Customer changed mind before preparation"

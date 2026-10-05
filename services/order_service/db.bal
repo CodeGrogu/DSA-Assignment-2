@@ -133,6 +133,19 @@ public class OrderStore {
         return updated;
     }
 
+    # Returns the count of active unfulfilled orders (not in terminal states DELIVERED or CANCELLED).
+    public function getUnfulfilledOrderCount() returns int {
+        int count = 0;
+        lock {
+            foreach Order ord in self.inMemoryStore {
+                if ord.status != events:DELIVERED && ord.status != events:CANCELLED {
+                    count += 1;
+                }
+            }
+        }
+        return count;
+    }
+
     # Clears local in-memory records (useful for test resets).
     public function clearMemory() {
         lock {
