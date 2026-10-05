@@ -5,6 +5,5 @@ Set-Location $root
 
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) { Write-Host 'Install Node.js to run the tests.' -ForegroundColor Red; exit 2 }
 
-# Execute using tsx (or npx tsx / ts-node)
-npx tsx tests/integration/e2e-lifecycle.ts
+node tests/integration/e2e-lifecycle.mjs
 exit $LASTEXITCODE

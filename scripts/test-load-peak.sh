@@ -4,4 +4,4 @@ set -uo pipefail
 cd "$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "Not inside a git repo"; exit 2; }
 command -v node >/dev/null 2>&1 || { echo "Install Node.js to run the tests."; exit 2; }
 
-exec npx tsx tests/load/peak-meal-load.ts
+exec node tests/load/peak-meal-load.mjs

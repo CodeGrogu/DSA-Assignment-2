@@ -5,5 +5,5 @@ Set-Location $root
 
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) { Write-Host 'Install Node.js to run the tests.' -ForegroundColor Red; exit 2 }
 
-npx tsx tests/load/peak-meal-load.ts
+node tests/load/peak-meal-load.mjs
 exit $LASTEXITCODE
