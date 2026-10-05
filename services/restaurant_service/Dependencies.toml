@@ -5,7 +5,7 @@
 
 [ballerina]
 dependencies-toml-version = "2"
-distribution-version = "2201.13.6"
+distribution-version = "2201.13.5"
 
 [[package]]
 org = "ballerina"
@@ -278,6 +278,9 @@ version = "2.8.2"
 dependencies = [
 	{org = "ballerina", name = "jballerina.java"}
 ]
+modules = [
+	{org = "ballerina", packageName = "time", moduleName = "time"}
+]
 
 [[package]]
 org = "ballerina"
@@ -290,7 +293,7 @@ dependencies = [
 [[package]]
 org = "ballerina"
 name = "uuid"
-version = "1.10.0"
+version = "1.10.1"
 dependencies = [
 	{org = "ballerina", name = "crypto"},
 	{org = "ballerina", name = "jballerina.java"},
@@ -326,13 +329,14 @@ modules = [
 
 [[package]]
 org = "peerpressure"
-name = "events"
+name = "metrics"
 version = "0.1.0"
 dependencies = [
+	{org = "ballerina", name = "http"},
 	{org = "ballerinai", name = "observe"}
 ]
 modules = [
-	{org = "peerpressure", packageName = "events", moduleName = "events"}
+	{org = "peerpressure", packageName = "metrics", moduleName = "metrics"}
 ]
 
 [[package]]
@@ -343,9 +347,10 @@ dependencies = [
 	{org = "ballerina", name = "constraint"},
 	{org = "ballerina", name = "http"},
 	{org = "ballerina", name = "log"},
+	{org = "ballerina", name = "time"},
 	{org = "ballerinai", name = "observe"},
 	{org = "ballerinax", name = "mongodb"},
-	{org = "peerpressure", name = "events"}
+	{org = "peerpressure", name = "metrics"}
 ]
 modules = [
 	{org = "peerpressure", packageName = "restaurant_service", moduleName = "restaurant_service"}

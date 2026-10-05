@@ -2,8 +2,9 @@ import ballerina/http;
 import ballerina/io;
 import ballerina/log;
 import ballerina/regex;
+import ballerina/time;
 
-import peerpressure/events as _;
+import peerpressure/metrics as metrics;
 
 configurable int port = 9097;
 
@@ -12,13 +13,24 @@ listener http:Listener httpListener = new (port);
 service / on httpListener {
 
     resource function get health() returns json {
-        return {
+        time:Utc startTime = time:utcNow();
+        json response = {
             status: "UP",
             "service": "notification_service",
             port: port,
             version: "0.1.0",
             contracts: "peerpressure/events:0.1.0"
         };
+        time:Utc endTime = time:utcNow();
+        decimal durationMs = time:utcDiffSeconds(endTime, startTime) * 1000d;
+        metrics:recordHttpRequest("GET", "/health", 200, durationMs, "notification_service");
+        metrics:recordMessageLatency("notifications.dispatched", durationMs, "notification_service");
+        metrics:setConsumerLagMetric("notification_service_group", "notifications.dispatched", 0);
+        return response;
+    }
+
+    resource function get metrics() returns http:Response {
+        return metrics:getMetricsResponse();
     }
 
     resource function get notifications/recipient/[string id]() returns json|http:NotFound {

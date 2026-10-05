@@ -19,6 +19,11 @@ if [ -f "docker/docker-compose.services.yml" ]; then
     echo "  [PASS] docker/docker-compose.services.yml is valid."
 fi
 
+if [ -f "docker-compose-monitoring.yml" ]; then
+    docker compose -f docker-compose-monitoring.yml config -q
+    echo "  [PASS] docker-compose-monitoring.yml is valid."
+fi
+
 echo "[2/3] Checking Ballerina code formatting..."
 bash scripts/format-all.sh --check
 

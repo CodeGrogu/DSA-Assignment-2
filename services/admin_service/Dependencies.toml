@@ -319,7 +319,7 @@ dependencies = [
 [[package]]
 org = "ballerina"
 name = "uuid"
-version = "1.10.0"
+version = "1.10.1"
 dependencies = [
 	{org = "ballerina", name = "crypto"},
 	{org = "ballerina", name = "jballerina.java"},
@@ -351,7 +351,7 @@ dependencies = [
 	{org = "ballerina", name = "test"},
 	{org = "ballerina", name = "time"},
 	{org = "ballerinai", name = "observe"},
-	{org = "peerpressure", name = "events"}
+	{org = "peerpressure", name = "metrics"}
 ]
 modules = [
 	{org = "peerpressure", packageName = "admin_service", moduleName = "admin_service"}
@@ -359,12 +359,13 @@ modules = [
 
 [[package]]
 org = "peerpressure"
-name = "events"
+name = "metrics"
 version = "0.1.0"
 dependencies = [
+	{org = "ballerina", name = "http"},
 	{org = "ballerinai", name = "observe"}
 ]
 modules = [
-	{org = "peerpressure", packageName = "events", moduleName = "events"}
+	{org = "peerpressure", packageName = "metrics", moduleName = "metrics"}
 ]
 
