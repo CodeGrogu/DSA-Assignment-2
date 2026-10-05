@@ -5,6 +5,13 @@ import ballerina/uuid;
 import peerpressure/metrics as metrics;
 
 configurable int port = 9093;
+configurable string orderServiceUrl = "http://localhost:9091";
+
+isolated function getOrderClient() returns http:Client|error {
+    return new (orderServiceUrl, {
+        timeout: 5
+    });
+}
 
 service / on new http:Listener(port) {
 
@@ -511,6 +518,77 @@ service / on new http:Listener(port) {
             @http:Payload json payload)
             returns http:Response {
         return processVerifyAddress(payload, "/customers/verify-address");
+    }
+
+    resource function get customers/[string customerId]/orders(
+            int 'limit = 10,
+            int offset = 0)
+            returns http:Response {
+        time:Utc startTime = time:utcNow();
+        string path = string `/customers/${customerId}/orders`;
+
+        if customerId.trim().length() == 0 {
+            return respondWithMetric(
+                    http:STATUS_BAD_REQUEST,
+                    {message: "Customer ID cannot be empty"},
+                    "GET",
+                    path,
+                    startTime
+            );
+        }
+
+        Customer|error customer = getCustomerById(customerId);
+        if customer is error {
+            if customer is CustomerNotFoundError || customer.message() == "Customer not found" {
+                return respondWithMetric(
+                        http:STATUS_NOT_FOUND,
+                        {message: "Customer not found"},
+                        "GET",
+                        path,
+                        startTime
+                );
+            }
+
+            return respondWithMetric(
+                    http:STATUS_INTERNAL_SERVER_ERROR,
+                    {message: customer.message()},
+                    "GET",
+                    path,
+                    startTime
+            );
+        }
+
+        http:Client|error orderClient = getOrderClient();
+        if orderClient is error {
+            json[] emptyOrders = [];
+            return respondWithMetric(
+                    http:STATUS_OK,
+                    emptyOrders,
+                    "GET",
+                    path,
+                    startTime
+            );
+        }
+
+        json|error ordersResponse = orderClient->get(string `/customers/${customerId}/orders?resultLimit=${'limit}&offset=${offset}`);
+        if ordersResponse is error || ordersResponse is () {
+            json[] emptyOrders = [];
+            return respondWithMetric(
+                    http:STATUS_OK,
+                    emptyOrders,
+                    "GET",
+                    path,
+                    startTime
+            );
+        }
+
+        return respondWithMetric(
+                http:STATUS_OK,
+                ordersResponse,
+                "GET",
+                path,
+                startTime
+        );
     }
 }
 
