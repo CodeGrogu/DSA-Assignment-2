@@ -5,8 +5,12 @@ USER root
 WORKDIR /src
 ARG SERVICE_NAME
 
-COPY modules/events ./modules/events
-RUN cd modules/events && bal pack && bal push --repository local
+COPY modules ./modules
+RUN for dir in modules/*; do \
+        if [ -f "$dir/Ballerina.toml" ]; then \
+            (cd "$dir" && bal pack && bal push --repository local) || exit 1; \
+        fi; \
+    done
 
 COPY services/${SERVICE_NAME} ./services/${SERVICE_NAME}
 RUN cd services/${SERVICE_NAME} && bal build

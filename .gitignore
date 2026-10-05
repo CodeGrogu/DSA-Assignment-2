@@ -2,6 +2,7 @@
 target/
 *.jar
 *.bala
+.ballerina/
 
 # Ballerina project cache and lock files
 Dependencies.toml.backup
@@ -23,11 +24,28 @@ Config.local.toml
 # Node & package manager directories
 node_modules/
 .npm/
+.pnpm-store/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Web application build outputs
+web/**/dist/
+web/**/build/
+web/**/.next/
+web/**/out/
+dist/
+build/
+.next/
 
 # Test coverage & generated execution evidence
 coverage/
 test-results/
 *.log
+
+# Agent & autonomous workflow artifacts
+.agents/
+scratch/
 
 # Operating system metadata
 .DS_Store
@@ -39,6 +57,7 @@ desktop.ini
 *.iml
 *.iws
 *.ipr
+.vscode/
 .fleet/
 .history/
 *.sublime-project
@@ -56,5 +75,11 @@ desktop.ini
 *.bak
 *.swp
 *~
-scratch/
 
+# Explicitly preserve canonical seed datasets, scripts and documentation
+!data/*.json
+!scripts/*.js
+!scripts/*.mjs
+!scripts/*.sh
+!scripts/*.ps1
+!docs/**/*.md

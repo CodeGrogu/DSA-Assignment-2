@@ -1,0 +1,130 @@
+[
+  {
+    "id": "drv_001",
+    "name": "Tomas Nekundi",
+    "phone": "+264812345601",
+    "vehicleCategory": "MOTORCYCLE",
+    "availability": "AVAILABLE",
+    "state": "AVAILABLE",
+    "location": {
+      "type": "Point",
+      "coordinates": [17.0658, -22.5609]
+    },
+    "latitude": -22.5609,
+    "longitude": 17.0658,
+    "rating": 4.9,
+    "completedDeliveries": 342
+  },
+  {
+    "id": "drv_002",
+    "name": "Maria Shilongo",
+    "phone": "+264812345602",
+    "vehicleCategory": "CAR",
+    "availability": "AVAILABLE",
+    "state": "AVAILABLE",
+    "location": {
+      "type": "Point",
+      "coordinates": [17.0836, -22.5687]
+    },
+    "latitude": -22.5687,
+    "longitude": 17.0836,
+    "rating": 4.8,
+    "completedDeliveries": 215
+  },
+  {
+    "id": "drv_003",
+    "name": "Lukas Hamutenya",
+    "phone": "+264812345603",
+    "vehicleCategory": "MOTORCYCLE",
+    "availability": "AVAILABLE",
+    "state": "AVAILABLE",
+    "location": {
+      "type": "Point",
+      "coordinates": [17.0894, -22.5671]
+    },
+    "latitude": -22.5671,
+    "longitude": 17.0894,
+    "rating": 4.95,
+    "completedDeliveries": 512
+  },
+  {
+    "id": "drv_004",
+    "name": "Selma Amukoto",
+    "phone": "+264812345604",
+    "vehicleCategory": "CAR",
+    "availability": "BUSY",
+    "state": "DELIVERING",
+    "location": {
+      "type": "Point",
+      "coordinates": [17.0762, -22.5515]
+    },
+    "latitude": -22.5515,
+    "longitude": 17.0762,
+    "rating": 4.75,
+    "completedDeliveries": 188
+  },
+  {
+    "id": "drv_005",
+    "name": "Johannes Nuuyoma",
+    "phone": "+264812345605",
+    "vehicleCategory": "VAN",
+    "availability": "AVAILABLE",
+    "state": "AVAILABLE",
+    "location": {
+      "type": "Point",
+      "coordinates": [17.0951, -22.5742]
+    },
+    "latitude": -22.5742,
+    "longitude": 17.0951,
+    "rating": 4.88,
+    "completedDeliveries": 430
+  },
+  {
+    "id": "drv_006",
+    "name": "Ndapewa Shifotoka",
+    "phone": "+264812345606",
+    "vehicleCategory": "BICYCLE",
+    "availability": "AVAILABLE",
+    "state": "AVAILABLE",
+    "location": {
+      "type": "Point",
+      "coordinates": [17.0798, -22.5554]
+    },
+    "latitude": -22.5554,
+    "longitude": 17.0798,
+    "rating": 4.7,
+    "completedDeliveries": 94
+  },
+  {
+    "id": "drv_007",
+    "name": "Petrus Shipanga",
+    "phone": "+264812345607",
+    "vehicleCategory": "MOTORCYCLE",
+    "availability": "AVAILABLE",
+    "state": "AVAILABLE",
+    "location": {
+      "type": "Point",
+      "coordinates": [17.0719, -22.5831]
+    },
+    "latitude": -22.5831,
+    "longitude": 17.0719,
+    "rating": 4.82,
+    "completedDeliveries": 276
+  },
+  {
+    "id": "drv_008",
+    "name": "Aina Shikongo",
+    "phone": "+264812345608",
+    "vehicleCategory": "CAR",
+    "availability": "OFFLINE",
+    "state": "OFFLINE",
+    "location": {
+      "type": "Point",
+      "coordinates": [17.0735, -22.5398]
+    },
+    "latitude": -22.5398,
+    "longitude": 17.0735,
+    "rating": 4.92,
+    "completedDeliveries": 380
+  }
+]

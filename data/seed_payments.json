@@ -1,0 +1,92 @@
+[
+  {
+    "paymentId": "PAY-SEED-001",
+    "orderId": "ORD-SEED-001",
+    "amount": 145.00,
+    "currency": "NAD",
+    "status": "COMPLETED",
+    "paymentMethod": "CARD",
+    "idempotencyKey": "IDEM-PAY-001-ORD-001",
+    "completedAt": "2026-10-01T12:01:30Z"
+  },
+  {
+    "paymentId": "PAY-SEED-002",
+    "orderId": "ORD-SEED-002",
+    "amount": 110.00,
+    "currency": "NAD",
+    "status": "COMPLETED",
+    "paymentMethod": "MOBILE_MONEY",
+    "idempotencyKey": "IDEM-PAY-002-ORD-002",
+    "completedAt": "2026-10-02T13:31:15Z"
+  },
+  {
+    "paymentId": "PAY-SEED-003",
+    "orderId": "ORD-SEED-003",
+    "amount": 240.00,
+    "currency": "NAD",
+    "status": "COMPLETED",
+    "paymentMethod": "CARD",
+    "idempotencyKey": "IDEM-PAY-003-ORD-003",
+    "completedAt": "2026-10-02T19:01:20Z"
+  },
+  {
+    "paymentId": "PAY-SEED-004",
+    "orderId": "ORD-SEED-004",
+    "amount": 70.00,
+    "currency": "NAD",
+    "status": "REFUNDED",
+    "paymentMethod": "CARD",
+    "idempotencyKey": "IDEM-PAY-004-ORD-004",
+    "completedAt": "2026-10-03T10:05:00Z"
+  },
+  {
+    "paymentId": "PAY-SEED-005",
+    "orderId": "ORD-SEED-005",
+    "amount": 195.00,
+    "currency": "NAD",
+    "status": "COMPLETED",
+    "paymentMethod": "CARD",
+    "idempotencyKey": "IDEM-PAY-005-ORD-005",
+    "completedAt": "2026-10-04T18:01:10Z"
+  },
+  {
+    "paymentId": "PAY-SEED-006",
+    "orderId": "ORD-SEED-006",
+    "amount": 240.00,
+    "currency": "NAD",
+    "status": "COMPLETED",
+    "paymentMethod": "CARD",
+    "idempotencyKey": "IDEM-PAY-006-ORD-006",
+    "completedAt": "2026-10-04T18:31:05Z"
+  },
+  {
+    "paymentId": "PAY-SEED-007",
+    "orderId": "ORD-SEED-007",
+    "amount": 115.00,
+    "currency": "NAD",
+    "status": "COMPLETED",
+    "paymentMethod": "MOBILE_MONEY",
+    "idempotencyKey": "IDEM-PAY-007-ORD-007",
+    "completedAt": "2026-10-04T19:01:15Z"
+  },
+  {
+    "paymentId": "PAY-SEED-008",
+    "orderId": "ORD-SEED-008",
+    "amount": 165.00,
+    "currency": "NAD",
+    "status": "COMPLETED",
+    "paymentMethod": "CARD",
+    "idempotencyKey": "IDEM-PAY-008-ORD-008",
+    "completedAt": "2026-10-04T19:15:45Z"
+  },
+  {
+    "paymentId": "PAY-SEED-010",
+    "orderId": "ORD-SEED-010",
+    "amount": 175.00,
+    "currency": "NAD",
+    "status": "COMPLETED",
+    "paymentMethod": "CARD",
+    "idempotencyKey": "IDEM-PAY-010-ORD-010",
+    "completedAt": "2026-10-03T14:01:25Z"
+  }
+]

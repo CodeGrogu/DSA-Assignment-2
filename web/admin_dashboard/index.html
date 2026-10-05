@@ -1,134 +1,1031 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" style="scrollbar-gutter: stable both; overflow-y: scroll;">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Admin Dashboard</title>
+    <title>Food Delivery Admin — Platform Operations &amp; Observability</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap"
       rel="stylesheet"
     />
+    <link rel="stylesheet" href="../shared.css" />
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <header>
-      <h1>Food Delivery — Admin Dashboard</h1>
-      <div style="display: flex; align-items: center; gap: 10px;">
-        <button id="btn-refresh" style="cursor: pointer; padding: 7px 14px; border-radius: var(--radius-sm); border: 1px solid var(--line); background: var(--surface); font-weight: 600; font-size: 13px; color: var(--ink);">Refresh Now</button>
-        <span id="last-updated">Waiting for data...</span>
+    <!-- Top Header matching Shared Delivery UI System -->
+    <header class="app-header">
+      <div class="header-container header-top-bar">
+        <!-- Compact Brand Bar with 36px Icon Box -->
+        <div class="header-brand">
+          <div class="brand-icon-box" title="Food Delivery Admin Console">
+            <svg viewBox="0 0 24 24" class="brand-icon">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+            </svg>
+          </div>
+          <div class="brand-title-group">
+            <h1>Food Delivery Admin</h1>
+            <p class="brand-subtitle">Platform Operations &amp; Observability Console</p>
+          </div>
+        </div>
+
+        <!-- Compact Header Controls: Health Counter, Auto-refresh Countdown, Interval, Manual Refresh & Hub -->
+        <div class="header-controls">
+          <!-- Live Service Health Badge in Header -->
+          <span id="header-service-count" class="status-pill pill-good" title="Live Microservices Health Status">
+            <span class="dot up" id="header-service-dot"></span>
+            <span id="service-count-text">7/7 UP</span>
+          </span>
+
+          <!-- Auto-refresh Interval Selector (Strictly 1 border, 1 chevron) -->
+          <select id="auto-refresh-interval" class="custom-select select-sm" aria-label="Auto-refresh frequency" title="Configure auto-refresh frequency">
+            <option value="5000">Auto (5s)</option>
+            <option value="10000">Auto (10s)</option>
+            <option value="30000">Auto (30s)</option>
+            <option value="0">Auto: Off</option>
+          </select>
+
+          <!-- Auto-refresh Countdown Indicator -->
+          <span id="refresh-countdown" class="status-pill pill-neutral" title="Time until next automatic data sync">
+            <svg viewBox="0 0 24 24" class="countdown-svg"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span id="countdown-text">5s</span>
+          </span>
+
+          <button type="button" id="btn-refresh" class="btn btn-outline btn-sm" title="Trigger immediate data refresh">
+            <svg viewBox="0 0 24 24"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" /></svg>
+            <span>Refresh Now</span>
+          </button>
+          <span id="last-updated" class="status-pill pill-neutral">Connecting...</span>
+          <a href="../index.html" class="btn btn-outline btn-sm hub-link" title="Return to Platform Hub">
+            <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
+            <span>Hub</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Tier 2: 5 Clean Navigation Tabs with Active Indicators and Badges -->
+      <div class="header-nav-strip">
+        <div class="header-container">
+          <nav class="header-nav" role="tablist" aria-label="Admin Sections">
+            <button
+              type="button"
+              class="nav-tab-btn active"
+              role="tab"
+              aria-selected="true"
+              data-tab="tab-overview"
+              id="nav-tab-overview"
+            >
+              <svg viewBox="0 0 24 24"><path d="M3 3h7v9H3zm11 0h7v5h-7zm0 9h7v9h-7zM3 16h7v5H3z" /></svg>
+              <span>Platform Overview</span>
+              <span class="tab-badge" id="badge-overview">LIVE</span>
+            </button>
+            <button
+              type="button"
+              class="nav-tab-btn"
+              role="tab"
+              aria-selected="false"
+              data-tab="tab-service-health"
+              id="nav-tab-service-health"
+            >
+              <svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg>
+              <span>System Health &amp; Infrastructure</span>
+              <span class="tab-badge" id="badge-health">7/7</span>
+            </button>
+            <button
+              type="button"
+              class="nav-tab-btn"
+              role="tab"
+              aria-selected="false"
+              data-tab="tab-financial"
+              id="nav-tab-financial"
+            >
+              <svg viewBox="0 0 24 24"><path d="M12 2v20M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
+              <span>Financial Reports</span>
+              <span class="tab-badge" id="badge-financial">10% FEE</span>
+            </button>
+            <button
+              type="button"
+              class="nav-tab-btn"
+              role="tab"
+              aria-selected="false"
+              data-tab="tab-driver-sla"
+              id="nav-tab-driver-sla"
+            >
+              <svg viewBox="0 0 24 24"><path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v1M18 8h4a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-4M6 12h4" /></svg>
+              <span>Driver SLA Audits</span>
+              <span class="tab-badge" id="badge-driver">&le;45M</span>
+            </button>
+            <button
+              type="button"
+              class="nav-tab-btn"
+              role="tab"
+              aria-selected="false"
+              data-tab="tab-notifications"
+              id="nav-tab-notifications"
+            >
+              <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" /></svg>
+              <span>Notification Audit</span>
+              <span class="tab-badge" id="badge-notif">AUDIT</span>
+            </button>
+          </nav>
+        </div>
       </div>
     </header>
 
-    <section class="kpi-grid">
-      <div class="kpi-card feature">
-        <div class="kpi-icon">
-          <svg viewBox="0 0 24 24"><path d="M12 2v20M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
-        </div>
-        <div>
-          <div class="kpi-label">GMV (NAD)</div>
-          <div class="kpi-value" id="kpi-gmv">—</div>
-        </div>
+    <!-- Global Service Connectivity Banner -->
+    <div id="service-status-banner" class="service-banner banner-checking">
+      <div class="banner-inner">
+        <span class="banner-dot"></span>
+        <span id="service-status-text">Probing platform microservices (:9091 - :9098)...</span>
+        <button type="button" id="banner-ping-btn" class="banner-quick-action" title="Quick ping all microservices">
+          <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>
+          <span>Ping All</span>
+        </button>
       </div>
+    </div>
 
-      <div class="kpi-card orders">
-        <div class="kpi-icon">
-          <svg viewBox="0 0 24 24"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0" /></svg>
-        </div>
-        <div>
-          <div class="kpi-label">Total Orders</div>
-          <div class="kpi-value" id="kpi-orders">—</div>
-        </div>
-      </div>
+    <!-- Centered Content with max-width: 1240px -->
+    <main class="page-container admin-container">
+      <!-- ==================================================================
+           TAB 1: PLATFORM OVERVIEW (GMV, orders, payments, deliveries)
+           ================================================================== -->
+      <section id="tab-overview" class="view-section tab-panel active" role="tabpanel" aria-labelledby="nav-tab-overview">
+        <!-- Performance KPI Grid with Metric Comparisons & Subtitles -->
+        <div class="kpi-grid">
+          <!-- GMV (Gross Merchandise Value) -->
+          <div class="kpi-card kpi-featured">
+            <div class="kpi-top">
+              <span class="kpi-label">GMV (NAD)</span>
+              <div class="kpi-icon-wrap">
+                <svg viewBox="0 0 24 24"><path d="M12 2v20M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
+              </div>
+            </div>
+            <div class="kpi-value" id="kpi-gmv">—</div>
+            <div class="kpi-meta">
+              <span class="kpi-subtext">Gross Merchandise Value across orders</span>
+              <span class="kpi-comparison pill-good" id="kpi-gmv-fee">+10% Platform Fee</span>
+            </div>
+          </div>
 
-      <div class="kpi-card ok">
-        <div class="kpi-icon">
-          <svg viewBox="0 0 24 24"><path d="M22 11.1V12a10 10 0 1 1-5.9-9.1M22 4 12 14l-3-3" /></svg>
-        </div>
-        <div>
-          <div class="kpi-label">Successful Payments</div>
-          <div class="kpi-value" id="kpi-payments-ok">—</div>
-        </div>
-      </div>
+          <!-- Total Orders -->
+          <div class="kpi-card kpi-orders">
+            <div class="kpi-top">
+              <span class="kpi-label">Total Orders</span>
+              <div class="kpi-icon-wrap">
+                <svg viewBox="0 0 24 24"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0" /></svg>
+              </div>
+            </div>
+            <div class="kpi-value" id="kpi-orders">—</div>
+            <div class="kpi-meta">
+              <span class="kpi-subtext">Cumulative orders processed</span>
+              <span class="kpi-comparison pill-info" id="kpi-orders-meta">KRaft Event Stream</span>
+            </div>
+          </div>
 
-      <div class="kpi-card fail">
-        <div class="kpi-icon">
-          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="m15 9-6 6M9 9l6 6" /></svg>
-        </div>
-        <div>
-          <div class="kpi-label">Failed Payments</div>
-          <div class="kpi-value kpi-warn" id="kpi-payments-fail">—</div>
-        </div>
-      </div>
+          <!-- Successful Payments -->
+          <div class="kpi-card kpi-payments-ok">
+            <div class="kpi-top">
+              <span class="kpi-label">Successful Payments</span>
+              <div class="kpi-icon-wrap">
+                <svg viewBox="0 0 24 24"><path d="M22 11.1V12a10 10 0 1 1-5.9-9.1M22 4 12 14l-3-3" /></svg>
+              </div>
+            </div>
+            <div class="kpi-value" id="kpi-payments-ok">—</div>
+            <div class="kpi-meta">
+              <span class="kpi-subtext">Settled &amp; captured transactions</span>
+              <span class="kpi-comparison pill-good" id="kpi-success-rate">100% Settle Rate</span>
+            </div>
+          </div>
 
-      <div class="kpi-card active">
-        <div class="kpi-icon">
-          <svg viewBox="0 0 24 24"><path d="M1 3h15v13H1zM16 8h4l3 3v5h-7zM5.5 21a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM18.5 21a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z" /></svg>
-        </div>
-        <div>
-          <div class="kpi-label">Active Deliveries</div>
-          <div class="kpi-value" id="kpi-active">—</div>
-        </div>
-      </div>
-    </section>
+          <!-- Failed Payments -->
+          <div class="kpi-card kpi-payments-fail">
+            <div class="kpi-top">
+              <span class="kpi-label">Failed Payments</span>
+              <div class="kpi-icon-wrap">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="m15 9-6 6M9 9l6 6" /></svg>
+              </div>
+            </div>
+            <div class="kpi-value" id="kpi-payments-fail">—</div>
+            <div class="kpi-meta">
+              <span class="kpi-subtext">Declined or aborted payments</span>
+              <span class="kpi-comparison pill-neutral" id="kpi-fail-rate">0.0% Dispute Rate</span>
+            </div>
+          </div>
 
-    <section class="panel">
-      <h2>Service Health</h2>
-      <div class="health-grid">
-        <div class="health-item">
-          <span class="dot" id="health-order"></span>
-          <span>order_service :9091</span>
+          <!-- Active Deliveries -->
+          <div class="kpi-card kpi-active">
+            <div class="kpi-top">
+              <span class="kpi-label">Active Deliveries</span>
+              <div class="kpi-icon-wrap">
+                <svg viewBox="0 0 24 24"><path d="M1 3h15v13H1zM16 8h4l3 3v5h-7zM5.5 21a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM18.5 21a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z" /></svg>
+              </div>
+            </div>
+            <div class="kpi-value" id="kpi-active">—</div>
+            <div class="kpi-meta">
+              <span class="kpi-subtext">Couriers currently en-route</span>
+              <span class="kpi-comparison pill-warn" id="kpi-active-meta">Live Dispatch</span>
+            </div>
+          </div>
         </div>
-        <div class="health-item">
-          <span class="dot" id="health-customer"></span>
-          <span>customer_service :9093</span>
-        </div>
-        <div class="health-item">
-          <span class="dot" id="health-payment"></span>
-          <span>payment_service :9094</span>
-        </div>
-        <div class="health-item">
-          <span class="dot" id="health-restaurant"></span>
-          <span>restaurant_service :9095</span>
-        </div>
-        <div class="health-item">
-          <span class="dot" id="health-delivery"></span>
-          <span>delivery_service :9096</span>
-        </div>
-        <div class="health-item">
-          <span class="dot" id="health-notif"></span>
-          <span>notification_service :9097</span>
-        </div>
-        <div class="health-item">
-          <span class="dot" id="health-admin"></span>
-          <span>admin_service :9098</span>
-        </div>
-      </div>
-      <p class="hint">Green = reachable, red = not responding.</p>
-    </section>
 
-    <section class="panel">
-      <h2>Recent Notifications (cust-42)</h2>
-      <div class="table-wrap">
-        <table id="notif-table">
-          <thead>
-            <tr>
-              <th>Sent At</th>
-              <th>Channel</th>
-              <th>Status</th>
-              <th>Notification ID</th>
-            </tr>
-          </thead>
-          <tbody id="notif-body">
-            <tr>
-              <td colspan="4" class="empty">No data yet</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
+        <!-- Operational Architecture Snapshot Banner -->
+        <div class="health-snapshot-banner">
+          <div class="health-snapshot-content">
+            <h3>Operational Architecture Snapshot</h3>
+            <p>Admin statistics aggregated in real-time from Kafka KRaft event streams and service stores. Real-time telemetry is scraped by Prometheus and rendered in Grafana dashboards.</p>
+          </div>
+          <div class="health-snapshot-badges">
+            <span class="status-pill pill-good">KRaft Consensus</span>
+            <span class="status-pill pill-info">3 Brokers Active</span>
+            <span class="status-pill pill-neutral">Port :9098</span>
+          </div>
+        </div>
 
+        <!-- Live Platform Activity Section -->
+        <div class="card">
+          <div class="card-header-row">
+            <div class="card-title-group">
+              <div class="card-icon">
+                <svg viewBox="0 0 24 24"><path d="M12 8v4l3 3M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" /></svg>
+              </div>
+              <div>
+                <h2>Live Platform Activity</h2>
+                <p class="section-desc">Real-time transactional, courier dispatch, and notification stream events.</p>
+              </div>
+            </div>
+            <div class="activity-header-controls">
+              <div class="table-search-bar compact">
+                <div class="search-input-wrap">
+                  <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
+                  <input type="text" id="activity-search-input" class="input-text input-sm" placeholder="Filter activity..." />
+                </div>
+              </div>
+              <button type="button" class="btn btn-outline btn-sm" id="btn-refresh-activity">
+                <svg viewBox="0 0 24 24"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" /></svg>
+                <span>Refresh Activity</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="table-wrapper">
+            <table class="data-table" id="recent-activity-table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Service / Channel</th>
+                  <th>Event Type</th>
+                  <th>Reference Entity</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="recent-activity-body">
+                <tr>
+                  <td colspan="5" class="empty-table-cell">Loading real-time platform activity...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================================================================
+           TAB 2: SYSTEM HEALTH & INFRASTRUCTURE (7 Microservices + Observability)
+           ================================================================== -->
+      <section id="tab-service-health" class="view-section tab-panel" role="tabpanel" aria-labelledby="nav-tab-service-health">
+        <!-- 1. Microservices Health Grid (All 7 Platform Services) -->
+        <div class="card">
+          <div class="card-header-row">
+            <div class="card-title-group">
+              <div class="card-icon">
+                <svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg>
+              </div>
+              <div>
+                <h2>Microservices Health &amp; Availability</h2>
+                <p class="section-desc">Real-time HTTP healthcheck heartbeat and round-trip response latency across all 7 platform services.</p>
+              </div>
+            </div>
+            <div class="health-header-actions">
+              <button type="button" class="btn btn-outline btn-sm" id="btn-ping-all" title="Re-check round-trip latency across all microservices">
+                <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>
+                <span>Ping All Services</span>
+              </button>
+              <span class="status-pill pill-info" id="services-monitored-badge">7 Services Monitored</span>
+            </div>
+          </div>
+
+          <div class="services-health-grid">
+            <!-- 1. order_service (:9091) -->
+            <div class="service-card">
+              <div class="service-card-top">
+                <div class="service-identity">
+                  <span class="dot" id="health-order"></span>
+                  <span class="service-name">order_service</span>
+                </div>
+                <span class="service-port">:9091</span>
+              </div>
+              <div class="service-card-bottom">
+                <span class="service-endpoint">GET /health</span>
+                <div class="service-ping-group">
+                  <span class="service-latency" id="latency-order">— ms</span>
+                  <button type="button" class="btn-ping-service" data-service="order_service" data-port="9091" data-dot="health-order" data-latency="latency-order" title="Ping order_service (:9091)">
+                    <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>
+                    <span>Ping</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 2. customer_service (:9093) -->
+            <div class="service-card">
+              <div class="service-card-top">
+                <div class="service-identity">
+                  <span class="dot" id="health-customer"></span>
+                  <span class="service-name">customer_service</span>
+                </div>
+                <span class="service-port">:9093</span>
+              </div>
+              <div class="service-card-bottom">
+                <span class="service-endpoint">GET /health</span>
+                <div class="service-ping-group">
+                  <span class="service-latency" id="latency-customer">— ms</span>
+                  <button type="button" class="btn-ping-service" data-service="customer_service" data-port="9093" data-dot="health-customer" data-latency="latency-customer" title="Ping customer_service (:9093)">
+                    <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>
+                    <span>Ping</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 3. payment_service (:9094) -->
+            <div class="service-card">
+              <div class="service-card-top">
+                <div class="service-identity">
+                  <span class="dot" id="health-payment"></span>
+                  <span class="service-name">payment_service</span>
+                </div>
+                <span class="service-port">:9094</span>
+              </div>
+              <div class="service-card-bottom">
+                <span class="service-endpoint">GET /health</span>
+                <div class="service-ping-group">
+                  <span class="service-latency" id="latency-payment">— ms</span>
+                  <button type="button" class="btn-ping-service" data-service="payment_service" data-port="9094" data-dot="health-payment" data-latency="latency-payment" title="Ping payment_service (:9094)">
+                    <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>
+                    <span>Ping</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 4. restaurant_service (:9095) -->
+            <div class="service-card">
+              <div class="service-card-top">
+                <div class="service-identity">
+                  <span class="dot" id="health-restaurant"></span>
+                  <span class="service-name">restaurant_service</span>
+                </div>
+                <span class="service-port">:9095</span>
+              </div>
+              <div class="service-card-bottom">
+                <span class="service-endpoint">GET /health</span>
+                <div class="service-ping-group">
+                  <span class="service-latency" id="latency-restaurant">— ms</span>
+                  <button type="button" class="btn-ping-service" data-service="restaurant_service" data-port="9095" data-dot="health-restaurant" data-latency="latency-restaurant" title="Ping restaurant_service (:9095)">
+                    <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>
+                    <span>Ping</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 5. delivery_service (:9096) -->
+            <div class="service-card">
+              <div class="service-card-top">
+                <div class="service-identity">
+                  <span class="dot" id="health-delivery"></span>
+                  <span class="service-name">delivery_service</span>
+                </div>
+                <span class="service-port">:9096</span>
+              </div>
+              <div class="service-card-bottom">
+                <span class="service-endpoint">GET /health</span>
+                <div class="service-ping-group">
+                  <span class="service-latency" id="latency-delivery">— ms</span>
+                  <button type="button" class="btn-ping-service" data-service="delivery_service" data-port="9096" data-dot="health-delivery" data-latency="latency-delivery" title="Ping delivery_service (:9096)">
+                    <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>
+                    <span>Ping</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 6. notification_service (:9097) -->
+            <div class="service-card">
+              <div class="service-card-top">
+                <div class="service-identity">
+                  <span class="dot" id="health-notif"></span>
+                  <span class="service-name">notification_service</span>
+                </div>
+                <span class="service-port">:9097</span>
+              </div>
+              <div class="service-card-bottom">
+                <span class="service-endpoint">GET /health</span>
+                <div class="service-ping-group">
+                  <span class="service-latency" id="latency-notif">— ms</span>
+                  <button type="button" class="btn-ping-service" data-service="notification_service" data-port="9097" data-dot="health-notif" data-latency="latency-notif" title="Ping notification_service (:9097)">
+                    <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>
+                    <span>Ping</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 7. admin_service (:9098) -->
+            <div class="service-card">
+              <div class="service-card-top">
+                <div class="service-identity">
+                  <span class="dot" id="health-admin"></span>
+                  <span class="service-name">admin_service</span>
+                </div>
+                <span class="service-port">:9098</span>
+              </div>
+              <div class="service-card-bottom">
+                <span class="service-endpoint">GET /health</span>
+                <div class="service-ping-group">
+                  <span class="service-latency" id="latency-admin">— ms</span>
+                  <button type="button" class="btn-ping-service" data-service="admin_service" data-port="9098" data-dot="health-admin" data-latency="latency-admin" title="Ping admin_service (:9098)">
+                    <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>
+                    <span>Ping</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Infrastructure & Observability Tools Grid -->
+        <div class="card">
+          <div class="card-header-row">
+            <div class="card-title-group">
+              <div class="card-icon">
+                <svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2zM4 10h16M10 4v16" /></svg>
+              </div>
+              <div>
+                <h2>Infrastructure &amp; Observability Interfaces</h2>
+                <p class="section-desc">Direct access to Kafka cluster administration, Prometheus telemetry, Grafana dashboards, and Mongo Express database management.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="infra-grid">
+            <!-- Kafka UI (:8085) -->
+            <div class="infra-card">
+              <div class="infra-card-body">
+                <div class="infra-card-header">
+                  <div class="infra-title-wrap">
+                    <div class="infra-icon">
+                      <svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" /><polyline points="3.27 6.96 12 12.01 20.73 6.96" /><line x1="12" y1="22.08" x2="12" y2="12" /></svg>
+                    </div>
+                    <div>
+                      <h3 class="infra-name">Kafka UI Console</h3>
+                      <span class="infra-port">localhost:8085</span>
+                    </div>
+                  </div>
+                  <span class="status-pill pill-good">KRaft 3-Node</span>
+                </div>
+                <p class="infra-desc">Inspect live event topics, consumer groups, partition lags, and broker cluster states without ZooKeeper.</p>
+                <div class="infra-credentials-box">
+                  <div class="cred-section">
+                    <span class="cred-label">Cluster Architecture:</span>
+                    <div class="cred-values">
+                      <span>Consensus: <strong>KRaft Quorum</strong></span>
+                      <span class="cred-sep">&bull;</span>
+                      <span>Brokers: <strong>3 Active</strong></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="infra-actions">
+                <a href="http://localhost:8085" target="_blank" rel="noopener noreferrer" class="btn btn-admin btn-sm" id="btn-launch-kafka-ui">
+                  <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3" /></svg>
+                  <span>Open Kafka UI (:8085)</span>
+                </a>
+              </div>
+            </div>
+
+            <!-- Grafana & Prometheus (:3000) -->
+            <div class="infra-card">
+              <div class="infra-card-body">
+                <div class="infra-card-header">
+                  <div class="infra-title-wrap">
+                    <div class="infra-icon">
+                      <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></svg>
+                    </div>
+                    <div>
+                      <h3 class="infra-name">Grafana &amp; Prometheus</h3>
+                      <span class="infra-port">localhost:3000</span>
+                    </div>
+                  </div>
+                  <span class="status-pill pill-info"><span class="dot up" id="status-grafana"></span>Dashboards</span>
+                </div>
+                <p class="infra-desc">Visual dashboards for microservice throughput, HTTP latencies, message counts, and cluster health.</p>
+                <div class="infra-credentials-box">
+                  <div class="cred-section">
+                    <span class="cred-label">Grafana Credentials:</span>
+                    <div class="cred-values">
+                      <span>User: <strong>admin</strong></span>
+                      <span class="cred-sep">&bull;</span>
+                      <span>Pass: <strong>admin</strong></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="infra-actions">
+                <a href="http://localhost:3000" target="_blank" rel="noopener noreferrer" class="btn btn-admin btn-sm" id="link-grafana">
+                  <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3" /></svg>
+                  <span>Open Grafana</span>
+                </a>
+                <a href="http://localhost:3000/dashboards" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-sm" id="link-cluster-overview">
+                  <span>Dashboards</span>
+                </a>
+              </div>
+            </div>
+
+            <!-- Prometheus Server (:9090) -->
+            <div class="infra-card">
+              <div class="infra-card-body">
+                <div class="infra-card-header">
+                  <div class="infra-title-wrap">
+                    <div class="infra-icon">
+                      <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>
+                    </div>
+                    <div>
+                      <h3 class="infra-name">Prometheus Server</h3>
+                      <span class="infra-port">localhost:9090</span>
+                    </div>
+                  </div>
+                  <span class="status-pill pill-good"><span class="dot up" id="status-prometheus"></span>Scraper</span>
+                </div>
+                <p class="infra-desc">Time-series database collecting metrics from Ballerina service <code>/metrics</code> endpoints with PromQL query engine.</p>
+                <div class="infra-credentials-box">
+                  <div class="cred-section">
+                    <span class="cred-label">Telemetry Pipeline:</span>
+                    <div class="cred-values">
+                      <span>Targets: <strong>7 Microservices</strong></span>
+                      <span class="cred-sep">&bull;</span>
+                      <span>Scrape: <strong>/metrics</strong></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="infra-actions">
+                <a href="http://localhost:9090" target="_blank" rel="noopener noreferrer" class="btn btn-admin btn-sm" id="link-prometheus">
+                  <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3" /></svg>
+                  <span>Open Prometheus (:9090)</span>
+                </a>
+              </div>
+            </div>
+
+            <!-- Mongo Express (:8086) & MongoDB Database (:27017) -->
+            <div class="infra-card">
+              <div class="infra-card-body">
+                <div class="infra-card-header">
+                  <div class="infra-title-wrap">
+                    <div class="infra-icon">
+                      <svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3" /><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" /></svg>
+                    </div>
+                    <div>
+                      <h3 class="infra-name">Mongo Express</h3>
+                      <span class="infra-port">localhost:8086</span>
+                    </div>
+                  </div>
+                  <span class="status-pill pill-neutral">Database UI</span>
+                </div>
+                <p class="infra-desc">Visual document browser and collection manager for the primary MongoDB replica set (rs0).</p>
+
+                <!-- Explicit Credentials Breakdown: Web UI & Database -->
+                <div class="infra-credentials-box">
+                  <div class="cred-section">
+                    <span class="cred-label">Web UI (localhost:8086):</span>
+                    <div class="cred-values">
+                      <span>User: <strong>admin</strong></span>
+                      <span class="cred-sep">&bull;</span>
+                      <span>Pass: <strong>pass</strong></span>
+                    </div>
+                  </div>
+                  <div class="cred-section" style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--border, #e2e8f0);">
+                    <span class="cred-label">MongoDB DB (localhost:27017):</span>
+                    <div class="cred-values">
+                      <span>User: <strong>acehood3556_db_user</strong></span>
+                      <span class="cred-sep">&bull;</span>
+                      <span>Pass: <strong>AWkhv04ohWCtc2cl</strong></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="infra-actions">
+                <a href="http://localhost:8086" target="_blank" rel="noopener noreferrer" class="btn btn-admin btn-sm" id="link-mongo-express">
+                  <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3" /></svg>
+                  <span>Open Mongo Express (:8086)</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Registered Production Kafka Topics -->
+        <div class="card">
+          <div class="card-header-row">
+            <div class="card-title-group">
+              <div class="card-icon">
+                <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
+              </div>
+              <div>
+                <h2>Registered Production Kafka Topics</h2>
+                <p class="section-desc">Event bus routing topology connecting asynchronous microservices.</p>
+              </div>
+            </div>
+            <span class="status-pill pill-neutral">10 Topics Active</span>
+          </div>
+
+          <div class="topics-grid">
+            <div class="topic-item">
+              <div class="topic-item-header">
+                <span class="topic-name">orders.created</span>
+                <span class="status-pill pill-info">Lifecycle</span>
+              </div>
+              <span class="topic-desc">Published upon customer checkout submission.</span>
+            </div>
+            <div class="topic-item">
+              <div class="topic-item-header">
+                <span class="topic-name">orders.confirmed</span>
+                <span class="status-pill pill-good">Payment OK</span>
+              </div>
+              <span class="topic-desc">Emitted when payment succeeds and store accepts.</span>
+            </div>
+            <div class="topic-item">
+              <div class="topic-item-header">
+                <span class="topic-name">orders.cancelled</span>
+                <span class="status-pill pill-bad">Rollback</span>
+              </div>
+              <span class="topic-desc">Compensating transaction trigger for payment faults.</span>
+            </div>
+            <div class="topic-item">
+              <div class="topic-item-header">
+                <span class="topic-name">orders.preparing</span>
+                <span class="status-pill pill-warn">Kitchen</span>
+              </div>
+              <span class="topic-desc">Kitchen begins meal cooking cycle.</span>
+            </div>
+            <div class="topic-item">
+              <div class="topic-item-header">
+                <span class="topic-name">payments.completed</span>
+                <span class="status-pill pill-good">Financial</span>
+              </div>
+              <span class="topic-desc">Payment authorized and captured successfully.</span>
+            </div>
+            <div class="topic-item">
+              <div class="topic-item-header">
+                <span class="topic-name">payments.failed</span>
+                <span class="status-pill pill-bad">Declined</span>
+              </div>
+              <span class="topic-desc">Payment declined, card expired, or balance insufficient.</span>
+            </div>
+            <div class="topic-item">
+              <div class="topic-item-header">
+                <span class="topic-name">kitchen.orders.ready</span>
+                <span class="status-pill pill-info">Pickup</span>
+              </div>
+              <span class="topic-desc">Meal packaged and staged for courier collection.</span>
+            </div>
+            <div class="topic-item">
+              <div class="topic-item-header">
+                <span class="topic-name">delivery.status</span>
+                <span class="status-pill pill-info">Telemetry</span>
+              </div>
+              <span class="topic-desc">Courier assigned, en-route tracking, and delivered drops.</span>
+            </div>
+            <div class="topic-item">
+              <div class="topic-item-header">
+                <span class="topic-name">notifications.events</span>
+                <span class="status-pill pill-neutral">Messaging</span>
+              </div>
+              <span class="topic-desc">Multi-channel SMS, email, and push dispatches.</span>
+            </div>
+            <div class="topic-item">
+              <div class="topic-item-header">
+                <span class="topic-name">dead-letter-queue</span>
+                <span class="status-pill pill-bad">DLQ</span>
+              </div>
+              <span class="topic-desc">Poison-pill payloads and unrecoverable downstream failures.</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================================================================
+           TAB 3: FINANCIAL REPORTS (Restaurant sales, 10% commission)
+           ================================================================== -->
+      <section id="tab-financial" class="view-section tab-panel" role="tabpanel" aria-labelledby="nav-tab-financial">
+        <div class="card">
+          <div class="card-header-row">
+            <div class="card-title-group">
+              <div class="card-icon">
+                <svg viewBox="0 0 24 24"><path d="M12 2v20M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
+              </div>
+              <div>
+                <h2>Restaurant Financial Reports</h2>
+                <p class="section-desc">Audited sales statement, platform commission fee (10%), and net vendor settlements.</p>
+              </div>
+            </div>
+            <span class="status-pill pill-good">10% Platform Fee Model</span>
+          </div>
+
+          <!-- Quick Date Presets Row -->
+          <div class="quick-presets-row">
+            <span class="presets-label">Quick Presets:</span>
+            <button type="button" class="btn-preset active" data-report="fin" data-preset="all">All Time</button>
+            <button type="button" class="btn-preset" data-report="fin" data-preset="today">Today</button>
+            <button type="button" class="btn-preset" data-report="fin" data-preset="7d">Last 7 Days</button>
+            <button type="button" class="btn-preset" data-report="fin" data-preset="month">This Month</button>
+          </div>
+
+          <!-- Date & Time Filters Row -->
+          <div class="filter-row">
+            <div class="filter-group">
+              <label for="fin-date-from">From Date:</label>
+              <input type="date" id="fin-date-from" class="input-text" data-custom-datetime-init="true" />
+            </div>
+            <div class="filter-group">
+              <label for="fin-time-from">From Time:</label>
+              <input type="time" id="fin-time-from" class="input-text" value="00:00" data-custom-datetime-init="true" />
+            </div>
+            <div class="filter-group">
+              <label for="fin-date-to">To Date:</label>
+              <input type="date" id="fin-date-to" class="input-text" data-custom-datetime-init="true" />
+            </div>
+            <div class="filter-group">
+              <label for="fin-time-to">To Time:</label>
+              <input type="time" id="fin-time-to" class="input-text" value="23:59" data-custom-datetime-init="true" />
+            </div>
+            <button type="button" id="btn-generate-fin-report" class="btn btn-admin">
+              <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8" /></svg>
+              <span>Generate Report</span>
+            </button>
+            <button type="button" id="btn-clear-fin-dates" class="btn btn-outline">
+              <span>All Dates</span>
+            </button>
+          </div>
+
+          <!-- Real-Time Search Bar above Table -->
+          <div class="table-search-bar">
+            <div class="search-input-wrap">
+              <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
+              <input type="text" id="fin-search-input" class="input-text" placeholder="Filter by Restaurant ID (e.g. R001, r1)..." />
+            </div>
+            <span id="fin-row-count" class="status-pill pill-neutral">Showing all restaurants</span>
+          </div>
+
+          <!-- Financial Table with Bold Headers, Right-Aligned Columns & Tabular Numbers -->
+          <div class="table-wrapper">
+            <table id="financial-report-table" class="data-table">
+              <thead>
+                <tr>
+                  <th class="col-left">Restaurant ID</th>
+                  <th class="col-right">Order Count</th>
+                  <th class="col-right">Gross Sales (NAD)</th>
+                  <th class="col-right">Platform Fee (10%)</th>
+                  <th class="col-right">Net Payout (NAD)</th>
+                </tr>
+              </thead>
+              <tbody id="financial-report-body">
+                <tr>
+                  <td colspan="5" class="empty-table-cell">Click "Generate Report" to query statement.</td>
+                </tr>
+              </tbody>
+              <tfoot id="financial-report-foot" style="display: none;">
+                <tr class="table-summary-row">
+                  <td><strong>Platform Totals</strong></td>
+                  <td class="col-right" id="fin-total-orders">—</td>
+                  <td class="col-right" id="fin-total-gross">—</td>
+                  <td class="col-right" id="fin-total-fee">—</td>
+                  <td class="col-right" id="fin-total-net">—</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <div class="table-hint">
+            <svg viewBox="0 0 24 24" width="14" height="14"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" /></svg>
+            <span>Formula: Gross Sales minus 10% Platform Commission equals Net Payout to Restaurant.</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================================================================
+           TAB 4: DRIVER SLA AUDITS (Turnaround times, breach badges)
+           ================================================================== -->
+      <section id="tab-driver-sla" class="view-section tab-panel" role="tabpanel" aria-labelledby="nav-tab-driver-sla">
+        <div class="card">
+          <div class="card-header-row">
+            <div class="card-title-group">
+              <div class="card-icon">
+                <svg viewBox="0 0 24 24"><path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v1M18 8h4a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-4M6 12h4" /></svg>
+              </div>
+              <div>
+                <h2>Driver Service Level Agreement (SLA) Audits</h2>
+                <p class="section-desc">Track courier turnaround durations, order completion counts, and SLA compliance threshold (&le; 45 minutes).</p>
+              </div>
+            </div>
+            <span class="status-pill pill-warn">SLA Threshold: 45 Min</span>
+          </div>
+
+          <!-- Quick Date Presets Row -->
+          <div class="quick-presets-row">
+            <span class="presets-label">Quick Presets:</span>
+            <button type="button" class="btn-preset active" data-report="sla" data-preset="all">All Time</button>
+            <button type="button" class="btn-preset" data-report="sla" data-preset="today">Today</button>
+            <button type="button" class="btn-preset" data-report="sla" data-preset="7d">Last 7 Days</button>
+            <button type="button" class="btn-preset" data-report="sla" data-preset="month">This Month</button>
+          </div>
+
+          <!-- Date, Time & SLA Compliance Filters Row -->
+          <div class="filter-row">
+            <div class="filter-group" style="min-width: 190px;">
+              <label for="sla-compliance-filter">SLA Filter:</label>
+              <select id="sla-compliance-filter" class="custom-select">
+                <option value="all">All Couriers</option>
+                <option value="breaches">With SLA Breaches (&gt;45m)</option>
+                <option value="compliant">100% Compliant Only</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label for="sla-date-from">From Date:</label>
+              <input type="date" id="sla-date-from" class="input-text" data-custom-datetime-init="true" />
+            </div>
+            <div class="filter-group">
+              <label for="sla-time-from">From Time:</label>
+              <input type="time" id="sla-time-from" class="input-text" value="00:00" data-custom-datetime-init="true" />
+            </div>
+            <div class="filter-group">
+              <label for="sla-date-to">To Date:</label>
+              <input type="date" id="sla-date-to" class="input-text" data-custom-datetime-init="true" />
+            </div>
+            <div class="filter-group">
+              <label for="sla-time-to">To Time:</label>
+              <input type="time" id="sla-time-to" class="input-text" value="23:59" data-custom-datetime-init="true" />
+            </div>
+            <button type="button" id="btn-generate-sla-report" class="btn btn-admin">
+              <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M8.5 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM20 8v6M23 11h-6" /></svg>
+              <span>Generate Report</span>
+            </button>
+            <button type="button" id="btn-clear-sla-dates" class="btn btn-outline">
+              <span>All Dates</span>
+            </button>
+          </div>
+
+          <!-- Real-Time Search Bar above Table -->
+          <div class="table-search-bar">
+            <div class="search-input-wrap">
+              <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
+              <input type="text" id="sla-search-input" class="input-text" placeholder="Filter by Driver ID or Name (e.g. drv_001, Tomas)..." />
+            </div>
+            <span id="sla-row-count" class="status-pill pill-neutral">Showing all couriers</span>
+          </div>
+
+          <!-- Driver SLA Table with Bold Headers, Right-Aligned Columns & Tabular Numbers -->
+          <div class="table-wrapper">
+            <table id="driver-sla-table" class="data-table">
+              <thead>
+                <tr>
+                  <th class="col-left">Driver ID</th>
+                  <th class="col-left">Driver Name</th>
+                  <th class="col-right">Completed Deliveries</th>
+                  <th class="col-right">Avg Turnaround (min)</th>
+                  <th class="col-center">SLA Breaches (&gt;45 min)</th>
+                </tr>
+              </thead>
+              <tbody id="driver-sla-body">
+                <tr>
+                  <td colspan="5" class="empty-table-cell">Click "Generate Report" to audit courier performance.</td>
+                </tr>
+              </tbody>
+              <tfoot id="driver-sla-foot" style="display: none;">
+                <tr class="table-summary-row">
+                  <td colspan="2"><strong>Fleet Totals</strong></td>
+                  <td class="col-right" id="sla-total-deliveries">—</td>
+                  <td class="col-right" id="sla-avg-turnaround">—</td>
+                  <td class="col-center" id="sla-total-breaches">—</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <div class="table-hint">
+            <svg viewBox="0 0 24 24" width="14" height="14"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" /></svg>
+            <span>SLA Compliance Policy: Deliveries exceeding 45 minutes turnaround from order placement are recorded as SLA Breaches.</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================================================================
+           TAB 5: NOTIFICATION AUDIT (Search input + tabular audit logs)
+           ================================================================== -->
+      <section id="tab-notifications" class="view-section tab-panel" role="tabpanel" aria-labelledby="nav-tab-notifications">
+        <div class="card">
+          <div class="card-header-row">
+            <div class="card-title-group">
+              <div class="card-icon">
+                <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" /></svg>
+              </div>
+              <div>
+                <h2>Notification Dispatch Audit Trail</h2>
+                <p class="section-desc">Search and verify multi-channel customer &amp; driver dispatches (SMS, Email, Push) logged by notification_service (:9097).</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Recipient Chips -->
+          <div class="quick-chips-row">
+            <span class="chips-title">Quick Recipients:</span>
+            <button type="button" class="recipient-chip active" data-recipient="cust-42">cust-42 (Default Demo)</button>
+            <button type="button" class="recipient-chip" data-recipient="CUST-001">CUST-001 (Windhoek)</button>
+            <button type="button" class="recipient-chip" data-recipient="CUST-002">CUST-002 (Katutura)</button>
+            <button type="button" class="recipient-chip" data-recipient="CUST-003">CUST-003 (Klein Windhoek)</button>
+            <button type="button" class="recipient-chip" data-recipient="drv_001">drv_001 (Tomas)</button>
+            <button type="button" class="recipient-chip" data-recipient="drv_002">drv_002 (Johannes)</button>
+          </div>
+
+          <!-- Channel Filter Buttons & Search Controls Row -->
+          <div class="filter-row">
+            <div class="channel-filter-group" role="group" aria-label="Channel Filter">
+              <span class="channel-filter-label">Channel:</span>
+              <button type="button" class="btn-channel active" data-channel="ALL">ALL</button>
+              <button type="button" class="btn-channel" data-channel="SMS">SMS</button>
+              <button type="button" class="btn-channel" data-channel="EMAIL">EMAIL</button>
+              <button type="button" class="btn-channel" data-channel="PUSH">PUSH</button>
+            </div>
+
+            <div class="filter-group" style="min-width: 230px;">
+              <label for="notif-recipient-select">Select Recipient:</label>
+              <select id="notif-recipient-select" class="custom-select">
+                <option value="cust-42">Customer cust-42 (Default Demo)</option>
+                <option value="CUST-001">Customer CUST-001 (Windhoek)</option>
+                <option value="CUST-002">Customer CUST-002 (Katutura)</option>
+                <option value="CUST-003">Customer CUST-003 (Klein Windhoek)</option>
+                <option value="drv_001">Courier drv_001 (Tomas Nekundi)</option>
+                <option value="drv_002">Courier drv_002 (Johannes Shipanga)</option>
+                <option value="custom">Enter Custom Recipient ID...</option>
+              </select>
+            </div>
+            <div class="filter-group" id="notif-custom-recipient-group" style="flex: 1; min-width: 220px; display: none;">
+              <label for="notif-recipient-input">Custom Recipient ID:</label>
+              <input
+                type="text"
+                id="notif-recipient-input"
+                class="input-text"
+                value="cust-42"
+                placeholder="Enter Recipient ID (e.g., cust-42, CUST-001)"
+              />
+            </div>
+            <button type="button" id="btn-search-notif" class="btn btn-admin">
+              <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
+              <span>Search Audit Log</span>
+            </button>
+          </div>
+
+          <!-- Real-Time Filter Summary Bar -->
+          <div class="table-search-bar">
+            <span id="notif-filter-summary" class="status-pill pill-neutral">Showing all channels for cust-42</span>
+            <span id="notif-row-count" class="status-pill pill-info">0 dispatches</span>
+          </div>
+
+          <!-- Notification Table -->
+          <div class="table-wrapper">
+            <table id="notif-table" class="data-table">
+              <thead>
+                <tr>
+                  <th>Sent At</th>
+                  <th>Recipient ID</th>
+                  <th>Channel</th>
+                  <th>Status</th>
+                  <th>Notification ID</th>
+                </tr>
+              </thead>
+              <tbody id="notif-body">
+                <tr>
+                  <td colspan="5" class="empty-table-cell">No notifications loaded yet.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Shared Utilities and Admin Controller -->
+    <script src="../shared.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

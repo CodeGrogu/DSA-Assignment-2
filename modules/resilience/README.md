@@ -2,13 +2,23 @@
 
 Provides fault tolerance, exponential backoff retries, error classification, and Dead Letter Queue (DLQ) routing for event-driven microservices.
 
-## Features
-- **Transient Error Classification**: `isTransient(error)` classifies exceptions into transient (network timeout, broker unavailable, temporary I/O) vs permanent (deserialization errors, validation failures, poison pills).
-- **Exponential Backoff**: `executeWithRetry` provides configurable retry policies (default 3 attempts with 1s, 2s, 4s backoff) and immediately bypasses retries on non-transient failures.
-- **Dead Letter Queue (DLQ) Router**: `DlqRouter` dispatches poison pills and unprocessable messages to `<topic>.dlq` with 6 diagnostic headers:
-  - `x-exception-message`
-  - `x-source-topic`
-  - `x-retry-count`
-  - `x-timestamp`
-  - `x-original-partition`
-  - `x-original-offset`
+---
+
+## 1. Features & Architecture
+
+- **Transient vs Permanent Error Classification**:
+  - `isTransient(error)` inspects error types and messages.
+  - Classifies temporary network drops, broker disconnects, and lock contentions as *transient* (eligible for retry).
+  - Classifies JSON deserialization failures, schema contract violations, and business invariant rejections as *permanent* (immediately routed to DLQ without wasteful retries).
+- **Exponential Backoff Retries**:
+  - `executeWithRetry`: Configurable attempts (default 3) with exponential backoff delays (1s, 2s, 4s).
+  - Immediately bypasses retries on non-transient errors.
+- **Dead Letter Queue (DLQ) Router**:
+  - `DlqRouter` publishes unprocessable messages to `<topic>.dlq`.
+  - Injects 6 diagnostic headers for debugging:
+    - `x-exception-message`: Root cause error message.
+    - `x-source-topic`: Topic where the failure occurred.
+    - `x-retry-count`: Number of failed retry attempts.
+    - `x-timestamp`: RFC 3339 failure timestamp.
+    - `x-original-partition`: Partition offset where message was read.
+    - `x-original-offset`: Exact offset of the unprocessable record.

@@ -6,7 +6,7 @@ import ballerinax/kafka;
 
 import peerpressure/events as events;
 
-configurable string kafkaBootstrapServers = "localhost:29092";
+configurable string kafkaBootstrapServers = "kafka:9092";
 configurable decimal kitchenCookingDurationSeconds = 30.0d;
 
 final string ordersConfirmedTopic = "orders.confirmed";

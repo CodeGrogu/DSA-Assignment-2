@@ -150,6 +150,8 @@ function testStateCoordinatorPaymentCompletedTransitionsOrderToConfirmed() retur
     events:OrderConfirmed[] confirmedEvents = orderEventProducer.getRecordedConfirmedEvents();
     test:assertEquals(confirmedEvents.length(), 1, "Exactly one OrderConfirmed event must be emitted");
     test:assertEquals(confirmedEvents[0].orderId, orderId);
+    test:assertEquals(confirmedEvents[0].restaurantId, testOrder.restaurantId, "OrderConfirmed must contain restaurantId");
+    test:assertEquals(confirmedEvents[0].items.length(), 2, "OrderConfirmed must contain order items");
     test:assertEquals(confirmedEvents[0].paymentId, "pay_tx_coord_12345");
 }
 

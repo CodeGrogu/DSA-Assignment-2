@@ -1,0 +1,52 @@
+[
+  {
+    "notificationId": "NOTIF-SEED-001",
+    "recipientId": "CUST-001",
+    "channel": "SMS",
+    "role": "CUSTOMER",
+    "eventType": "OrderCreatedEvent",
+    "message": "Your order ORD-SEED-001 from Kapana Corner has been placed successfully.",
+    "status": "DELIVERED",
+    "sentAt": "2026-10-01T12:00:05Z"
+  },
+  {
+    "notificationId": "NOTIF-SEED-002",
+    "recipientId": "R001",
+    "channel": "PUSH",
+    "role": "RESTAURANT",
+    "eventType": "OrderConfirmedEvent",
+    "message": "New order ORD-SEED-001 confirmed! Please start food preparation.",
+    "status": "DELIVERED",
+    "sentAt": "2026-10-01T12:01:35Z"
+  },
+  {
+    "notificationId": "NOTIF-SEED-003",
+    "recipientId": "drv_001",
+    "channel": "PUSH",
+    "role": "DRIVER",
+    "eventType": "DeliveryAssignedEvent",
+    "message": "New delivery dispatch: Order ORD-SEED-001 is ready for pickup at Kapana Corner.",
+    "status": "DELIVERED",
+    "sentAt": "2026-10-01T12:10:05Z"
+  },
+  {
+    "notificationId": "NOTIF-SEED-004",
+    "recipientId": "CUST-001",
+    "channel": "SMS",
+    "role": "CUSTOMER",
+    "eventType": "DeliveryStatusEvent",
+    "message": "Tomas Nekundi has delivered your order ORD-SEED-001. Enjoy your meal!",
+    "status": "DELIVERED",
+    "sentAt": "2026-10-01T12:45:05Z"
+  },
+  {
+    "notificationId": "NOTIF-SEED-005",
+    "recipientId": "CUST-004",
+    "channel": "EMAIL",
+    "role": "CUSTOMER",
+    "eventType": "OrderCancelledEvent",
+    "message": "Order ORD-SEED-004 was cancelled. Refund of 70.00 NAD has been credited.",
+    "status": "DELIVERED",
+    "sentAt": "2026-10-03T10:05:05Z"
+  }
+]

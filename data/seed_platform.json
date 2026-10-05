@@ -1,0 +1,314 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "platform": "PeerPressure Distributed Food Delivery Platform",
+  "version": "1.0.0",
+  "description": "Canonical Master Seed Dataset for All 7 Microservices and Databases in Windhoek, Namibia",
+  "customers": [
+    {
+      "id": "CUST-001",
+      "name": "Amelia Shilongo",
+      "email": "amelia.shilongo@example.com",
+      "phone": "+264811234501",
+      "addresses": [
+        {
+          "id": "ADDR-001",
+          "tag": "Home",
+          "street": "12 Independence Avenue",
+          "city": "Windhoek",
+          "state": "Khomas",
+          "postalCode": "10005",
+          "deliveryInstructions": "Please call when you arrive.",
+          "isDefault": true,
+          "location": { "type": "Point", "coordinates": [17.0658, -22.5609] }
+        }
+      ]
+    },
+    {
+      "id": "CUST-002",
+      "name": "Daniel Amutenya",
+      "email": "daniel.amutenya@example.com",
+      "phone": "+264811234502",
+      "addresses": [
+        {
+          "id": "ADDR-002",
+          "tag": "Home",
+          "street": "45 Sam Nujoma Drive",
+          "city": "Windhoek",
+          "state": "Khomas",
+          "postalCode": "10006",
+          "deliveryInstructions": "Leave the order with security if unavailable.",
+          "isDefault": true,
+          "location": { "type": "Point", "coordinates": [17.0836, -22.5687] }
+        }
+      ]
+    },
+    {
+      "id": "CUST-003",
+      "name": "Maria Ndeitunga",
+      "email": "maria.ndeitunga@example.com",
+      "phone": "+264811234503",
+      "addresses": [
+        {
+          "id": "ADDR-003",
+          "tag": "Work",
+          "street": "8 Robert Mugabe Avenue",
+          "city": "Windhoek",
+          "state": "Khomas",
+          "postalCode": "10007",
+          "deliveryInstructions": "Deliver between 12:00 and 14:00.",
+          "isDefault": true,
+          "location": { "type": "Point", "coordinates": [17.0894, -22.5671] }
+        }
+      ]
+    },
+    {
+      "id": "CUST-004",
+      "name": "Thomas Nangolo",
+      "email": "thomas.nangolo@example.com",
+      "phone": "+264811234504",
+      "addresses": [
+        {
+          "id": "ADDR-004",
+          "tag": "Home",
+          "street": "23 Dr Kenneth Kaunda Street",
+          "city": "Windhoek",
+          "state": "Khomas",
+          "postalCode": "10008",
+          "deliveryInstructions": "Gate is on the left side of the property.",
+          "isDefault": true,
+          "location": { "type": "Point", "coordinates": [17.0762, -22.5515] }
+        }
+      ]
+    },
+    {
+      "id": "CUST-005",
+      "name": "Selma Uusiku",
+      "email": "selma.uusiku@example.com",
+      "phone": "+264811234505",
+      "addresses": [
+        {
+          "id": "ADDR-005",
+          "tag": "Home",
+          "street": "17 Nelson Mandela Avenue",
+          "city": "Windhoek",
+          "state": "Khomas",
+          "postalCode": "10009",
+          "deliveryInstructions": "Please ring the bell at the main entrance.",
+          "isDefault": true,
+          "location": { "type": "Point", "coordinates": [17.0951, -22.5742] }
+        }
+      ]
+    }
+  ],
+  "restaurants": [
+    {
+      "id": "R001",
+      "name": "Kapana Corner",
+      "address": "Single Quarters, Katutura, Windhoek",
+      "location": { "type": "Point", "coordinates": [17.0658, -22.5333] },
+      "contactNumber": "+264-81-111-2222",
+      "operatingHours": [
+        { "dayOfWeek": "Monday", "openTime": "08:00", "closeTime": "21:00", "isClosed": false },
+        { "dayOfWeek": "Tuesday", "openTime": "08:00", "closeTime": "21:00", "isClosed": false },
+        { "dayOfWeek": "Wednesday", "openTime": "08:00", "closeTime": "21:00", "isClosed": false },
+        { "dayOfWeek": "Thursday", "openTime": "08:00", "closeTime": "21:00", "isClosed": false },
+        { "dayOfWeek": "Friday", "openTime": "08:00", "closeTime": "22:00", "isClosed": false },
+        { "dayOfWeek": "Saturday", "openTime": "08:00", "closeTime": "23:00", "isClosed": false },
+        { "dayOfWeek": "Sunday", "openTime": "09:00", "closeTime": "20:00", "isClosed": false }
+      ],
+      "menu": [
+        {
+          "id": "C1",
+          "name": "Street Food & Kapana",
+          "items": [
+            { "id": "M1", "name": "Beef Kapana", "description": "Succulent grilled beef strips dusted in traditional chili spice", "price": 50.00, "taxRate": 0.15, "dietaryAttributes": ["High-Protein", "Halal"], "stock": 100 },
+            { "id": "M2", "name": "Vetkoek (Fat Cake)", "description": "Golden-brown deep-fried dough bun with savory relish", "price": 10.00, "taxRate": 0.15, "dietaryAttributes": ["Vegetarian"], "stock": 80 },
+            { "id": "M3", "name": "Katutura Salsa", "description": "Freshly diced tomato, onion, and chili relish with cider vinegar", "price": 15.00, "taxRate": 0.15, "dietaryAttributes": ["Vegan", "Gluten-Free"], "stock": 120 },
+            { "id": "M4", "name": "Roosterkoek", "description": "Charcoal-grilled traditional bread roll", "price": 20.00, "taxRate": 0.15, "dietaryAttributes": ["Vegetarian"], "stock": 60 },
+            { "id": "M5", "name": "Pork Kapana", "description": "Flame-broiled crispy pork belly skewers with dipping salts", "price": 60.00, "taxRate": 0.15, "dietaryAttributes": ["High-Protein"], "stock": 75 },
+            { "id": "M6", "name": "Oshikundu", "description": "Traditional non-alcoholic fermented pearl millet brew", "price": 25.00, "taxRate": 0.15, "dietaryAttributes": ["Vegetarian", "Traditional"], "stock": 90 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "R002",
+      "name": "Namibian Potjie Kitchen",
+      "address": "Independence Ave, Windhoek CBD, Windhoek",
+      "location": { "type": "Point", "coordinates": [17.0836, -22.5601] },
+      "contactNumber": "+264-81-333-4444",
+      "operatingHours": [
+        { "dayOfWeek": "Monday", "openTime": "11:00", "closeTime": "22:00", "isClosed": false },
+        { "dayOfWeek": "Tuesday", "openTime": "11:00", "closeTime": "22:00", "isClosed": false },
+        { "dayOfWeek": "Wednesday", "openTime": "11:00", "closeTime": "22:00", "isClosed": false },
+        { "dayOfWeek": "Thursday", "openTime": "11:00", "closeTime": "22:00", "isClosed": false },
+        { "dayOfWeek": "Friday", "openTime": "11:00", "closeTime": "23:00", "isClosed": false },
+        { "dayOfWeek": "Saturday", "openTime": "11:00", "closeTime": "23:00", "isClosed": false },
+        { "dayOfWeek": "Sunday", "openTime": "12:00", "closeTime": "21:00", "isClosed": false }
+      ],
+      "menu": [
+        {
+          "id": "C2",
+          "name": "Cast-Iron Potjie Stews",
+          "items": [
+            { "id": "M7", "name": "Beef Potjiekos", "description": "Three-legged cast-iron slow-cooked beef stew", "price": 120.00, "taxRate": 0.15, "dietaryAttributes": ["Slow-Cooked"], "stock": 50 },
+            { "id": "M8", "name": "Lamb Potjiekos", "description": "Kalahari lamb braised with red wine, garlic, and rosemary", "price": 140.00, "taxRate": 0.15, "dietaryAttributes": ["Slow-Cooked"], "stock": 45 },
+            { "id": "M9", "name": "Oxtail Potjiekos", "description": "Rich gelatinous oxtail simmered 6 hours in craft brown ale", "price": 160.00, "taxRate": 0.15, "dietaryAttributes": ["Chef-Special"], "stock": 35 },
+            { "id": "M10", "name": "Chicken Potjiekos", "description": "Farmhouse chicken stew with leeks and corn dumplings", "price": 110.00, "taxRate": 0.15, "dietaryAttributes": ["Farmhouse"], "stock": 55 },
+            { "id": "M11", "name": "Vegetable Potjiekos", "description": "Butternut, green beans, carrots, and sweet potato", "price": 90.00, "taxRate": 0.15, "dietaryAttributes": ["Vegetarian", "Gluten-Free"], "stock": 40 },
+            { "id": "M12", "name": "Mahangu Pap", "description": "Steamed pearl millet flour porridge", "price": 30.00, "taxRate": 0.15, "dietaryAttributes": ["Vegan", "Gluten-Free"], "stock": 80 }
+          ]
+        }
+      ]
+    }
+  ],
+  "drivers": [
+    {
+      "id": "drv_001",
+      "name": "Tomas Nekundi",
+      "phone": "+264812345601",
+      "vehicleCategory": "MOTORCYCLE",
+      "availability": "AVAILABLE",
+      "state": "AVAILABLE",
+      "location": { "type": "Point", "coordinates": [17.0658, -22.5609] },
+      "latitude": -22.5609,
+      "longitude": 17.0658
+    },
+    {
+      "id": "drv_002",
+      "name": "Maria Shilongo",
+      "phone": "+264812345602",
+      "vehicleCategory": "CAR",
+      "availability": "AVAILABLE",
+      "state": "AVAILABLE",
+      "location": { "type": "Point", "coordinates": [17.0836, -22.5687] },
+      "latitude": -22.5687,
+      "longitude": 17.0836
+    },
+    {
+      "id": "drv_003",
+      "name": "Lukas Hamutenya",
+      "phone": "+264812345603",
+      "vehicleCategory": "MOTORCYCLE",
+      "availability": "AVAILABLE",
+      "state": "AVAILABLE",
+      "location": { "type": "Point", "coordinates": [17.0894, -22.5671] },
+      "latitude": -22.5671,
+      "longitude": 17.0894
+    }
+  ],
+  "orders": [
+    {
+      "orderId": "ORD-SEED-001",
+      "customerId": "CUST-001",
+      "restaurantId": "R001",
+      "status": "DELIVERED",
+      "items": [
+        { "itemId": "M1", "name": "Beef Kapana", "quantity": 2, "price": 50.00, "specialInstructions": ["Extra chili spice on the side"] },
+        { "itemId": "M2", "name": "Vetkoek (Fat Cake)", "quantity": 2, "price": 10.00, "specialInstructions": [] }
+      ],
+      "itemsTotal": 120.00,
+      "deliveryFee": 25.00,
+      "surgeMultiplier": 1.0,
+      "totalAmount": 145.00,
+      "deliveryAddress": { "street": "12 Independence Avenue", "city": "Windhoek", "state": "Khomas", "postalCode": "10005" },
+      "paymentId": "PAY-SEED-001",
+      "createdAt": "2026-10-01T12:00:00Z",
+      "updatedAt": "2026-10-01T12:45:00Z"
+    },
+    {
+      "orderId": "ORD-SEED-002",
+      "customerId": "CUST-002",
+      "restaurantId": "R001",
+      "status": "DELIVERED",
+      "items": [
+        { "itemId": "M5", "name": "Pork Kapana", "quantity": 1, "price": 60.00, "specialInstructions": [] },
+        { "itemId": "M6", "name": "Oshikundu", "quantity": 1, "price": 25.00, "specialInstructions": [] }
+      ],
+      "itemsTotal": 85.00,
+      "deliveryFee": 25.00,
+      "surgeMultiplier": 1.0,
+      "totalAmount": 110.00,
+      "deliveryAddress": { "street": "45 Sam Nujoma Drive", "city": "Windhoek", "state": "Khomas", "postalCode": "10006" },
+      "paymentId": "PAY-SEED-002",
+      "createdAt": "2026-10-02T13:30:00Z",
+      "updatedAt": "2026-10-02T14:15:00Z"
+    },
+    {
+      "orderId": "ORD-SEED-003",
+      "customerId": "CUST-003",
+      "restaurantId": "R002",
+      "status": "DELIVERED",
+      "items": [
+        { "itemId": "M7", "name": "Beef Potjiekos", "quantity": 1, "price": 120.00, "specialInstructions": [] },
+        { "itemId": "M11", "name": "Vegetable Potjiekos", "quantity": 1, "price": 90.00, "specialInstructions": [] }
+      ],
+      "itemsTotal": 210.00,
+      "deliveryFee": 30.00,
+      "surgeMultiplier": 1.0,
+      "totalAmount": 240.00,
+      "deliveryAddress": { "street": "8 Robert Mugabe Avenue", "city": "Windhoek", "state": "Khomas", "postalCode": "10007" },
+      "paymentId": "PAY-SEED-003",
+      "createdAt": "2026-10-02T19:00:00Z",
+      "updatedAt": "2026-10-02T19:50:00Z"
+    }
+  ],
+  "deliveries": [
+    {
+      "deliveryId": "DEL-SEED-001",
+      "orderId": "ORD-SEED-001",
+      "driverId": "drv_001",
+      "driverName": "Tomas Nekundi",
+      "status": "DELIVERED",
+      "assignedAt": "2026-10-01T12:10:00Z",
+      "pickedUpAt": "2026-10-01T12:25:00Z",
+      "deliveredAt": "2026-10-01T12:45:00Z",
+      "currentLocation": { "latitude": -22.5609, "longitude": 17.0658 }
+    },
+    {
+      "deliveryId": "DEL-SEED-002",
+      "orderId": "ORD-SEED-002",
+      "driverId": "drv_002",
+      "driverName": "Maria Shilongo",
+      "status": "DELIVERED",
+      "assignedAt": "2026-10-02T13:40:00Z",
+      "pickedUpAt": "2026-10-02T13:55:00Z",
+      "deliveredAt": "2026-10-02T14:15:00Z",
+      "currentLocation": { "latitude": -22.5687, "longitude": 17.0836 }
+    }
+  ],
+  "payments": [
+    {
+      "paymentId": "PAY-SEED-001",
+      "orderId": "ORD-SEED-001",
+      "amount": 145.00,
+      "currency": "NAD",
+      "status": "COMPLETED",
+      "paymentMethod": "CARD",
+      "idempotencyKey": "IDEM-PAY-001-ORD-001",
+      "completedAt": "2026-10-01T12:01:30Z"
+    },
+    {
+      "paymentId": "PAY-SEED-002",
+      "orderId": "ORD-SEED-002",
+      "amount": 110.00,
+      "currency": "NAD",
+      "status": "COMPLETED",
+      "paymentMethod": "MOBILE_MONEY",
+      "idempotencyKey": "IDEM-PAY-002-ORD-002",
+      "completedAt": "2026-10-02T13:31:15Z"
+    }
+  ],
+  "notifications": [
+    {
+      "notificationId": "NOTIF-SEED-001",
+      "recipientId": "CUST-001",
+      "channel": "SMS",
+      "role": "CUSTOMER",
+      "eventType": "OrderCreatedEvent",
+      "message": "Your order ORD-SEED-001 from Kapana Corner has been placed successfully.",
+      "status": "DELIVERED",
+      "sentAt": "2026-10-01T12:00:05Z"
+    }
+  ]
+}

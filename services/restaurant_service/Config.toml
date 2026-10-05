@@ -1,0 +1,11 @@
+port = 9095
+kafkaBootstrapServers = "kafka:9092"
+kitchenCookingDurationSeconds = 30.0
+mongoHost = "mongodb"
+mongoPort = 27017
+mongoUser = "restaurant_user"
+mongoPassword = "restaurant_password"
+mongoAuthSource = "restaurant_db"
+mongoReplicaSet = "rs0"
+databaseName = "restaurant_db"
+mongoServerSelectionTimeoutMs = 2000

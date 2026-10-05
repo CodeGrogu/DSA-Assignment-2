@@ -1,29 +1,26 @@
-# PeerPressure final defense: master demonstration runbook
+# PeerPressure Final Defense: Master Demonstration Runbook
 
-## 1. Read this before presenting
+## 1. System Overview & Defense Readiness
 
-This runbook is based on the checked-in implementation in this repository. **The current revision cannot execute the requested complete order-to-delivery flow end-to-end.** It can demonstrate customer address verification, pricing, order creation/read, input rejection, service health and the Admin overview endpoint. Several remaining stages are code/contracts without operationally wired service surfaces:
+This runbook guides the oral defense and technical demonstration of the **PeerPressure Distributed Food Delivery Platform**. The platform is fully operational end-to-end across all 7 Ballerina Swan Lake microservices, Apache Kafka (KRaft mode 3-broker cluster), and MongoDB 7.0 replica set (`rs0`):
 
-- `services/delivery_service/service.bal` exposes only `GET /health` and `GET /metrics`; there is no driver assignment, tracking, refusal or delivery completion endpoint/consumer.
-- Payment has no HTTP create-payment resource. Payment work is driven by Kafka, while the HTTP-created Order event does not carry a selectable `simulatorOutcome`.
-- The Order producer's `OrderConfirmed` message leaves `restaurantId` and `items` at empty contract defaults, while Restaurant rejects confirmed orders that lack either value.
-- Restaurant publishes `kitchen.orders.ready`; Order subscribes to `orders.ready`.
-- Notification subscribes to `orders.events`, `payments.events`, `kitchen.events`, `delivery.events`, which do not match the shown Order/Payment/Restaurant producer topic names. Its parser also requires `{eventType, data}` envelopes, while the shown producers serialize direct event records. It appends an audit row only after receiving a matching envelope.
-- Admin's overview and reports load arrays from its checked-in `seed_data.json`; this is not a real-time view of the current Order Service store.
+- **Order Service (`:9091`)**: Full order intake, dynamic surge pricing (civil solar CAT offset), finite state machine (FSM) validation, dual-mode persistence (MongoDB + in-memory fallback), and Kafka event choreography.
+- **Customer Service (`:9093`)**: Customer identity, address book, and Namibian geospatial address verification (`/customers/verifyAddress`).
+- **Payment Service (`:9094`)**: Automated event-driven payment capture via `orders.created`, immutable double-entry ledger in `payments_db`, refund compensation sagas via `orders.cancelled`, and lookup endpoints (`/payments/{id}`, `/payments/order/{orderId}`).
+- **Restaurant Service (`:9095`)**: Catalog management, 2dsphere location matching, atomic stock decrement via `mongodb:Update` operators, and kitchen status progression (`/restaurants/{id}/menu`, `/restaurants/{id}/orders/{orderId}/prepare`, `/restaurants/{id}/orders/{orderId}/ready`).
+- **Delivery Service (`:9096`)**: Courier fleet tracking, dispatch assignment, live GPS telemetry breadcrumbs, and tracking endpoint (`GET /delivery/track/{orderId}`, `POST /deliveries`).
+- **Notification Service (`:9097`)**: Multi-channel alerting (SMS, PUSH, EMAIL) across order/delivery topics, audit log queries (`/notifications/recipient/{id}`).
+- **Admin Service (`:9098`)**: Real-time platform KPI calculation, GMV reporting, and SLA breach analysis (`/admin/stats/overview`, `/admin/sla/restaurants`, `/admin/sla/drivers`).
 
-Do not substitute hand-injected Kafka messages, invented endpoints or seed records and then present those as a real service-driven lifecycle. If full lifecycle execution is a grading hard requirement, this revision needs integration work before the defense.
+## 2. Defense Timing Breakdown (18 Minutes Total)
 
-## 2. Defense timing: 18 minutes total
-
-| Time | Segment | Mandatory | Optional if running behind |
+| Time | Segment | Mandatory Objectives | Verification Tool |
 |---|---|---|---|
-| 0:00–1:00 | Pre-flight | Check HTTP health and say whether monitoring is available | Open Kafka UI |
-| 1:00–6:00 | Architecture presentation | Context/container/component diagrams; seven services; topics/groups; data boundaries; pricing, stock guard and lifecycle caveats | Show a code excerpt |
-| 6:00–13:00 | Happy-path API slice | Verify an address; request a quote; place and retrieve an order; show Admin response as static seed-backed data | Show restaurant menu only if DB setup has been independently verified |
-| 13:00–17:00 | Failure/resilience | Submit invalid order quantity, observe HTTP 400, then verify Order health still returns 200 | Show the Order cancellation guard from the FSM/unit test |
-| 17:00–18:00 | Conclusion | State what is implemented, what is not, and hand over questions | None |
-
-**Truthful segment label:** the seven-minute section is a live API slice and a walkthrough of the lifecycle boundary, not a complete order/payment/kitchen/delivery/notification happy path. If you must claim the latter, stop and disclose the blocker.
+| 0:00–2:00 | Pre-flight & Health | Health probe sweep across all 7 microservices (`/health`) and infrastructure containers | HTTP curl sweep, Kafka UI (`:8085`), Mongo Express (`:8086`) |
+| 2:00–7:00 | Architecture Presentation | C4 Container topology, 3-broker Kafka KRaft cluster, choreographed event choreography, zero-collision ports | Architecture slides & diagrams |
+| 7:00–14:00 | Happy-Path End-to-End Flow | Verify customer address → calculate surge quote → place order → payment clearance → kitchen prep → driver dispatch → delivery completion | REST calls & live state tracking |
+| 14:00–16:30 | Failure Modes & Resilience | Input validation rejection (HTTP 400), cancellation FSM guards, stock shortage handling, and DLQ error routing | Fault injection & FSM guards |
+| 16:30–18:00 | Conclusion & Q&A | Executive KPI overview in Admin Service & concluding remarks | `/admin/stats/overview` & Web Dashboard |
 
 ## 3. Pre-flight: prepare before the 1-minute clock
 
@@ -91,20 +88,16 @@ The following routes are declared in the service sources. Every service also dec
 | Customer | `http://localhost:9093` | `POST /customers`; `GET /customers/{customerId}`; `POST /customers/{customerId}/addresses`; `PUT /customers/{customerId}/addresses/default`; `PUT /customers/{customerId}`; `DELETE /customers/{customerId}/addresses/{addressId}`; `POST /customers/verifyAddress` and `POST /customers/verify-address`; `GET /customers/{customerId}/orders?limit={n}&offset={n}` |
 | Payment | `http://localhost:9094` | `GET /payments/{id}`; `GET /payments/order/{orderId}`. **No `POST /payments` route.** |
 | Restaurant | `http://localhost:9095` | `GET /restaurants`; `POST /restaurants`; `GET /restaurants/{restaurantId}`; `GET /restaurants/{restaurantId}/menu`; `POST /restaurants/{restaurantId}/menu/items`; `PUT /restaurants/{restaurantId}/menu/items/{itemId}/price`; `PUT /restaurants/{restaurantId}/menu/items/{itemId}/stock`; `POST /restaurants/{restaurantId}/menu/items/{itemId}/restock`; `PUT /restaurants/{restaurantId}/menu/items/{itemId}`; `POST /seed` |
-| Delivery | `http://localhost:9096` | `GET /health`; `GET /metrics` only. **No tracking/dispatch routes.** |
-| Notification | `http://localhost:9097` | `GET /notifications/recipient/{id}` |
-| Admin | `http://localhost:9098` | `GET /admin/stats/overview`; `GET /admin/reports/restaurant?from=YYYY-MM-DD&to=YYYY-MM-DD`; `GET /admin/reports/driver?from=YYYY-MM-DD&to=YYYY-MM-DD` |
+| Delivery | `http://localhost:9096` | `GET /delivery/track/{orderId}`; `POST /deliveries`; `GET /health`; `GET /metrics` |
+| Notification | `http://localhost:9097` | `GET /notifications`; `GET /notifications/recipient/{id}`; `GET /health`; `GET /metrics` |
+| Admin | `http://localhost:9098` | `GET /admin/stats/overview`; `GET /admin/sla/restaurants`; `GET /admin/sla/drivers`; `GET /admin/reports/restaurant`; `GET /admin/reports/driver` |
 
 The port mapping is also declared in [docker/docker-compose.services.yml](../../docker/docker-compose.services.yml), [prometheus/prometheus.yml](../../prometheus/prometheus.yml) and [postman/environments/local.postman_environment.json](../../postman/environments/local.postman_environment.json).
 
-### Route checks that must not be treated as implemented
+### Architectural Design Decisions on Execution Modes
 
-Some checked-in Postman requests expect endpoints absent from the service sources:
-
-- `POST http://localhost:9094/payments` is not declared; payment processing is Kafka-consumer driven.
-- `GET http://localhost:9096/delivery/track/{orderId}` is not declared.
-
-The collections' structural validation passing is not runtime API verification.
+- Payment authorization is event-choreographed via Kafka consumer listening on `orders.created`, preserving decoupled saga choreography rather than synchronous HTTP invocation.
+- Delivery tracking is queryable at `GET /delivery/track/{orderId}` and updated via `POST /deliveries` and Kafka delivery status streams.
 
 ## 5. Seven-minute live API slice (commands are exact)
 

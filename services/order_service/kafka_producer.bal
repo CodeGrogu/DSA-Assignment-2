@@ -1,14 +1,27 @@
 import ballerina/log;
+import ballerina/os;
 import ballerina/uuid;
 import ballerinax/kafka;
 
 import peerpressure/events as events;
 
-configurable string kafkaBootstrapServers = "localhost:9092";
+configurable string kafkaBootstrapServers = "kafka:9092";
 configurable boolean enableKafka = true;
 configurable string orderCreatedTopic = "orders.created";
 configurable string orderConfirmedTopic = "orders.confirmed";
 configurable string orderCancelledTopic = "orders.cancelled";
+
+isolated function getEffectiveKafkaServers() returns string {
+    string envBroker = os:getEnv("KAFKA_BROKER");
+    if envBroker != "" {
+        return envBroker;
+    }
+    string envServers = os:getEnv("KAFKA_BOOTSTRAP_SERVERS");
+    if envServers != "" {
+        return envServers;
+    }
+    return kafkaBootstrapServers;
+}
 
 # Producer class responsible for publishing order lifecycle events to Kafka topics.
 # Provides graceful degradation and in-memory event recording for offline testing.
@@ -20,12 +33,13 @@ public class OrderEventProducer {
 
     public function init() {
         if enableKafka {
-            kafka:Producer|error prod = new (kafkaBootstrapServers, {
+            string servers = getEffectiveKafkaServers();
+            kafka:Producer|error prod = new (servers, {
                 clientId: "order-service-producer"
             });
             if prod is kafka:Producer {
                 self.producer = prod;
-                log:printInfo("OrderEventProducer initialized with Kafka broker", bootstrapServers = kafkaBootstrapServers);
+                log:printInfo("OrderEventProducer initialized with Kafka broker", bootstrapServers = servers);
             } else {
                 log:printWarn("Kafka broker not reachable at startup; events will be recorded in memory only");
             }
@@ -108,9 +122,21 @@ public class OrderEventProducer {
 
     # Publishes an OrderConfirmed event to Kafka topic `orders.confirmed` keyed by orderId.
     public function publishOrderConfirmed(Order 'order, string confirmedAt) returns error? {
+        events:OrderItem[] eventItems = from CreateOrderItem item in 'order.items
+            select {
+                itemId: item.itemId,
+                itemName: item.name,
+                quantity: item.quantity,
+                unitPrice: item.price,
+                subtotal: item.price * <decimal>item.quantity,
+                specialInstructions: item.specialInstructions.cloneReadOnly()
+            };
+
         events:OrderConfirmed event = {
             eventId: uuid:createType4AsString(),
             orderId: 'order.orderId,
+            restaurantId: 'order.restaurantId,
+            items: eventItems.cloneReadOnly(),
             paymentId: 'order.paymentId ?: "pay_confirmed",
             estimatedDeliveryMinutes: 30,
             confirmedAt: confirmedAt

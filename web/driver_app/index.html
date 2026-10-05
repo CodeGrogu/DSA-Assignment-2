@@ -1,0 +1,1153 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Food Delivery — Driver Dispatch &amp; Telemetry</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../shared.css" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <!-- Top Header matching Admin's Two-Tier Architecture -->
+    <header class="app-header">
+      <!-- Tier 1: Brand & Header Controls -->
+      <div class="header-container header-top-bar">
+        <!-- Compact Brand Bar with Strictly Sized 36px Icon Box -->
+        <div class="header-brand">
+          <div class="brand-icon-box" title="Food Delivery Driver Dispatch">
+            <svg viewBox="0 0 24 24" class="brand-icon">
+              <rect x="1" y="3" width="15" height="13"></rect>
+              <polygon points="16 8 20 8 23 11 23 16 16 16 8"></polygon>
+              <circle cx="5.5" cy="18.5" r="2.5"></circle>
+              <circle cx="18.5" cy="18.5" r="2.5"></circle>
+            </svg>
+          </div>
+          <div class="brand-title-group">
+            <h1>Food Delivery — Driver Dispatch</h1>
+            <p class="brand-subtitle">Windhoek Fleet Logistics &amp; Real-Time Order Dispatch</p>
+          </div>
+        </div>
+
+        <!-- Header Controls: Courier Picker, Custom Shift Date/Time Filter, Status Toggle, Profile & Hub -->
+        <div class="header-controls">
+          <!-- Active Driver Selector Dropdown (Strictly 1 border, 1 chevron) -->
+          <div class="custom-select-wrap header-driver-picker-wrap select-sm" title="Quickly switch active fleet courier">
+            <select id="header-driver-select" class="header-driver-select" onchange="handleHeaderDriverSelect(this.value)">
+              <option value="drv_001" selected>Tomas Nekundi (drv_001)</option>
+              <option value="drv_002">Selma Shikongo (drv_002)</option>
+              <option value="drv_003">Johannes Paulus (drv_003)</option>
+              <option value="drv_004">Ndapewa Amukoto (drv_004)</option>
+            </select>
+          </div>
+
+          <!-- Custom Floating Date & Time Selector for Shift Filtering -->
+          <div class="shift-datetime-picker-wrap">
+            <button
+              type="button"
+              class="btn btn-outline btn-sm shift-picker-btn"
+              id="btn-shift-datetime-picker"
+              onclick="toggleShiftDateTimePicker()"
+              title="Open custom date and time picker for shift filtering"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="3" y1="10" x2="21" y2="10"></line>
+              </svg>
+              <span id="shift-datetime-label">Today's Shift</span>
+            </button>
+
+            <!-- Custom Floating Calendar & Time Picker Popup -->
+            <div class="shift-datetime-dropdown card" id="shift-datetime-dropdown" style="display: none;">
+              <div class="shift-dropdown-header">
+                <div class="shift-dropdown-title-group">
+                  <span class="shift-dropdown-title">Shift Date &amp; Time Filter</span>
+                  <span class="shift-dropdown-subtitle" id="shift-dropdown-subtitle">Today (06:00 - 22:00)</span>
+                </div>
+                <button type="button" class="btn-close-sm" onclick="closeShiftDateTimePicker()" aria-label="Close">&times;</button>
+              </div>
+
+              <!-- Quick Shift Presets -->
+              <div class="shift-presets-row">
+                <button type="button" class="btn-preset active" data-shift-preset="today" onclick="selectShiftPreset('today')">Today</button>
+                <button type="button" class="btn-preset" data-shift-preset="yesterday" onclick="selectShiftPreset('yesterday')">Yesterday</button>
+                <button type="button" class="btn-preset" data-shift-preset="7days" onclick="selectShiftPreset('7days')">Last 7 Days</button>
+                <button type="button" class="btn-preset" data-shift-preset="all" onclick="selectShiftPreset('all')">All Time</button>
+              </div>
+
+              <!-- Bespoke Custom Calendar Date Selector -->
+              <div class="shift-calendar-container" id="shift-calendar-container">
+                <div class="shift-calendar-header">
+                  <button type="button" class="calendar-nav-btn" onclick="prevShiftCalMonth()" title="Previous Month">
+                    <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                  </button>
+                  <span class="calendar-month-title" id="shift-cal-month-title">October 2026</span>
+                  <button type="button" class="calendar-nav-btn" onclick="nextShiftCalMonth()" title="Next Month">
+                    <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                  </button>
+                </div>
+                <div class="calendar-weekdays">
+                  <div>Su</div><div>Mo</div><div>Tu</div><div>We</div><div>Th</div><div>Fr</div><div>Sa</div>
+                </div>
+                <div class="calendar-days-grid" id="shift-cal-days-grid">
+                  <!-- Dynamically populated day cells -->
+                </div>
+              </div>
+
+              <!-- Shift Window Presets -->
+              <div class="shift-window-section">
+                <span class="shift-section-label">Shift Window</span>
+                <div class="shift-slots-row">
+                  <button type="button" class="btn-slot-pill active" data-slot="FULL" onclick="applyShiftWindowSlot('FULL')">Full Day (06-22)</button>
+                  <button type="button" class="btn-slot-pill" data-slot="MORNING" onclick="applyShiftWindowSlot('MORNING')">Morning (06-14)</button>
+                  <button type="button" class="btn-slot-pill" data-slot="AFTERNOON" onclick="applyShiftWindowSlot('AFTERNOON')">Afternoon (14-22)</button>
+                  <button type="button" class="btn-slot-pill" data-slot="NIGHT" onclick="applyShiftWindowSlot('NIGHT')">Night (22-06)</button>
+                </div>
+              </div>
+
+              <!-- Custom Time Inputs Row -->
+              <div class="shift-time-range-row">
+                <div class="form-group">
+                  <label for="shift-input-start">Start Time</label>
+                  <input type="time" id="shift-input-start" class="input-text shift-time-input" value="06:00" data-custom-datetime-init="true" onchange="handleShiftTimeChange()" />
+                </div>
+                <div class="form-group">
+                  <label for="shift-input-end">End Time</label>
+                  <input type="time" id="shift-input-end" class="input-text shift-time-input" value="22:00" data-custom-datetime-init="true" onchange="handleShiftTimeChange()" />
+                </div>
+              </div>
+
+              <!-- Hidden backing inputs for compatibility -->
+              <input type="date" id="shift-input-date" style="display:none;" data-custom-datetime-init="true" />
+              <select id="shift-select-slot" style="display:none;" data-custom-dropdown-init="true">
+                <option value="FULL" selected>Full Day (06:00 - 22:00)</option>
+                <option value="MORNING">Morning (06:00 - 14:00)</option>
+                <option value="AFTERNOON">Afternoon (14:00 - 22:00)</option>
+                <option value="NIGHT">Night (22:00 - 06:00)</option>
+              </select>
+
+              <!-- Action Buttons -->
+              <div class="shift-dropdown-actions">
+                <button type="button" class="btn btn-outline btn-sm" onclick="resetShiftDateTimeFilter()">Reset</button>
+                <button type="button" class="btn btn-driver btn-sm" onclick="applyShiftDateTimeFilter()">Apply Filter</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Status Pill with Instant Toggle -->
+          <div class="status-pill-toggle status-available" id="header-status-toggle" onclick="cycleCourierStatus()" title="Click to instant toggle status: AVAILABLE -> BUSY -> OFFLINE">
+            <span class="status-dot dot-available" id="header-status-dot"></span>
+            <span class="status-pill-label" id="header-status-text">AVAILABLE</span>
+          </div>
+
+          <!-- Courier Profile Modal Trigger Button -->
+          <button type="button" class="btn btn-outline btn-sm driver-profile-btn" id="btn-open-profile" onclick="openCourierProfileModal()" title="View and edit courier profile details">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+            <span id="header-driver-name">Profile</span>
+          </button>
+
+          <!-- Return to Hub -->
+          <a href="../index.html" class="btn btn-outline btn-sm hub-link" title="Return to Platform Hub">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+              <polyline points="9 22 9 12 15 12 15 22"></polyline>
+            </svg>
+            <span>Hub</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Tier 2: Clean Navigation Tabs with Badges -->
+      <div class="header-nav-strip">
+        <div class="header-container">
+          <nav class="header-nav" id="driver-tab-nav" role="tablist" aria-label="Courier Navigation">
+            <button
+              type="button"
+              class="nav-tab-btn active"
+              role="tab"
+              aria-selected="true"
+              data-tab="tab-tasks"
+              id="tab-btn-tasks"
+            >
+              <svg viewBox="0 0 24 24"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><rect x="8" y="2" width="8" height="4" rx="1" ry="1" /><path d="M9 14l2 2 4-4" /></svg>
+              <span>Active Tasks &amp; Dispatch</span>
+              <span class="tab-badge" id="badge-tasks">LIVE</span>
+            </button>
+            <button
+              type="button"
+              class="nav-tab-btn"
+              role="tab"
+              aria-selected="false"
+              data-tab="tab-state"
+              id="tab-btn-state"
+            >
+              <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>
+              <span>State Controller</span>
+              <span class="tab-badge" id="badge-state">4 STEPS</span>
+            </button>
+            <button
+              type="button"
+              class="nav-tab-btn"
+              role="tab"
+              aria-selected="false"
+              data-tab="tab-route"
+              id="tab-btn-route"
+            >
+              <svg viewBox="0 0 24 24"><polygon points="3 11 22 2 13 21 11 13 3 11" /></svg>
+              <span>Route &amp; Live Telemetry</span>
+              <span class="tab-badge" id="badge-route">GPS</span>
+            </button>
+            <button
+              type="button"
+              class="nav-tab-btn"
+              role="tab"
+              aria-selected="false"
+              data-tab="tab-log"
+              id="tab-btn-log"
+            >
+              <svg viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5" /><line x1="12" y1="19" x2="20" y2="19" /></svg>
+              <span>Activity Log</span>
+              <span class="tab-badge" id="badge-log">STREAM</span>
+            </button>
+          </nav>
+        </div>
+      </div>
+    </header>
+
+    <!-- Edge-to-Edge Microservices Health & Connectivity Banner -->
+    <div id="service-status-banner" class="service-banner banner-checking">
+      <div class="banner-inner">
+        <span class="banner-dot"></span>
+        <span id="service-status-text">Probing Delivery Service (:9096) and Order Service (:9091)...</span>
+      </div>
+    </div>
+
+    <!-- Main Content Page Container -->
+    <main class="page-container">
+      <!-- ================================================================== -->
+      <!-- TAB 1: ACTIVE TASKS & DISPATCH                                     -->
+      <!-- ================================================================== -->
+      <section class="view-section active" id="tab-tasks">
+        <div class="tasks-layout-grid">
+          <!-- Left: Order Task Lookup & Telemetry Mini Overview -->
+          <div class="tasks-col-left">
+            <!-- Order Lookup Card -->
+            <div class="card">
+              <div class="card-header-row">
+                <div class="card-title-group">
+                  <div class="card-icon card-icon-orange">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="11" cy="11" r="8"></circle>
+                      <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                  </div>
+                  <div>
+                    <h2>Order Task Lookup</h2>
+                    <p class="section-desc">Search and load an order from Order &amp; Delivery services</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Search Bar with Custom Order ID Input -->
+              <div class="lookup-form">
+                <div class="input-with-button">
+                  <input
+                    type="text"
+                    id="order-id-input"
+                    class="input-text"
+                    placeholder="Enter Order ID (e.g. ord_101 or ord_test_1)..."
+                    autocomplete="off"
+                  />
+                  <button type="button" class="btn btn-driver" id="btn-load-order">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="11" cy="11" r="8"></circle>
+                      <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                    <span>Load Order</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Platform Orders Chips Block -->
+              <div class="platform-orders-block">
+                <div class="platform-orders-header">
+                  <span class="platform-orders-title">Platform Order Chips (Auto-Synced):</span>
+                  <button type="button" class="btn btn-ghost btn-sm" id="btn-refresh-platform-orders" onclick="refreshPlatformOrderChips()" title="Resync orders from platform storage">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="23 4 23 10 17 10"></polyline>
+                      <polyline points="1 20 1 14 7 14"></polyline>
+                      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                    </svg>
+                    <span>Sync</span>
+                  </button>
+                </div>
+                <div class="order-chips-list" id="platform-order-chips">
+                  <span class="empty-hint" id="no-orders-hint">No orders detected yet. Place an order in Client App or enter an ID above.</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Quick Telemetry Mini-Card -->
+            <div class="card telemetry-mini-card">
+              <div class="mini-metrics-row">
+                <div class="mini-metric-item">
+                  <span class="mini-metric-label">Active Vehicle</span>
+                  <strong class="mini-metric-value text-mono" id="mini-vehicle-type">MOTORCYCLE</strong>
+                </div>
+                <div class="mini-metric-divider"></div>
+                <div class="mini-metric-item">
+                  <span class="mini-metric-label">Current Lat / Lon</span>
+                  <strong class="mini-metric-value text-mono" id="mini-coords-readout">-22.5609, 17.0658</strong>
+                </div>
+                <div class="mini-metric-divider"></div>
+                <div class="mini-metric-item">
+                  <span class="mini-metric-label">Courier Status</span>
+                  <strong class="mini-metric-value" id="mini-driver-status">AVAILABLE</strong>
+                </div>
+                <div class="mini-metric-divider"></div>
+                <div class="mini-metric-item">
+                  <span class="mini-metric-label">Transit Time</span>
+                  <strong class="mini-metric-value text-mono" id="mini-transit-time">--:--</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Order Task Overview Card & Order Details Subcard -->
+          <div class="tasks-col-right">
+            <!-- 1. Order Task Overview Card -->
+            <div class="card active-task-card" id="task-card">
+              <div class="card-header-row">
+                <div class="card-title-group">
+                  <div class="card-icon card-icon-orange">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                      <polyline points="14 2 14 8 20 8"></polyline>
+                      <line x1="16" y1="13" x2="8" y2="13"></line>
+                      <line x1="16" y1="17" x2="8" y2="17"></line>
+                      <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                  </div>
+                  <div>
+                    <h2>Active Delivery Task Overview</h2>
+                    <p class="section-desc">Live dispatch assignment parameters and synchronized state</p>
+                  </div>
+                </div>
+
+                <div class="task-status-container">
+                  <span class="status-pill pill-neutral" id="task-status-pill">UNASSIGNED</span>
+                </div>
+              </div>
+
+              <!-- Task Metadata Grid -->
+              <div class="task-data-grid">
+                <div class="task-data-cell">
+                  <span class="data-cell-label">Order Identifier</span>
+                  <strong class="data-cell-value text-mono" id="task-order-id">—</strong>
+                </div>
+                <div class="task-data-cell">
+                  <span class="data-cell-label">Delivery Tracking ID</span>
+                  <strong class="data-cell-value text-mono" id="task-delivery-id">—</strong>
+                </div>
+                <div class="task-data-cell">
+                  <span class="data-cell-label">Assigned Courier</span>
+                  <span class="data-cell-value" id="task-driver-name">Tomas Nekundi (drv_001)</span>
+                </div>
+                <div class="task-data-cell">
+                  <span class="data-cell-label">Vehicle Category</span>
+                  <span class="data-cell-value" id="task-vehicle-type">MOTORCYCLE</span>
+                </div>
+                <div class="task-data-cell">
+                  <span class="data-cell-label">Origin (Pickup)</span>
+                  <span class="data-cell-value" id="task-origin-summary">Single Quarters, Katutura</span>
+                </div>
+                <div class="task-data-cell">
+                  <span class="data-cell-label">Destination (Dropoff)</span>
+                  <span class="data-cell-value" id="task-dest-summary">12 Independence Avenue, Windhoek</span>
+                </div>
+                <div class="task-data-cell">
+                  <span class="data-cell-label">Transit Duration</span>
+                  <span class="data-cell-value text-mono" id="task-transit-timer">--:-- (Not Departed)</span>
+                </div>
+                <div class="task-data-cell">
+                  <span class="data-cell-label">Scheduled Shift</span>
+                  <span class="data-cell-value text-mono" id="task-driver-shift">06:00 - 22:00 (Today)</span>
+                </div>
+                <div class="task-data-cell">
+                  <span class="data-cell-label">Dispatch Status</span>
+                  <span class="data-cell-value" id="task-status-detail">Waiting for order assignment</span>
+                </div>
+              </div>
+
+              <!-- Quick Action Navigation Bar -->
+              <div class="task-quick-actions">
+                <button type="button" class="btn btn-driver" onclick="switchDriverTab('tab-state')">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                  </svg>
+                  <span>Open State Controller</span>
+                </button>
+                <button type="button" class="btn btn-outline" onclick="switchDriverTab('tab-route')">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
+                  </svg>
+                  <span>View Route &amp; Telemetry</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- 2. Order Details Subcard: Pickup, Dropoff & Special Delivery Instructions -->
+            <div class="card order-details-subcard" id="order-details-card">
+              <div class="card-header-row">
+                <div class="card-title-group">
+                  <div class="card-icon card-icon-orange">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                      <circle cx="12" cy="10" r="3"></circle>
+                    </svg>
+                  </div>
+                  <div>
+                    <h2>Order Delivery Details</h2>
+                    <p class="section-desc">Pickup location, dropoff destination, and customer delivery instructions</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Address Cards Grid -->
+              <div class="order-addresses-grid">
+                <!-- Pickup Restaurant Address -->
+                <div class="order-address-box origin-box">
+                  <div class="address-box-top">
+                    <span class="address-badge badge-origin">Pickup</span>
+                    <span class="address-coords text-mono">
+                      <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z"></path>
+                        <circle cx="12" cy="10" r="3"></circle>
+                      </svg>
+                      -22.5333, 17.0658
+                    </span>
+                  </div>
+                  <strong class="address-venue-name" id="subcard-origin-name">Kapana Corner Restaurant</strong>
+                  <p class="address-street-text" id="subcard-origin-address">Single Quarters, Katutura, Windhoek</p>
+                </div>
+
+                <!-- Customer Delivery Address -->
+                <div class="order-address-box dest-box">
+                  <div class="address-box-top">
+                    <span class="address-badge badge-dest">Dropoff</span>
+                    <span class="address-coords text-mono">
+                      <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z"></path>
+                        <circle cx="12" cy="10" r="3"></circle>
+                      </svg>
+                      -22.5609, 17.0658
+                    </span>
+                  </div>
+                  <strong class="address-venue-name" id="subcard-dest-name">Customer Residence</strong>
+                  <p class="address-street-text" id="subcard-dest-address">12 Independence Avenue, Windhoek Central</p>
+                </div>
+              </div>
+
+              <!-- Special Delivery Instructions Box -->
+              <div class="delivery-instructions-box">
+                <div class="instructions-header">
+                  <div class="instructions-title-group">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                      <polyline points="14 2 14 8 20 8"></polyline>
+                      <line x1="16" y1="13" x2="8" y2="13"></line>
+                      <line x1="16" y1="17" x2="8" y2="17"></line>
+                      <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                    <strong>Special Delivery Instructions</strong>
+                  </div>
+                  <button type="button" class="btn btn-ghost btn-sm" id="btn-edit-instructions" onclick="toggleEditInstructions()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                    </svg>
+                    <span id="instructions-btn-label">Edit Note</span>
+                  </button>
+                </div>
+
+                <div class="instructions-content" id="delivery-instructions-view">
+                  <p id="delivery-instructions-text">Ring bell twice, gate code #4912. Contact customer upon arrival (+264 81 999 8877). Contactless doorstep dropoff preferred if customer is away.</p>
+                </div>
+
+                <div class="instructions-editor" id="delivery-instructions-edit" style="display: none;">
+                  <textarea id="delivery-instructions-input" class="input-text instructions-textarea" rows="3" placeholder="Enter special delivery instructions or courier notes..."></textarea>
+                  <div class="instructions-edit-actions">
+                    <button type="button" class="btn btn-outline btn-sm" onclick="cancelEditInstructions()">Cancel</button>
+                    <button type="button" class="btn btn-driver btn-sm" onclick="saveDeliveryInstructions()">Save Note</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================================== -->
+      <!-- TAB 2: STATE CONTROLLER                                            -->
+      <!-- ================================================================== -->
+      <section class="view-section" id="tab-state">
+        <div class="card state-controller-card">
+          <div class="card-header-row">
+            <div class="card-title-group">
+              <div class="card-icon card-icon-orange">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 14 14"></polyline>
+                </svg>
+              </div>
+              <div>
+                <h2>Delivery State Machine Controller</h2>
+                <p class="section-desc">Sequential delivery dispatch progression enforced by delivery_service/state_machine.bal</p>
+              </div>
+            </div>
+
+            <!-- Task and Live Transit Timer Badge -->
+            <div class="state-header-badges">
+              <div class="state-timer-badge">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+                <span class="state-timer-label">Transit Time:</span>
+                <strong class="state-timer-val text-mono" id="state-transit-timer">00:00</strong>
+              </div>
+
+              <div class="active-task-badge-box">
+                <span class="task-badge-label">Active Task:</span>
+                <strong class="task-badge-order text-mono" id="state-controller-order-id">No Order Loaded</strong>
+              </div>
+            </div>
+          </div>
+
+          <!-- Interactive 4-Step Progression Stepper -->
+          <div class="stepper-container">
+            <div class="stepper-track">
+              <!-- Step 1: Accept Task (DRIVER_ASSIGNED) -->
+              <div class="stepper-node" id="step-node-1" data-state="DRIVER_ASSIGNED">
+                <div class="stepper-circle" id="stepper-circle-1">
+                  <span class="step-num">1</span>
+                </div>
+                <div class="stepper-info">
+                  <strong class="stepper-title">Accept Task</strong>
+                  <span class="stepper-status-code text-mono">DRIVER_ASSIGNED</span>
+                </div>
+              </div>
+              <div class="stepper-connector" id="connector-1-2"></div>
+
+              <!-- Step 2: Arrive at Restaurant (AT_RESTAURANT) -->
+              <div class="stepper-node" id="step-node-2" data-state="AT_RESTAURANT">
+                <div class="stepper-circle" id="stepper-circle-2">
+                  <span class="step-num">2</span>
+                </div>
+                <div class="stepper-info">
+                  <strong class="stepper-title">Arrive at Restaurant</strong>
+                  <span class="stepper-status-code text-mono">AT_RESTAURANT</span>
+                </div>
+              </div>
+              <div class="stepper-connector" id="connector-2-3"></div>
+
+              <!-- Step 3: Out for Delivery (OUT_FOR_DELIVERY) -->
+              <div class="stepper-node" id="step-node-3" data-state="OUT_FOR_DELIVERY">
+                <div class="stepper-circle" id="stepper-circle-3">
+                  <span class="step-num">3</span>
+                </div>
+                <div class="stepper-info">
+                  <strong class="stepper-title">Out for Delivery</strong>
+                  <span class="stepper-status-code text-mono">OUT_FOR_DELIVERY</span>
+                </div>
+              </div>
+              <div class="stepper-connector" id="connector-3-4"></div>
+
+              <!-- Step 4: Confirm Delivered (DELIVERED) -->
+              <div class="stepper-node" id="step-node-4" data-state="DELIVERED">
+                <div class="stepper-circle" id="stepper-circle-4">
+                  <span class="step-num">4</span>
+                </div>
+                <div class="stepper-info">
+                  <strong class="stepper-title">Confirm Delivered</strong>
+                  <span class="stepper-status-code text-mono">DELIVERED</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Progression Action Buttons Grid -->
+          <div class="progression-buttons-grid">
+            <!-- Step 1 Button -->
+            <button
+              type="button"
+              class="progression-btn"
+              id="btn-step-accept"
+              data-next="DRIVER_ASSIGNED"
+              onclick="updateDeliveryState('DRIVER_ASSIGNED')"
+            >
+              <div class="progression-btn-header">
+                <span class="progression-step-num">Step 1</span>
+                <span class="progression-dot"></span>
+              </div>
+              <strong class="progression-btn-title">Accept Task</strong>
+              <p class="progression-btn-desc">Assign active driver and begin pickup dispatch</p>
+            </button>
+
+            <!-- Step 2 Button -->
+            <button
+              type="button"
+              class="progression-btn"
+              id="btn-step-restaurant"
+              data-next="AT_RESTAURANT"
+              onclick="updateDeliveryState('AT_RESTAURANT')"
+              disabled
+            >
+              <div class="progression-btn-header">
+                <span class="progression-step-num">Step 2</span>
+                <span class="progression-dot"></span>
+              </div>
+              <strong class="progression-btn-title">Arrive at Restaurant</strong>
+              <p class="progression-btn-desc">Confirm courier arrival for order collection</p>
+            </button>
+
+            <!-- Step 3 Button -->
+            <button
+              type="button"
+              class="progression-btn"
+              id="btn-step-transit"
+              data-next="OUT_FOR_DELIVERY"
+              onclick="updateDeliveryState('OUT_FOR_DELIVERY')"
+              disabled
+            >
+              <div class="progression-btn-header">
+                <span class="progression-step-num">Step 3</span>
+                <span class="progression-dot"></span>
+              </div>
+              <strong class="progression-btn-title">Out for Delivery</strong>
+              <p class="progression-btn-desc">Food collected, start transit &amp; live timer to customer</p>
+            </button>
+
+            <!-- Step 4 Button (With confirmation dialog) -->
+            <button
+              type="button"
+              class="progression-btn progression-btn-final"
+              id="btn-step-delivered"
+              data-next="DELIVERED"
+              onclick="handleConfirmDeliveredClick()"
+              disabled
+            >
+              <div class="progression-btn-header">
+                <span class="progression-step-num">Step 4</span>
+                <span class="progression-dot"></span>
+              </div>
+              <strong class="progression-btn-title">Confirm Delivered</strong>
+              <p class="progression-btn-desc">Order handed over at doorstep, finalize delivery cycle</p>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================================== -->
+      <!-- TAB 3: ROUTE & LIVE TELEMETRY                                      -->
+      <!-- ================================================================== -->
+      <section class="view-section" id="tab-route">
+        <div class="route-telemetry-grid">
+          <!-- Left Column: SVG Vector Map Simulation & Endpoints -->
+          <div class="route-map-col">
+            <!-- SVG Vector Map Simulation Card -->
+            <div class="card vector-map-card">
+              <div class="card-header-row">
+                <div class="card-title-group">
+                  <div class="card-icon card-icon-orange">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon>
+                      <line x1="8" y1="2" x2="8" y2="18"></line>
+                      <line x1="16" y1="6" x2="16" y2="22"></line>
+                    </svg>
+                  </div>
+                  <div>
+                    <h2>Windhoek Google Maps Dispatch</h2>
+                    <p class="section-desc">Interactive Google Map with AdvancedMarkerElement &amp; live driver telemetry</p>
+                  </div>
+                </div>
+
+                <!-- Telemetry Badges & API Key Configuration -->
+                <div class="header-controls" style="gap: 8px;">
+                  <button type="button" class="btn btn-xs btn-outline" onclick="promptApiKey()" title="Configure Google Maps API Key">API Key</button>
+                  <div class="live-telemetry-badges-group">
+                    <div class="telemetry-badge-pill" title="Estimated city speed">
+                      <span class="telemetry-badge-dot"></span>
+                      <span class="telemetry-badge-lbl">Speed:</span>
+                      <strong class="text-mono" id="metric-speed">30 km/h</strong>
+                    </div>
+                    <div class="telemetry-badge-pill" title="Current compass heading">
+                      <span class="telemetry-badge-lbl">Heading:</span>
+                      <strong class="text-mono" id="metric-heading">180&deg; S</strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Map Container with Google Maps Canvas -->
+              <div class="gmp-map-container" id="driver-map-wrapper">
+                <div id="driver-map-banner" class="map-fallback-banner" style="display: none;">
+                  <span id="driver-map-banner-text">Connecting to Google Maps Platform...</span>
+                  <button type="button" class="btn btn-xs btn-outline" onclick="promptApiKey()">Set API Key</button>
+                </div>
+
+                <!-- Interactive Google Map Canvas (CF2: Explicit height: 380px) -->
+                <div id="driver-google-map" class="gmp-map-canvas" style="width: 100%; height: 380px; min-height: 380px;"></div>
+              </div>
+
+              <!-- Distance & ETA Metrics Banner -->
+              <div class="route-metrics-grid">
+                <div class="metric-surface">
+                  <span class="metric-caption">Distance to Dropoff</span>
+                  <div class="metric-num-wrapper">
+                    <span class="metric-big-num" id="metric-distance-km">0.0</span>
+                    <span class="metric-unit">km</span>
+                  </div>
+                  <span class="metric-foot">Projection: lat&times;111.0, lon&times;102.5</span>
+                </div>
+
+                <div class="metric-surface">
+                  <span class="metric-caption">Estimated Arrival (ETA)</span>
+                  <div class="metric-num-wrapper">
+                    <span class="metric-big-text" id="metric-eta-minutes">Arrived</span>
+                  </div>
+                  <span class="metric-foot">Calculated at 30 km/h urban speed</span>
+                </div>
+              </div>
+
+              <!-- Trip Completion Progress Bar -->
+              <div class="progress-section">
+                <div class="progress-labels-row">
+                  <span class="progress-title">Trip Route Completion:</span>
+                  <strong class="progress-percent text-mono" id="route-progress-percentage">0%</strong>
+                </div>
+                <div class="progress-track">
+                  <div class="progress-fill" id="route-progress-bar" style="width: 0%"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Route Endpoints & Coordinates Verification Card -->
+            <div class="card route-endpoints-card">
+              <div class="card-header-row">
+                <div class="card-title-group">
+                  <div class="card-icon card-icon-orange">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
+                    </svg>
+                  </div>
+                  <div>
+                    <h2>Route Endpoints &amp; Address Verification</h2>
+                    <p class="section-desc">Windhoek urban coordinates matching customer_service degree projection</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="endpoints-comparison-grid">
+                <!-- Origin: Restaurant -->
+                <div class="endpoint-tile origin-tile">
+                  <div class="endpoint-tile-top">
+                    <span class="endpoint-tag origin-tag">Origin (Pickup)</span>
+                    <span class="endpoint-coords text-mono" id="origin-coords">[-22.5333, 17.0658]</span>
+                  </div>
+                  <strong class="endpoint-name" id="origin-name">Kapana Corner Restaurant</strong>
+                  <p class="endpoint-address" id="origin-address">Single Quarters, Katutura, Windhoek</p>
+                </div>
+
+                <!-- Destination: Customer -->
+                <div class="endpoint-tile dest-tile">
+                  <div class="endpoint-tile-top">
+                    <span class="endpoint-tag dest-tag">Destination (Dropoff)</span>
+                    <span class="endpoint-coords text-mono" id="dest-coords">[-22.5609, 17.0658]</span>
+                  </div>
+                  <strong class="endpoint-name" id="dest-name">Customer Residence</strong>
+                  <p class="endpoint-address" id="dest-address">12 Independence Avenue, Windhoek Central</p>
+                </div>
+              </div>
+
+              <!-- Driver Coordinates Readout and External Google Maps Button -->
+              <div class="driver-coords-panel">
+                <div class="coords-readout-block">
+                  <span class="coords-label">Driver Live Telemetry Coordinates:</span>
+                  <div class="coords-values-row">
+                    <span class="coord-box">Lat: <strong class="text-mono" id="driver-lat-display">-22.5609</strong></span>
+                    <span class="coord-separator">&bull;</span>
+                    <span class="coord-box">Lon: <strong class="text-mono" id="driver-lon-display">17.0658</strong></span>
+                  </div>
+                </div>
+                <div class="coords-action-block">
+                  <a
+                    href="https://www.google.com/maps?q=-22.5609,17.0658"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="btn btn-outline btn-sm"
+                    id="link-google-maps"
+                    title="Open current coordinates on Google Maps"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                      <polyline points="15 3 21 3 21 9"></polyline>
+                      <line x1="10" y1="14" x2="21" y2="3"></line>
+                    </svg>
+                    <span>View on Google Maps</span>
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Column: GPS Waypoint Simulation Toolbar -->
+          <div class="route-controls-col">
+            <div class="card simulation-card">
+              <div class="card-header-row">
+                <div class="card-title-group">
+                  <div class="card-icon card-icon-orange">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
+                    </svg>
+                  </div>
+                  <div>
+                    <h2>GPS Waypoint Simulation</h2>
+                    <p class="section-desc">Instantly dispatch discrete driver coordinates or run continuous transit</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Quick GPS Waypoint Buttons -->
+              <div class="simulation-actions-list">
+                <div class="waypoint-buttons-grid">
+                  <button
+                    type="button"
+                    class="btn btn-outline btn-waypoint"
+                    id="sim-btn-restaurant"
+                    data-lat="-22.5333"
+                    data-lon="17.0658"
+                  >
+                    <div class="waypoint-meta">
+                      <strong>1. At Restaurant</strong>
+                      <span class="text-mono">[-22.5333, 17.0658]</span>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    class="btn btn-outline btn-waypoint"
+                    id="sim-btn-halfway"
+                    data-lat="-22.5471"
+                    data-lon="17.0658"
+                  >
+                    <div class="waypoint-meta">
+                      <strong>2. Halfway En Route</strong>
+                      <span class="text-mono">[-22.5471, 17.0658]</span>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    class="btn btn-outline btn-waypoint"
+                    id="sim-btn-near"
+                    data-lat="-22.5580"
+                    data-lon="17.0658"
+                  >
+                    <div class="waypoint-meta">
+                      <strong>3. Near Customer</strong>
+                      <span class="text-mono">[-22.5580, 17.0658]</span>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    class="btn btn-outline btn-waypoint"
+                    id="sim-btn-doorstep"
+                    data-lat="-22.5609"
+                    data-lon="17.0658"
+                  >
+                    <div class="waypoint-meta">
+                      <strong>4. At Customer Doorstep</strong>
+                      <span class="text-mono">[-22.5609, 17.0658]</span>
+                    </div>
+                  </button>
+                </div>
+
+                <!-- Continuous Simulated Drive Button -->
+                <div class="drive-simulation-box">
+                  <button
+                    type="button"
+                    class="btn btn-driver btn-drive-action"
+                    id="btn-simulate-drive"
+                    onclick="startSimulatedDrive()"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="icon-drive-play">
+                      <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                    </svg>
+                    <span id="text-simulate-drive">Simulate Live Drive to Customer</span>
+                  </button>
+                  <p class="drive-note">Smoothly steps through waypoints every second and updates the vector map, live telemetry, and state transitions in real time</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================================== -->
+      <!-- TAB 4: ACTIVITY LOG                                                -->
+      <!-- ================================================================== -->
+      <section class="view-section" id="tab-log">
+        <div class="card activity-log-card">
+          <div class="card-header-row">
+            <div class="card-title-group">
+              <div class="card-icon card-icon-orange">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="4 17 10 11 4 5"></polyline>
+                  <line x1="12" y1="19" x2="20" y2="19"></line>
+                </svg>
+              </div>
+              <div>
+                <h2>Dispatch Activity &amp; HTTP Stream</h2>
+                <p class="section-desc">Terminal-style stream of dispatched HTTP calls to Delivery Service (:9096)</p>
+              </div>
+            </div>
+
+            <!-- Quick Filter Buttons & Clear Log -->
+            <div class="log-actions-group">
+              <div class="log-filter-buttons" id="log-filter-group">
+                <button type="button" class="btn btn-sm btn-outline log-filter-btn active" data-filter="ALL" onclick="filterLogs('ALL')">ALL</button>
+                <button type="button" class="btn btn-sm btn-outline log-filter-btn" data-filter="GPS" onclick="filterLogs('GPS')">GPS</button>
+                <button type="button" class="btn btn-sm btn-outline log-filter-btn" data-filter="STATUS" onclick="filterLogs('STATUS')">STATUS</button>
+                <button type="button" class="btn btn-sm btn-outline log-filter-btn" data-filter="ERRORS" onclick="filterLogs('ERRORS')">ERRORS</button>
+              </div>
+
+              <button type="button" class="btn btn-ghost btn-sm" id="btn-clear-log" onclick="clearLog()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
+                <span>Clear Log</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Event Log Stream -->
+          <div class="event-log-container" id="event-log-stream">
+            <div class="event-log-entry info" data-category="STATUS">
+              <span class="log-time text-mono">00:00:00</span>
+              <span class="log-badge badge-info">INIT</span>
+              <span class="log-message">Driver Dispatch Portal initialized. Ready for order assignment.</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- ================================================================== -->
+    <!-- MODAL 1: COURIER PROFILE & SETTINGS                                -->
+    <!-- ================================================================== -->
+    <div class="modal-backdrop" id="modal-courier-profile" style="display: none;">
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <div class="modal-title">
+            <h3>Courier Profile &amp; Fleet Settings</h3>
+            <p>Update driver identification, vehicle category, and availability status</p>
+          </div>
+          <button type="button" class="btn-close" aria-label="Close" onclick="closeCourierProfileModal()">&times;</button>
+        </div>
+
+        <form id="driver-profile-form" onsubmit="event.preventDefault(); saveCourierProfile();">
+          <!-- Quick Preset Selector in Modal -->
+          <div class="form-group mb-12">
+            <label for="modal-preset-driver">Quick Select Fleet Driver Preset</label>
+            <select id="modal-preset-driver" class="input-text" onchange="applyDriverPreset(this.value)">
+              <option value="drv_001" selected>Tomas Nekundi — Motorcycle (drv_001)</option>
+              <option value="drv_002">Selma Shikongo — Car (drv_002)</option>
+              <option value="drv_003">Johannes Paulus — Van (drv_003)</option>
+              <option value="drv_004">Ndapewa Amukoto — Bicycle (drv_004)</option>
+              <option value="custom">Custom Courier Profile</option>
+            </select>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="modal-input-driver-id">Driver ID</label>
+              <input
+                type="text"
+                id="modal-input-driver-id"
+                class="input-text text-mono"
+                placeholder="e.g. drv_001"
+                required
+                value="drv_001"
+              />
+            </div>
+            <div class="form-group">
+              <label for="modal-input-driver-name">Full Name</label>
+              <input
+                type="text"
+                id="modal-input-driver-name"
+                class="input-text"
+                placeholder="e.g. Tomas Nekundi"
+                required
+                value="Tomas Nekundi"
+              />
+            </div>
+          </div>
+
+          <div class="form-grid" style="margin-top: 14px;">
+            <div class="form-group">
+              <label for="modal-input-driver-phone">Phone Number</label>
+              <input
+                type="tel"
+                id="modal-input-driver-phone"
+                class="input-text text-mono"
+                placeholder="e.g. +264812345601"
+                required
+                value="+264812345601"
+              />
+            </div>
+            <div class="form-group">
+              <label for="modal-select-vehicle">Vehicle Category</label>
+              <select id="modal-select-vehicle" class="input-text">
+                <option value="MOTORCYCLE" selected>MOTORCYCLE</option>
+                <option value="CAR">CAR</option>
+                <option value="BICYCLE">BICYCLE</option>
+                <option value="VAN">VAN</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-top: 14px;">
+            <label for="modal-select-availability">Availability Status</label>
+            <select id="modal-select-availability" class="input-text">
+              <option value="AVAILABLE" selected>AVAILABLE</option>
+              <option value="BUSY">BUSY</option>
+              <option value="OFFLINE">OFFLINE</option>
+            </select>
+          </div>
+
+          <!-- Working Shift Schedule Section -->
+          <div class="form-section-divider" style="margin: 16px 0 10px; border-top: 1px solid var(--border); padding-top: 12px;">
+            <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.04em;">Working Shift Schedule</span>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="modal-input-shift-date">Scheduled Shift Date</label>
+              <input
+                type="date"
+                id="modal-input-shift-date"
+                class="input-text"
+              />
+            </div>
+            <div class="form-group">
+              <label for="modal-select-shift-slot">Shift Window Slot</label>
+              <select id="modal-select-shift-slot" class="input-text" onchange="handleModalShiftSlotChange(this.value)">
+                <option value="FULL" selected>Full Day (06:00 - 22:00)</option>
+                <option value="MORNING">Morning (06:00 - 14:00)</option>
+                <option value="AFTERNOON">Afternoon (14:00 - 22:00)</option>
+                <option value="NIGHT">Night (22:00 - 06:00)</option>
+                <option value="CUSTOM">Custom Hours</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-grid" style="margin-top: 14px;">
+            <div class="form-group">
+              <label for="modal-input-shift-start">Shift Start Time</label>
+              <input
+                type="time"
+                id="modal-input-shift-start"
+                class="input-text text-mono"
+                value="06:00"
+              />
+            </div>
+            <div class="form-group">
+              <label for="modal-input-shift-end">Shift End Time</label>
+              <input
+                type="time"
+                id="modal-input-shift-end"
+                class="input-text text-mono"
+                value="22:00"
+              />
+            </div>
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" class="btn btn-outline" onclick="closeCourierProfileModal()">Cancel</button>
+            <button type="submit" class="btn btn-driver" id="btn-save-driver-profile">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                <polyline points="7 3 7 8 15 8"></polyline>
+              </svg>
+              <span>Save &amp; Activate Profile</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- MODAL 2: CONFIRM FINAL DELIVERY DIALOG                             -->
+    <!-- ================================================================== -->
+    <div class="modal-backdrop" id="modal-confirm-delivery" style="display: none;">
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <div class="modal-title">
+            <h3>Confirm Order Handover</h3>
+            <p>Verify customer handover before completing delivery lifecycle</p>
+          </div>
+          <button type="button" class="btn-close" aria-label="Close" onclick="closeConfirmDeliveryModal()">&times;</button>
+        </div>
+
+        <div class="confirm-delivery-body">
+          <div class="confirm-summary-box">
+            <div class="confirm-row">
+              <span class="confirm-label">Order ID:</span>
+              <strong class="confirm-val text-mono" id="confirm-modal-order-id">—</strong>
+            </div>
+            <div class="confirm-row">
+              <span class="confirm-label">Dropoff Address:</span>
+              <strong class="confirm-val" id="confirm-modal-address">12 Independence Avenue, Windhoek</strong>
+            </div>
+            <div class="confirm-row">
+              <span class="confirm-label">Courier:</span>
+              <span class="confirm-val" id="confirm-modal-driver">Tomas Nekundi (drv_001)</span>
+            </div>
+          </div>
+          <p class="confirm-prompt-text">
+            Are you sure you want to confirm handover and mark this order as <strong>DELIVERED</strong>? This completes the delivery lifecycle and records the final dropoff timestamp.
+          </p>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-outline" onclick="closeConfirmDeliveryModal()">Cancel</button>
+          <button type="button" class="btn btn-driver" onclick="confirmFinalDelivery()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span>Confirm Handover &amp; Deliver</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Application Logic Scripts -->
+    <script src="../shared.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

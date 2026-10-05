@@ -13,6 +13,13 @@ isolated function getOrderClient() returns http:Client|error {
     });
 }
 
+@http:ServiceConfig {
+    cors: {
+        allowOrigins: ["*"],
+        allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allowHeaders: ["*"]
+    }
+}
 service / on new http:Listener(port) {
 
     resource function get health() returns json {

@@ -49,8 +49,9 @@ isolated function decrementMenuItemStock(string restaurantId, string itemId, int
         }
     };
 
-    map<json> updateMap = {"$inc": {"menu.items.$.stock": -quantity}};
-    mongodb:Update update = check updateMap.cloneWithType();
+    mongodb:Update update = {
+        "inc": {"menu.items.$.stock": -quantity}
+    };
 
     mongodb:UpdateResult result = check collection->updateOne(filter, update);
     return result.modifiedCount == 1;
@@ -67,8 +68,9 @@ isolated function incrementMenuItemStock(string restaurantId, string itemId, int
         "menu.items.id": itemId
     };
 
-    map<json> updateMap = {"$inc": {"menu.items.$.stock": quantity}};
-    mongodb:Update update = check updateMap.cloneWithType();
+    mongodb:Update update = {
+        "inc": {"menu.items.$.stock": quantity}
+    };
 
     mongodb:UpdateResult result = check collection->updateOne(filter, update);
     return result.modifiedCount == 1;
@@ -78,14 +80,9 @@ public isolated function seedDatabase() returns error? {
     do {
         mongodb:Collection restaurantsCollection = check getRestaurantsCollection();
 
-        // Check if empty
-        int count = check restaurantsCollection->countDocuments({});
-        if count > 0 {
-            log:printInfo("Database already connected.");
-            return;
-        }
-
-        log:printInfo("Connected to database. ");
+        // Unconditionally override existing restaurants
+        _ = check restaurantsCollection->deleteMany({});
+        log:printInfo("Overriding restaurant database with canonical seed records...");
 
         Restaurant[] seedRestaurants = [
             {

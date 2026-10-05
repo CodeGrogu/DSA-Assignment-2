@@ -122,7 +122,7 @@ services:
     restart: "no"
 
   kafka-ui:
-    image: provectuslabs/kafka-ui:v0.7.2
+    image: ghcr.io/kafbat/kafka-ui:latest
     container_name: dsa-kafka-ui
     ports:
       - "${KAFKA_UI_PORT:-8085}:8080"

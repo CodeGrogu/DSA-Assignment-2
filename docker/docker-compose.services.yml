@@ -12,7 +12,9 @@ services:
     environment:
       PORT: 9091
       KAFKA_BROKER: kafka:9092
-      MONGO_URI: mongodb://${MONGO_ROOT_USER:-root}:${MONGO_ROOT_PASSWORD:-password}@mongodb:27017/orders_db?authSource=admin
+      BAL_CONFIG_VAR_KAFKABOOTSTRAPSERVERS: kafka:9092
+      MONGO_URI: mongodb://order_user:order_password@mongodb:27017/order_db?authSource=order_db&replicaSet=rs0
+      BAL_CONFIG_VAR_MONGOURI: mongodb://order_user:order_password@mongodb:27017/order_db?authSource=order_db&replicaSet=rs0
     networks:
       - dsa-network
 
@@ -63,7 +65,9 @@ services:
     environment:
       PORT: 9095
       KAFKA_BROKER: kafka:9092
-      MONGO_URI: mongodb://${MONGO_ROOT_USER:-root}:${MONGO_ROOT_PASSWORD:-password}@mongodb:27017/restaurants_db?authSource=admin
+      BAL_CONFIG_VAR_KAFKABOOTSTRAPSERVERS: kafka:9092
+      MONGO_URI: mongodb://${MONGO_ROOT_USER:-root}:${MONGO_ROOT_PASSWORD:-password}@mongodb:27017/restaurant_db?authSource=admin
+      BAL_CONFIG_VAR_MONGOURI: mongodb://${MONGO_ROOT_USER:-root}:${MONGO_ROOT_PASSWORD:-password}@mongodb:27017/restaurant_db?authSource=admin
     networks:
       - dsa-network
 

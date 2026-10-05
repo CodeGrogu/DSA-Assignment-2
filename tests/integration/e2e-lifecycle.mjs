@@ -199,6 +199,46 @@ for (const s of stages) {
     continue;
   }
 
+  if (s.id === "4") {
+    if (orderId) {
+      const payload = {
+        orderId: orderId,
+        driverId: "drv-001",
+        status: "DRIVER_ASSIGNED",
+        currentLocation: { latitude: -22.5609, longitude: 17.0658 }
+      };
+      const dispRes = await call("deliveries", "POST", "/deliveries", payload);
+      if (dispRes.status === 201) {
+        state[s.id] = "PASS";
+        record(s.id, s.name, "PASS", `driver dispatched for order: ${orderId}`);
+      } else {
+        state[s.id] = "FAIL";
+        record(s.id, s.name, "FAIL", `POST /deliveries -> ${dispRes.status} ${dispRes.text.slice(0, 100)}`);
+      }
+    } else {
+      state[s.id] = "SKIPPED";
+      record(s.id, s.name, "SKIPPED", `depends on stage ${s.needs} (${state[s.needs] ?? "SKIPPED"})`);
+    }
+    continue;
+  }
+
+  if (s.id === "5") {
+    if (state["4"] === "PASS" && orderId) {
+      const trackRes = await call("deliveries", "GET", `/delivery/track/${orderId}`);
+      if (trackRes.status === 200) {
+        state[s.id] = "PASS";
+        record(s.id, s.name, "PASS", `delivery tracked: status=${trackRes.json?.status}`);
+      } else {
+        state[s.id] = "SKIPPED";
+        record(s.id, s.name, "SKIPPED", `GET /delivery/track/${orderId} -> ${trackRes.status}`);
+      }
+    } else {
+      state[s.id] = "SKIPPED";
+      record(s.id, s.name, "SKIPPED", `depends on stage ${s.needs} (${state[s.needs] ?? "SKIPPED"})`);
+    }
+    continue;
+  }
+
   if (s.id === "7") {
     // Check if notification service has captured notifications for the customer
     const notifRes = await call("notifications", "GET", "/notifications/recipient/cust-e2e-001");

@@ -10,6 +10,13 @@ configurable int port = 9097;
 
 listener http:Listener httpListener = new (port);
 
+@http:ServiceConfig {
+    cors: {
+        allowOrigins: ["*"],
+        allowMethods: ["GET", "POST", "OPTIONS"],
+        allowHeaders: ["*"]
+    }
+}
 service / on httpListener {
 
     resource function get health() returns json {

@@ -8,6 +8,13 @@ import peerpressure/metrics as metrics;
 
 configurable int port = 9091;
 
+@http:ServiceConfig {
+    cors: {
+        allowOrigins: ["*"],
+        allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allowHeaders: ["*"]
+    }
+}
 service / on new http:Listener(port) {
 
     # Health check liveness and readiness probe.

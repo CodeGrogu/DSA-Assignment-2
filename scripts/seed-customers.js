@@ -285,23 +285,12 @@ const exitProcess = function (code) {
     const customerDb = db.getSiblingDB("customer_db");
     const collection = customerDb.customers;
 
-    let insertedCount = 0;
-    let updatedCount = 0;
-
+    // Unconditionally override prior data
+    collection.deleteMany({});
+    const insertResult = collection.insertMany(customerData);
+    const insertedCount = Object.keys(insertResult.insertedIds || {}).length || customerData.length;
     customerData.forEach(function (customer) {
-      const result = collection.updateOne(
-        { id: customer.id },
-        { $set: customer },
-        { upsert: true }
-      );
-
-      if (result.upsertedId) {
-        insertedCount++;
-        log(customer.id + " -> inserted");
-      } else {
-        updatedCount++;
-        log(customer.id + " -> updated");
-      }
+      log(customer.id + " -> written (override)");
     });
 
     const totalCount = collection.countDocuments();

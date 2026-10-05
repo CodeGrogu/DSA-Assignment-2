@@ -8,7 +8,8 @@ configurable int port = 9098;
 @http:ServiceConfig {
     cors: {
         allowOrigins: ["*"],
-        allowMethods: ["GET", "OPTIONS"]
+        allowMethods: ["GET", "POST", "OPTIONS"],
+        allowHeaders: ["*"]
     }
 }
 service / on new http:Listener(port) {

@@ -16,6 +16,6 @@ startKafkaConsumers = false
 paymentsCompletedTopic = "payments.completed"
 paymentsFailedTopic = "payments.failed"
 kitchenPreparingTopic = "orders.preparing"
-kitchenReadyTopic = "orders.ready"
+kitchenReadyTopic = "kitchen.orders.ready"
 deliveryStatusUpdatedTopic = "delivery.status"
 orderConsumerGroup = "order-service-group"

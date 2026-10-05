@@ -5,9 +5,9 @@ minSurgeMultiplier = 1.0
 enableTimeOfDayPeak = true
 timezoneOffsetHours = 2.0
 enableMongo = true
-mongoUri = "mongodb://root:password@localhost:27017/order_db?authSource=admin"
+mongoUri = "mongodb://order_user:order_password@mongodb:27017/order_db?authSource=order_db&replicaSet=rs0"
 mongoDatabase = "order_db"
-kafkaBootstrapServers = "localhost:9092"
+kafkaBootstrapServers = "kafka:9092"
 enableKafka = true
 orderCreatedTopic = "orders.created"
 orderConfirmedTopic = "orders.confirmed"
@@ -16,6 +16,6 @@ startKafkaConsumers = true
 paymentsCompletedTopic = "payments.completed"
 paymentsFailedTopic = "payments.failed"
 kitchenPreparingTopic = "orders.preparing"
-kitchenReadyTopic = "orders.ready"
+kitchenReadyTopic = "kitchen.orders.ready"
 deliveryStatusUpdatedTopic = "delivery.status"
 orderConsumerGroup = "order-service-group"

@@ -8,7 +8,7 @@ configurable boolean startKafkaConsumers = true;
 configurable string paymentsCompletedTopic = "payments.completed";
 configurable string paymentsFailedTopic = "payments.failed";
 configurable string kitchenPreparingTopic = "orders.preparing";
-configurable string kitchenReadyTopic = "orders.ready";
+configurable string kitchenReadyTopic = "kitchen.orders.ready";
 configurable string deliveryStatusUpdatedTopic = "delivery.status";
 configurable string orderConsumerGroup = "order-service-group";
 
@@ -35,12 +35,15 @@ function runOrderEventConsumerLoop() returns error? {
 
 # Polls subscribed Kafka topics and dispatches records.
 function pollOrderEventTopics() returns error? {
-    kafka:Consumer consumer = check new (kafkaBootstrapServers, {
+    kafka:Consumer consumer = check new (getEffectiveKafkaServers(), {
         groupId: orderConsumerGroup,
         offsetReset: "earliest",
         autoCommit: false
     });
     string[] subscribedTopics = [paymentsCompletedTopic, paymentsFailedTopic, kitchenPreparingTopic, kitchenReadyTopic, deliveryStatusUpdatedTopic];
+    if kitchenReadyTopic != "orders.ready" {
+        subscribedTopics.push("orders.ready");
+    }
     check consumer->subscribe(subscribedTopics);
     log:printInfo("Order Service Kafka consumer subscribed", topics = subscribedTopics, groupId = orderConsumerGroup);
 
@@ -54,6 +57,8 @@ function pollOrderEventTopics() returns error? {
         }
         if records.length() > 0 {
             check consumer->commit();
+        } else {
+            runtime:sleep(0.5d);
         }
     }
 }
@@ -88,7 +93,7 @@ public function dispatchTopicPayload(string topic, byte[] payloadBytes) returns 
         _ = check processPaymentFailed(event);
     } else if topic == kitchenPreparingTopic {
         _ = check processKitchenPreparingJson(parsed);
-    } else if topic == kitchenReadyTopic {
+    } else if topic == kitchenReadyTopic || topic == "orders.ready" || topic == "kitchen.orders.ready" {
         _ = check processKitchenReadyJson(parsed);
     } else if topic == deliveryStatusUpdatedTopic {
         events:DeliveryStatusUpdated event = check events:validateDeliveryStatusUpdated(parsed);

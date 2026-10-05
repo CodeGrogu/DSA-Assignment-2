@@ -1,1 +1,3 @@
 startKafkaConsumers = false
+port = 9194
+

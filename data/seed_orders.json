@@ -1,0 +1,355 @@
+[
+  {
+    "orderId": "ORD-SEED-001",
+    "customerId": "CUST-001",
+    "restaurantId": "R001",
+    "status": "DELIVERED",
+    "items": [
+      {
+        "itemId": "M1",
+        "name": "Beef Kapana",
+        "quantity": 2,
+        "price": 50.00,
+        "specialInstructions": ["Extra chili spice on the side"]
+      },
+      {
+        "itemId": "M2",
+        "name": "Vetkoek (Fat Cake)",
+        "quantity": 2,
+        "price": 10.00,
+        "specialInstructions": []
+      }
+    ],
+    "itemsTotal": 120.00,
+    "deliveryFee": 25.00,
+    "surgeMultiplier": 1.0,
+    "totalAmount": 145.00,
+    "deliveryAddress": {
+      "street": "12 Independence Avenue",
+      "city": "Windhoek",
+      "state": "Khomas",
+      "postalCode": "10005"
+    },
+    "paymentId": "PAY-SEED-001",
+    "cancellationReason": null,
+    "createdAt": "2026-10-01T12:00:00Z",
+    "updatedAt": "2026-10-01T12:45:00Z"
+  },
+  {
+    "orderId": "ORD-SEED-002",
+    "customerId": "CUST-002",
+    "restaurantId": "R001",
+    "status": "DELIVERED",
+    "items": [
+      {
+        "itemId": "M5",
+        "name": "Pork Kapana",
+        "quantity": 1,
+        "price": 60.00,
+        "specialInstructions": []
+      },
+      {
+        "itemId": "M6",
+        "name": "Oshikundu",
+        "quantity": 1,
+        "price": 25.00,
+        "specialInstructions": []
+      }
+    ],
+    "itemsTotal": 85.00,
+    "deliveryFee": 25.00,
+    "surgeMultiplier": 1.0,
+    "totalAmount": 110.00,
+    "deliveryAddress": {
+      "street": "45 Sam Nujoma Drive",
+      "city": "Windhoek",
+      "state": "Khomas",
+      "postalCode": "10006"
+    },
+    "paymentId": "PAY-SEED-002",
+    "cancellationReason": null,
+    "createdAt": "2026-10-02T13:30:00Z",
+    "updatedAt": "2026-10-02T14:15:00Z"
+  },
+  {
+    "orderId": "ORD-SEED-003",
+    "customerId": "CUST-003",
+    "restaurantId": "R002",
+    "status": "DELIVERED",
+    "items": [
+      {
+        "itemId": "M7",
+        "name": "Beef Potjiekos",
+        "quantity": 1,
+        "price": 120.00,
+        "specialInstructions": []
+      },
+      {
+        "itemId": "M11",
+        "name": "Vegetable Potjiekos",
+        "quantity": 1,
+        "price": 90.00,
+        "specialInstructions": []
+      }
+    ],
+    "itemsTotal": 210.00,
+    "deliveryFee": 30.00,
+    "surgeMultiplier": 1.0,
+    "totalAmount": 240.00,
+    "deliveryAddress": {
+      "street": "8 Robert Mugabe Avenue",
+      "city": "Windhoek",
+      "state": "Khomas",
+      "postalCode": "10007"
+    },
+    "paymentId": "PAY-SEED-003",
+    "cancellationReason": null,
+    "createdAt": "2026-10-02T19:00:00Z",
+    "updatedAt": "2026-10-02T19:50:00Z"
+  },
+  {
+    "orderId": "ORD-SEED-004",
+    "customerId": "CUST-004",
+    "restaurantId": "R002",
+    "status": "CANCELLED",
+    "items": [
+      {
+        "itemId": "M12",
+        "name": "Mahangu Pap",
+        "quantity": 1,
+        "price": 30.00,
+        "specialInstructions": []
+      },
+      {
+        "itemId": "M3",
+        "name": "Katutura Salsa",
+        "quantity": 1,
+        "price": 15.00,
+        "specialInstructions": []
+      }
+    ],
+    "itemsTotal": 45.00,
+    "deliveryFee": 25.00,
+    "surgeMultiplier": 1.0,
+    "totalAmount": 70.00,
+    "deliveryAddress": {
+      "street": "23 Dr Kenneth Kaunda Street",
+      "city": "Windhoek",
+      "state": "Khomas",
+      "postalCode": "10008"
+    },
+    "paymentId": "PAY-SEED-004",
+    "cancellationReason": "Customer requested cancellation before kitchen dispatch",
+    "createdAt": "2026-10-03T10:00:00Z",
+    "updatedAt": "2026-10-03T10:05:00Z"
+  },
+  {
+    "orderId": "ORD-SEED-005",
+    "customerId": "CUST-005",
+    "restaurantId": "R004",
+    "status": "OUT_FOR_DELIVERY",
+    "items": [
+      {
+        "itemId": "M19",
+        "name": "Boerewors Roll",
+        "quantity": 2,
+        "price": 45.00,
+        "specialInstructions": ["Grilled well-done"]
+      },
+      {
+        "itemId": "M22",
+        "name": "Creamy Potato Salad",
+        "quantity": 1,
+        "price": 35.00,
+        "specialInstructions": []
+      },
+      {
+        "itemId": "M23",
+        "name": "Braaibroodjie",
+        "quantity": 1,
+        "price": 40.00,
+        "specialInstructions": []
+      }
+    ],
+    "itemsTotal": 165.00,
+    "deliveryFee": 25.00,
+    "surgeMultiplier": 1.2,
+    "totalAmount": 195.00,
+    "deliveryAddress": {
+      "street": "17 Nelson Mandela Avenue",
+      "city": "Windhoek",
+      "state": "Khomas",
+      "postalCode": "10009"
+    },
+    "paymentId": "PAY-SEED-005",
+    "cancellationReason": null,
+    "createdAt": "2026-10-04T18:00:00Z",
+    "updatedAt": "2026-10-04T18:25:00Z"
+  },
+  {
+    "orderId": "ORD-SEED-006",
+    "customerId": "CUST-006",
+    "restaurantId": "R004",
+    "status": "READY",
+    "items": [
+      {
+        "itemId": "M20",
+        "name": "Game Steak Braai",
+        "quantity": 1,
+        "price": 180.00,
+        "specialInstructions": ["Medium rare"]
+      },
+      {
+        "itemId": "M24",
+        "name": "Garlic Butter Baguette",
+        "quantity": 1,
+        "price": 30.00,
+        "specialInstructions": []
+      }
+    ],
+    "itemsTotal": 210.00,
+    "deliveryFee": 30.00,
+    "surgeMultiplier": 1.0,
+    "totalAmount": 240.00,
+    "deliveryAddress": {
+      "street": "31 Fidel Castro Street",
+      "city": "Windhoek",
+      "state": "Khomas",
+      "postalCode": "10010"
+    },
+    "paymentId": "PAY-SEED-006",
+    "cancellationReason": null,
+    "createdAt": "2026-10-04T18:30:00Z",
+    "updatedAt": "2026-10-04T18:50:00Z"
+  },
+  {
+    "orderId": "ORD-SEED-007",
+    "customerId": "CUST-007",
+    "restaurantId": "R001",
+    "status": "PREPARING",
+    "items": [
+      {
+        "itemId": "M1",
+        "name": "Beef Kapana",
+        "quantity": 1,
+        "price": 50.00,
+        "specialInstructions": []
+      },
+      {
+        "itemId": "M4",
+        "name": "Roosterkoek",
+        "quantity": 2,
+        "price": 20.00,
+        "specialInstructions": []
+      }
+    ],
+    "itemsTotal": 90.00,
+    "deliveryFee": 25.00,
+    "surgeMultiplier": 1.0,
+    "totalAmount": 115.00,
+    "deliveryAddress": {
+      "street": "6 Lazarette Street",
+      "city": "Windhoek",
+      "state": "Khomas",
+      "postalCode": "10011"
+    },
+    "paymentId": "PAY-SEED-007",
+    "cancellationReason": null,
+    "createdAt": "2026-10-04T19:00:00Z",
+    "updatedAt": "2026-10-04T19:10:00Z"
+  },
+  {
+    "orderId": "ORD-SEED-008",
+    "customerId": "CUST-008",
+    "restaurantId": "R002",
+    "status": "CONFIRMED",
+    "items": [
+      {
+        "itemId": "M8",
+        "name": "Lamb Potjiekos",
+        "quantity": 1,
+        "price": 140.00,
+        "specialInstructions": []
+      }
+    ],
+    "itemsTotal": 140.00,
+    "deliveryFee": 25.00,
+    "surgeMultiplier": 1.0,
+    "totalAmount": 165.00,
+    "deliveryAddress": {
+      "street": "14 Hosea Kutako Drive",
+      "city": "Windhoek",
+      "state": "Khomas",
+      "postalCode": "10012"
+    },
+    "paymentId": "PAY-SEED-008",
+    "cancellationReason": null,
+    "createdAt": "2026-10-04T19:15:00Z",
+    "updatedAt": "2026-10-04T19:16:00Z"
+  },
+  {
+    "orderId": "ORD-SEED-009",
+    "customerId": "CUST-009",
+    "restaurantId": "R001",
+    "status": "CREATED",
+    "items": [
+      {
+        "itemId": "M1",
+        "name": "Beef Kapana",
+        "quantity": 1,
+        "price": 50.00,
+        "specialInstructions": []
+      }
+    ],
+    "itemsTotal": 50.00,
+    "deliveryFee": 25.00,
+    "surgeMultiplier": 1.0,
+    "totalAmount": 75.00,
+    "deliveryAddress": {
+      "street": "29 Beethoven Street",
+      "city": "Windhoek",
+      "state": "Khomas",
+      "postalCode": "10013"
+    },
+    "paymentId": null,
+    "cancellationReason": null,
+    "createdAt": "2026-10-04T19:30:00Z",
+    "updatedAt": "2026-10-04T19:30:00Z"
+  },
+  {
+    "orderId": "ORD-SEED-010",
+    "customerId": "CUST-010",
+    "restaurantId": "R005",
+    "status": "DELIVERED",
+    "items": [
+      {
+        "itemId": "M26",
+        "name": "Oryx Burger",
+        "quantity": 1,
+        "price": 110.00,
+        "specialInstructions": []
+      },
+      {
+        "itemId": "M29",
+        "name": "Rock Shandy",
+        "quantity": 1,
+        "price": 35.00,
+        "specialInstructions": []
+      }
+    ],
+    "itemsTotal": 145.00,
+    "deliveryFee": 30.00,
+    "surgeMultiplier": 1.0,
+    "totalAmount": 175.00,
+    "deliveryAddress": {
+      "street": "52 Bach Street",
+      "city": "Windhoek",
+      "state": "Khomas",
+      "postalCode": "10014"
+    },
+    "paymentId": "PAY-SEED-010",
+    "cancellationReason": null,
+    "createdAt": "2026-10-03T14:00:00Z",
+    "updatedAt": "2026-10-03T14:40:00Z"
+  }
+]

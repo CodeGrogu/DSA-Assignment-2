@@ -1,16 +1,35 @@
-# delivery_domain
+# Delivery Domain Module (`peerpressure/delivery_domain`)
 
-Shared domain models, validations, and state machine transitions for the delivery service and dispatch workflows.
+The `delivery_domain` module provides shared types, geospatial coordinate validation, courier state machines, and lifecycle transitions for the delivery service and dispatch workflows.
 
-## What's in here
+---
 
-- `models.bal` — `DriverAvailability`, `DriverState`, `VehicleCategory`, `DeliveryTaskStatus`, `LocationCoordinates`, `Driver`, `DeliveryTask`
-- `state_machine.bal` — Delivery task status constants and transition logic (`isValidDeliveryTransition`, `transitionDelivery`)
-- `validation.bal` — Validation functions for geographic coordinates (`isValidCoordinates`) and driver records (`isValidDriver`)
+## 1. Domain Types & State Machines
 
-## How to use it
+### Courier Types
+- `DriverAvailability`: `"AVAILABLE"` | `"BUSY"` | `"OFFLINE"`
+- `DriverState`: `"AVAILABLE"` | `"ASSIGNED"` | `"DELIVERING"` | `"OFFLINE"`
+- `VehicleCategory`: `"CAR"` | `"MOTORCYCLE"` | `"BICYCLE"` | `"VAN"`
+- `LocationCoordinates`: Decimal `latitude` and `longitude` records.
+- `Driver`: Canonical courier profile with vehicle category, live coordinates, and availability.
 
-In a service `Ballerina.toml`, add:
+### Delivery Lifecycle
+- `DeliveryTaskStatus`:
+  `"UNASSIGNED"` → `"DRIVER_ASSIGNED"` → `"AT_RESTAURANT"` → `"OUT_FOR_DELIVERY"` → `"DELIVERED"`
+- `DeliveryTask`: Canonical delivery assignment record linking `deliveryId`, `orderId`, `driverId`, status, and transit timestamps.
+- `isValidDeliveryTransition`: Pure validator preventing invalid or backwards status transitions.
+- `transitionDelivery`: Executes transition returning updated `DeliveryTask` or structured error.
+
+---
+
+## 2. Geospatial Validation
+
+- `isValidCoordinates(LocationCoordinates coords)`: Validates that coordinates fall within standard geographic boundaries and specific Namibian operational zones.
+- `isValidDriver(Driver driver)`: Validates required ID, non-empty phone, and valid vehicle category.
+
+---
+
+## 3. Installation & Dependency
 
 ```toml
 [[dependency]]

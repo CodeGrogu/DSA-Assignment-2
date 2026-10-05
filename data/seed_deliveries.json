@@ -1,0 +1,72 @@
+[
+  {
+    "deliveryId": "DEL-SEED-001",
+    "orderId": "ORD-SEED-001",
+    "driverId": "drv_001",
+    "driverName": "Tomas Nekundi",
+    "status": "DELIVERED",
+    "assignedAt": "2026-10-01T12:10:00Z",
+    "pickedUpAt": "2026-10-01T12:25:00Z",
+    "deliveredAt": "2026-10-01T12:45:00Z",
+    "currentLocation": {
+      "latitude": -22.5609,
+      "longitude": 17.0658
+    }
+  },
+  {
+    "deliveryId": "DEL-SEED-002",
+    "orderId": "ORD-SEED-002",
+    "driverId": "drv_002",
+    "driverName": "Maria Shilongo",
+    "status": "DELIVERED",
+    "assignedAt": "2026-10-02T13:40:00Z",
+    "pickedUpAt": "2026-10-02T13:55:00Z",
+    "deliveredAt": "2026-10-02T14:15:00Z",
+    "currentLocation": {
+      "latitude": -22.5687,
+      "longitude": 17.0836
+    }
+  },
+  {
+    "deliveryId": "DEL-SEED-003",
+    "orderId": "ORD-SEED-003",
+    "driverId": "drv_003",
+    "driverName": "Lukas Hamutenya",
+    "status": "DELIVERED",
+    "assignedAt": "2026-10-02T19:10:00Z",
+    "pickedUpAt": "2026-10-02T19:30:00Z",
+    "deliveredAt": "2026-10-02T19:50:00Z",
+    "currentLocation": {
+      "latitude": -22.5671,
+      "longitude": 17.0894
+    }
+  },
+  {
+    "deliveryId": "DEL-SEED-005",
+    "orderId": "ORD-SEED-005",
+    "driverId": "drv_004",
+    "driverName": "Selma Amukoto",
+    "status": "OUT_FOR_DELIVERY",
+    "assignedAt": "2026-10-04T18:10:00Z",
+    "pickedUpAt": "2026-10-04T18:25:00Z",
+    "deliveredAt": null,
+    "currentLocation": {
+      "latitude": -22.5650,
+      "longitude": 17.0850
+    }
+  },
+  {
+    "deliveryId": "DEL-SEED-010",
+    "orderId": "ORD-SEED-010",
+    "driverId": "drv_005",
+    "driverName": "Johannes Nuuyoma",
+    "status": "DELIVERED",
+    "assignedAt": "2026-10-03T14:10:00Z",
+    "pickedUpAt": "2026-10-03T14:22:00Z",
+    "deliveredAt": "2026-10-03T14:40:00Z",
+    "currentLocation": {
+      "latitude": -22.5617,
+      "longitude": 17.1102
+    }
+  }
+]

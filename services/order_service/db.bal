@@ -1,11 +1,20 @@
 import ballerina/log;
+import ballerina/os;
 import ballerinax/mongodb;
 
 import peerpressure/events as events;
 
 configurable boolean enableMongo = true;
-configurable string mongoUri = "mongodb://root:password@localhost:27017/order_db?authSource=admin";
+configurable string mongoUri = "mongodb://order_user:order_password@mongodb:27017/order_db?authSource=order_db&replicaSet=rs0";
 configurable string mongoDatabase = "order_db";
+
+isolated function getEffectiveMongoUri() returns string {
+    string envUri = os:getEnv("MONGO_URI");
+    if envUri != "" {
+        return envUri;
+    }
+    return mongoUri;
+}
 
 # Persistent data access layer for Order records.
 # Automatically synchronizes with MongoDB while providing in-memory fallback for test isolation.
@@ -17,7 +26,8 @@ public class OrderStore {
 
     public function init() {
         if enableMongo {
-            mongodb:Client|error mongoClient = new ({connection: mongoUri});
+            string effectiveUri = getEffectiveMongoUri();
+            mongodb:Client|error mongoClient = new ({connection: effectiveUri});
             if mongoClient is mongodb:Client {
                 mongodb:Database|error db = mongoClient->getDatabase(mongoDatabase);
                 if db is mongodb:Database {
@@ -26,7 +36,7 @@ public class OrderStore {
                         self.clientInstance = mongoClient;
                         self.collectionInstance = coll;
                         self.isConnected = true;
-                        log:printInfo("OrderStore successfully initialized with MongoDB");
+                        log:printInfo("OrderStore successfully initialized with MongoDB", uri = effectiveUri);
                         return;
                     }
                 }
@@ -43,7 +53,10 @@ public class OrderStore {
         if self.isConnected {
             mongodb:Collection? coll = self.collectionInstance;
             if coll is mongodb:Collection {
-                check coll->insertOne('order);
+                var insertResult = coll->insertOne('order);
+                if insertResult is error {
+                    log:printWarn("Failed to insert order into MongoDB, preserved in memory", 'error = insertResult);
+                }
             }
         }
     }
@@ -117,17 +130,18 @@ public class OrderStore {
         if self.isConnected {
             mongodb:Collection? coll = self.collectionInstance;
             if coll is mongodb:Collection {
-                _ = check coll->updateOne(
-                    {orderId: orderId},
-                    {
-                    "$set": {
+                mongodb:Update update = {
+                    "set": {
                         "status": newStatus,
                         "paymentId": updated.paymentId,
                         "cancellationReason": updated.cancellationReason,
                         "updatedAt": updated.updatedAt
                     }
+                };
+                var updateRes = coll->updateOne({orderId: orderId}, update);
+                if updateRes is error {
+                    log:printWarn("Failed to update order status in MongoDB, updated in memory", 'error = updateRes);
                 }
-                );
             }
         }
 

@@ -1,0 +1,416 @@
+[
+  {
+    "id": "R001",
+    "name": "Kapana Corner",
+    "address": "Single Quarters, Katutura, Windhoek",
+    "location": {
+      "type": "Point",
+      "coordinates": [17.0658, -22.5333]
+    },
+    "contactNumber": "+264-81-111-2222",
+    "operatingHours": [
+      { "dayOfWeek": "Monday", "openTime": "08:00", "closeTime": "21:00", "isClosed": false },
+      { "dayOfWeek": "Tuesday", "openTime": "08:00", "closeTime": "21:00", "isClosed": false },
+      { "dayOfWeek": "Wednesday", "openTime": "08:00", "closeTime": "21:00", "isClosed": false },
+      { "dayOfWeek": "Thursday", "openTime": "08:00", "closeTime": "21:00", "isClosed": false },
+      { "dayOfWeek": "Friday", "openTime": "08:00", "closeTime": "22:00", "isClosed": false },
+      { "dayOfWeek": "Saturday", "openTime": "08:00", "closeTime": "23:00", "isClosed": false },
+      { "dayOfWeek": "Sunday", "openTime": "09:00", "closeTime": "20:00", "isClosed": false }
+    ],
+    "menu": [
+      {
+        "id": "C1",
+        "name": "Street Food & Kapana",
+        "items": [
+          {
+            "id": "M1",
+            "name": "Beef Kapana",
+            "description": "Succulent grilled beef strips dusted in traditional chili spice",
+            "price": 50.00,
+            "taxRate": 0.15,
+            "dietaryAttributes": ["High-Protein", "Halal"],
+            "stock": 100
+          },
+          {
+            "id": "M2",
+            "name": "Vetkoek (Fat Cake)",
+            "description": "Golden-brown deep-fried dough bun with savory relish",
+            "price": 10.00,
+            "taxRate": 0.15,
+            "dietaryAttributes": ["Vegetarian"],
+            "stock": 80
+          },
+          {
+            "id": "M3",
+            "name": "Katutura Salsa",
+            "description": "Freshly diced tomato, onion, and chili relish with cider vinegar",
+            "price": 15.00,
+            "taxRate": 0.15,
+            "dietaryAttributes": ["Vegan", "Gluten-Free"],
+            "stock": 120
+          },
+          {
+            "id": "M4",
+            "name": "Roosterkoek",
+            "description": "Charcoal-grilled traditional bread roll",
+            "price": 20.00,
+            "taxRate": 0.15,
+            "dietaryAttributes": ["Vegetarian"],
+            "stock": 60
+          },
+          {
+            "id": "M5",
+            "name": "Pork Kapana",
+            "description": "Flame-broiled crispy pork belly skewers with dipping salts",
+            "price": 60.00,
+            "taxRate": 0.15,
+            "dietaryAttributes": ["High-Protein"],
+            "stock": 75
+          },
+          {
+            "id": "M6",
+            "name": "Oshikundu",
+            "description": "Traditional non-alcoholic fermented pearl millet and sorghum brew",
+            "price": 25.00,
+            "taxRate": 0.15,
+            "dietaryAttributes": ["Vegetarian", "Traditional"],
+            "stock": 90
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "R002",
+    "name": "Namibian Potjie Kitchen",
+    "address": "Independence Ave, Windhoek CBD, Windhoek",
+    "location": {
+      "type": "Point",
+      "coordinates": [17.0836, -22.5601]
+    },
+    "contactNumber": "+264-81-333-4444",
+    "operatingHours": [
+      { "dayOfWeek": "Monday", "openTime": "11:00", "closeTime": "22:00", "isClosed": false },
+      { "dayOfWeek": "Tuesday", "openTime": "11:00", "closeTime": "22:00", "isClosed": false },
+      { "dayOfWeek": "Wednesday", "openTime": "11:00", "closeTime": "22:00", "isClosed": false },
+      { "dayOfWeek": "Thursday", "openTime": "11:00", "closeTime": "22:00", "isClosed": false },
+      { "dayOfWeek": "Friday", "openTime": "11:00", "closeTime": "23:00", "isClosed": false },
+      { "dayOfWeek": "Saturday", "openTime": "11:00", "closeTime": "23:00", "isClosed": false },
+      { "dayOfWeek": "Sunday", "openTime": "12:00", "closeTime": "21:00", "isClosed": false }
+    ],
+    "menu": [
+      {
+        "id": "C2",
+        "name": "Cast-Iron Potjie Stews",
+        "items": [
+          {
+            "id": "M7",
+            "name": "Beef Potjiekos",
+            "description": "Three-legged cast-iron slow-cooked beef stew with baby carrots and potatoes",
+            "price": 120.00,
+            "taxRate": 0.15,
+            "dietaryAttributes": ["Slow-Cooked"],
+            "stock": 50
+          },
+          {
+            "id": "M8",
+            "name": "Lamb Potjiekos",
+            "description": "Kalahari lamb braised with red wine, garlic, rosemary, and root vegetables",
+            "price": 140.00,
+            "taxRate": 0.15,
+            "dietaryAttributes": ["Slow-Cooked"],
+            "stock": 45
+          },
+          {
+            "id": "M9",
+            "name": "Oxtail Potjiekos",
+            "description": "Rich gelatinous oxtail simmered 6 hours in craft brown ale",
+            "price": 160.00,
+            "taxRate": 0.15,
+            "dietaryAttributes": ["Chef-Special"],
+            "stock": 35
+          },
+          {
+            "id": "M10",
+            "name": "Chicken Potjiekos",
+            "description": "Free-range farmhouse chicken stew with sweet leeks and corn dumplings",
+            "price": 110.00,
+            "taxRate": 0.15,
+            "dietaryAttributes": ["Farmhouse"],
+            "stock": 55
+          },
+          {
+            "id": "M11",
+            "name": "Vegetable Potjiekos",
+            "description": "Butternut, green beans, carrots, and sweet potato in coconut curry",
+            "price": 90.00,
+            "taxRate": 0.15,
+            "dietaryAttributes": ["Vegetarian", "Gluten-Free"],
+            "stock": 40
+          },
+          {
+            "id": "M12",
+            "name": "Mahangu Pap",
+            "description": "Steamed pearl millet flour porridge cooked to dense traditional texture",
+            "price": 30.00,
+            "taxRate": 0.15,
+            "dietaryAttributes": ["Vegan", "Gluten-Free"],
+            "stock": 80
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "R003",
+    "name": "Oshakati Traditional Kitchen",
+    "address": "Main Road, Oshakati",
+    "location": {
+      "type": "Point",
+      "coordinates": [15.6887, -17.7833]
+    },
+    "contactNumber": "+264-81-555-6666",
+    "operatingHours": [
+      { "dayOfWeek": "Monday", "openTime": "10:00", "closeTime": "21:00", "isClosed": false },
+      { "dayOfWeek": "Tuesday", "openTime": "10:00", "closeTime": "21:00", "isClosed": false },
+      { "dayOfWeek": "Wednesday", "openTime": "10:00", "closeTime": "21:00", "isClosed": false },
+      { "dayOfWeek": "Thursday", "openTime": "10:00", "closeTime": "21:00", "isClosed": false },
+      { "dayOfWeek": "Friday", "openTime": "10:00", "closeTime": "22:00", "isClosed": false },
+      { "dayOfWeek": "Saturday", "openTime": "10:00", "closeTime": "22:00", "isClosed": false },
+      { "dayOfWeek": "Sunday", "openTime": "11:00", "closeTime": "20:00", "isClosed": false }
+    ],
+    "menu": [
+      {
+        "id": "C3",
+        "name": "Northern Delicacies",
+        "items": [
+          {
+            "id": "M13",
+            "name": "Mopane Worms (Omatungu)",
+            "description": "Pan-fried crispy seasoned mopane caterpillars with sea salt and garlic",
+            "price": 80.00,
+            "taxRate": 0.15,
+            "dietaryAttributes": ["High-Protein", "Traditional"],
+            "stock": 40
+          },
+          {
+            "id": "M14",
+            "name": "Zambezi Bream",
+            "description": "Freshwater river bream fried whole and served with wild herb butter",
+            "price": 150.00,
+            "taxRate": 0.15,
+            "dietaryAttributes": ["Pescatarian"],
+            "stock": 30
+          },
+          {
+            "id": "M15",
+            "name": "Marathon Chicken",
+            "description": "Free-range indigenous chicken stewed with marula oil and red peppers",
+            "price": 130.00,
+            "taxRate": 0.15,
+            "dietaryAttributes": ["Traditional"],
+            "stock": 40
+          },
+          {
+            "id": "M16",
+            "name": "Omboga (Wild Spinach)",
+            "description": "Dried indigenous wild spinach braised with tomato and crushed melon seeds",
+            "price": 40.00,
+            "taxRate": 0.15,
+            "dietaryAttributes": ["Vegan", "Superfood"],
+            "stock": 60
+          },
+          {
+            "id": "M17",
+            "name": "Matangara",
+            "description": "Tender spiced tripe stew seasoned with coriander and chili broth",
+            "price": 90.00,
+            "taxRate": 0.15,
+            "dietaryAttributes": ["Traditional"],
+            "stock": 35
+          },
+          {
+            "id": "M18",
+            "name": "Oshifima",
+            "description": "Stiff white pearl millet porridge portion",
+            "price": 25.00,
+            "taxRate": 0.15,
+            "dietaryAttributes": ["Vegan", "Gluten-Free"],
+            "stock": 70
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "R004",
+    "name": "Windhoek Braai House",
+    "address": "Sam Nujoma Drive, Klein Windhoek, Windhoek",
+    "location": {
+      "type": "Point",
+      "coordinates": [17.0805, -22.5608]
+    },
+    "contactNumber": "+264-81-777-8888",
+    "operatingHours": [
+      { "dayOfWeek": "Monday", "openTime": "12:00", "closeTime": "23:00", "isClosed": false },
+      { "dayOfWeek": "Tuesday", "openTime": "12:00", "closeTime": "23:00", "isClosed": false },
+      { "dayOfWeek": "Wednesday", "openTime": "12:00", "closeTime": "23:00", "isClosed": false },
+      { "dayOfWeek": "Thursday", "openTime": "12:00", "closeTime": "23:00", "isClosed": false },
+      { "dayOfWeek": "Friday", "openTime": "12:00", "closeTime": "23:59", "isClosed": false },
+      { "dayOfWeek": "Saturday", "openTime": "12:00", "closeTime": "23:59", "isClosed": false },
+      { "dayOfWeek": "Sunday", "openTime": "12:00", "closeTime": "22:00", "isClosed": false }
+    ],
+    "menu": [
+      {
+        "id": "C4",
+        "name": "Wood-Fired Braai Specialties",
+        "items": [
+          {
+            "id": "M19",
+            "name": "Boerewors Roll",
+            "description": "Artisan beef and pork spiced sausage roll with caramelized relish",
+            "price": 45.00,
+            "taxRate": 0.15,
+            "dietaryAttributes": ["Braai-Classic"],
+            "stock": 65
+          },
+          {
+            "id": "M20",
+            "name": "Game Steak Braai",
+            "description": "Wood-charred springbok sirloin steak with red wine garlic glaze",
+            "price": 180.00,
+            "taxRate": 0.15,
+            "dietaryAttributes": ["High-Protein", "Game-Meat"],
+            "stock": 30
+          },
+          {
+            "id": "M21",
+            "name": "Sticky Pork Ribs",
+            "description": "Smoked and flame-glazed 500g rack of pork loin ribs with basting",
+            "price": 160.00,
+            "taxRate": 0.15,
+            "dietaryAttributes": ["Smoked"],
+            "stock": 40
+          },
+          {
+            "id": "M22",
+            "name": "Creamy Potato Salad",
+            "description": "Chilled potato cubes in seasoned chive mayonnaise and mustard dressing",
+            "price": 35.00,
+            "taxRate": 0.15,
+            "dietaryAttributes": ["Vegetarian"],
+            "stock": 50
+          },
+          {
+            "id": "M23",
+            "name": "Braaibroodjie",
+            "description": "Grilled sandwich with sharp cheddar, tomato, onion, and sweet chutney",
+            "price": 40.00,
+            "taxRate": 0.15,
+            "dietaryAttributes": ["Vegetarian"],
+            "stock": 55
+          },
+          {
+            "id": "M24",
+            "name": "Garlic Butter Baguette",
+            "description": "Toasted herb and garlic butter French loaf",
+            "price": 30.00,
+            "taxRate": 0.15,
+            "dietaryAttributes": ["Vegetarian"],
+            "stock": 70
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "R005",
+    "name": "Desert Cafe & Grill",
+    "address": "Strand Street, Swakopmund Waterfront, Swakopmund",
+    "location": {
+      "type": "Point",
+      "coordinates": [14.5266, -22.6792]
+    },
+    "contactNumber": "+264-81-999-0000",
+    "operatingHours": [
+      { "dayOfWeek": "Monday", "openTime": "08:00", "closeTime": "22:00", "isClosed": false },
+      { "dayOfWeek": "Tuesday", "openTime": "08:00", "closeTime": "22:00", "isClosed": false },
+      { "dayOfWeek": "Wednesday", "openTime": "08:00", "closeTime": "22:00", "isClosed": false },
+      { "dayOfWeek": "Thursday", "openTime": "08:00", "closeTime": "22:00", "isClosed": false },
+      { "dayOfWeek": "Friday", "openTime": "08:00", "closeTime": "23:00", "isClosed": false },
+      { "dayOfWeek": "Saturday", "openTime": "08:00", "closeTime": "23:00", "isClosed": false },
+      { "dayOfWeek": "Sunday", "openTime": "08:00", "closeTime": "21:00", "isClosed": false }
+    ],
+    "menu": [
+      {
+        "id": "C5",
+        "name": "Coastal & Cafe Classics",
+        "items": [
+          {
+            "id": "M25",
+            "name": "Biltong Salad",
+            "description": "Mixed crisp greens with shaved beef biltong, blue cheese, and figs",
+            "price": 85.00,
+            "taxRate": 0.15,
+            "dietaryAttributes": ["High-Protein", "Gluten-Free"],
+            "stock": 45
+          },
+          {
+            "id": "M26",
+            "name": "Oryx Burger",
+            "description": "Flame-broiled wild oryx game patty with caramelized onions and fries",
+            "price": 110.00,
+            "taxRate": 0.15,
+            "dietaryAttributes": ["Game-Meat"],
+            "stock": 40
+          },
+          {
+            "id": "M27",
+            "name": "Droëwors Snack Platter",
+            "description": "Portion of premium dried coriander sausage with spicy mustard",
+            "price": 60.00,
+            "taxRate": 0.15,
+            "dietaryAttributes": ["High-Protein"],
+            "stock": 60
+          },
+          {
+            "id": "M28",
+            "name": "Malva Pudding",
+            "description": "Warm apricot caramelized sponge cake drenched in vanilla custard",
+            "price": 55.00,
+            "taxRate": 0.15,
+            "dietaryAttributes": ["Vegetarian"],
+            "stock": 35
+          },
+          {
+            "id": "M29",
+            "name": "Rock Shandy",
+            "description": "Half lemonade, half soda water, infused with Angostura bitters and lemon",
+            "price": 35.00,
+            "taxRate": 0.15,
+            "dietaryAttributes": ["Vegetarian", "Refreshing"],
+            "stock": 80
+          },
+          {
+            "id": "M30",
+            "name": "Organic Rooibos Tea",
+            "description": "Pot of hot indigenous herbal rooibos tea served with raw honey and lemon",
+            "price": 20.00,
+            "taxRate": 0.15,
+            "dietaryAttributes": ["Vegan", "Caffeine-Free"],
+            "stock": 100
+          },
+          {
+            "id": "M31",
+            "name": "Atlantic Fish & Chips",
+            "description": "Beer-battered fresh hake fillet with hand-cut chips and tartar sauce",
+            "price": 95.00,
+            "taxRate": 0.15,
+            "dietaryAttributes": ["Pescatarian"],
+            "stock": 50
+          }
+        ]
+      }
+    ]
+  }
+]

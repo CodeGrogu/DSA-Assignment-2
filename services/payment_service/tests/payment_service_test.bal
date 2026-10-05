@@ -1,3 +1,4 @@
+import ballerina/http;
 import ballerina/test;
 import ballerina/time;
 
@@ -80,3 +81,48 @@ function testChargeAndRefundLedgerEntriesAreInsertOnlyReversals() {
     test:assertEquals(refundEntries[1].entryType, DEBIT);
     test:assertEquals(refundEntries[0].transactionId, payment.transactionId);
 }
+
+@test:Config {}
+function testCreateAndGetPayment() returns error? {
+    http:Client clientEp = check new (string `http://localhost:${port}`);
+    json createPayload = {
+        orderId: "ord_unit_1",
+        amount: 75.50d,
+        paymentMethod: "CREDIT_CARD"
+    };
+    http:Response createResp = check clientEp->post("/payments", createPayload);
+    test:assertEquals(createResp.statusCode, 201);
+    json createBody = check createResp.getJsonPayload();
+    test:assertTrue(createBody is map<json>);
+    map<json> bodyMap = <map<json>>createBody;
+    test:assertEquals(bodyMap["orderId"], "ord_unit_1");
+    test:assertEquals(bodyMap["status"], "SUCCESS");
+    test:assertEquals(bodyMap["currency"], "NAD");
+
+    http:Response getResp = check clientEp->get("/payments/pay_unit_1");
+    test:assertEquals(getResp.statusCode, 200);
+    json getBody = check getResp.getJsonPayload();
+    test:assertTrue(getBody is map<json>);
+    map<json> getMap = <map<json>>getBody;
+    test:assertEquals(getMap["orderId"], "ord_unit_1");
+    test:assertEquals(getMap["status"], "SUCCESS");
+}
+
+@test:Config {}
+function testCreatePaymentValidation() returns error? {
+    http:Client clientEp = check new (string `http://localhost:${port}`);
+    json invalidOrderPayload = {
+        orderId: "",
+        amount: 50.0d
+    };
+    http:Response badResp1 = check clientEp->post("/payments", invalidOrderPayload);
+    test:assertEquals(badResp1.statusCode, 400);
+
+    json invalidAmountPayload = {
+        orderId: "ord_val_1",
+        amount: -5.0d
+    };
+    http:Response badResp2 = check clientEp->post("/payments", invalidAmountPayload);
+    test:assertEquals(badResp2.statusCode, 400);
+}
+

@@ -8,6 +8,13 @@ import peerpressure/metrics as metrics;
 
 configurable int port = 9095;
 
+@http:ServiceConfig {
+    cors: {
+        allowOrigins: ["*"],
+        allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allowHeaders: ["*"]
+    }
+}
 service / on new http:Listener(port) {
     resource function get health() returns json {
         time:Utc startTime = time:utcNow();
@@ -215,9 +222,16 @@ service / on new http:Listener(port) {
         }
         collection = collectionResult;
 
+        map<json>|error itemJson = request.item.cloneWithType();
+        if itemJson is error {
+            return jsonResponse(500, {message: "Database connection failed"});
+        }
+        mongodb:Update update = {
+            "push": {"menu.$.items": itemJson}
+        };
         mongodb:UpdateResult|error result = collection->updateOne(
             {"id": restaurantId, "menu.id": request.categoryId},
-            {"$push": {"menu.$.items": request.item}}
+            update
         );
         if result is error {
             return jsonResponse(500, {message: "Database connection failed"});
@@ -274,7 +288,10 @@ service / on new http:Listener(port) {
             return jsonResponse(500, {message: "Database connection failed"});
         }
 
-        mongodb:UpdateResult|error updateResult = collection->updateOne({"id": restaurantId}, {"$set": restaurantDoc});
+        mongodb:Update update = {
+            "set": restaurantDoc
+        };
+        mongodb:UpdateResult|error updateResult = collection->updateOne({"id": restaurantId}, update);
         if updateResult is error {
             return jsonResponse(500, {message: "Database connection failed"});
         }
@@ -325,7 +342,10 @@ service / on new http:Listener(port) {
             return jsonResponse(500, {message: "Database connection failed"});
         }
 
-        mongodb:UpdateResult|error updateResult = collection->updateOne({"id": restaurantId}, {"$set": restaurantDoc});
+        mongodb:Update update = {
+            "set": restaurantDoc
+        };
+        mongodb:UpdateResult|error updateResult = collection->updateOne({"id": restaurantId}, update);
         if updateResult is error {
             return jsonResponse(500, {message: "Database connection failed"});
         }
@@ -377,7 +397,10 @@ service / on new http:Listener(port) {
             return jsonResponse(500, {message: "Database connection failed"});
         }
 
-        mongodb:UpdateResult|error updateResult = collection->updateOne({"id": restaurantId}, {"$set": restaurantDoc});
+        mongodb:Update update = {
+            "set": restaurantDoc
+        };
+        mongodb:UpdateResult|error updateResult = collection->updateOne({"id": restaurantId}, update);
         if updateResult is error {
             return jsonResponse(500, {message: "Database connection failed"});
         }
@@ -436,7 +459,10 @@ service / on new http:Listener(port) {
             return jsonResponse(500, {message: "Database connection failed"});
         }
 
-        mongodb:UpdateResult|error updateResult = collection->updateOne({"id": restaurantId}, {"$set": restaurantDoc});
+        mongodb:Update update = {
+            "set": restaurantDoc
+        };
+        mongodb:UpdateResult|error updateResult = collection->updateOne({"id": restaurantId}, update);
         if updateResult is error {
             return jsonResponse(500, {message: "Database connection failed"});
         }
@@ -615,7 +641,7 @@ service / on new http:Listener(port) {
                 [stockPath]: {"$gte": item.quantity}
             };
             mongodb:Update update = {
-                "$inc": {[stockPath]: -item.quantity}
+                "inc": {[stockPath]: -item.quantity}
             };
 
             mongodb:UpdateResult|error updateRes = collection->updateOne(filter, update);
