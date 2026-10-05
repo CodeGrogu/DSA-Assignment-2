@@ -1,1 +1,2 @@
 startKafkaConsumers = false
+kafkaBootstrapServers = "localhost:29092"
