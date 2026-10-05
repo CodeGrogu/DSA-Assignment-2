@@ -52,7 +52,7 @@ restaurantDb.restaurants.createIndex(
     { location: "2dsphere" }
 );
 
-// Payment Service database
+// Payment Service database (legacy/singular and v2/plural)
 const paymentDb = db.getSiblingDB("payment_db");
 ensureCollection(paymentDb, "payments");
 paymentDb.payments.createIndex(
@@ -60,8 +60,14 @@ paymentDb.payments.createIndex(
     { unique: true }
 );
 
-// Payment service v2 uses multiple immutable transactions per order for refunds.
 const paymentsDb = db.getSiblingDB("payments_db");
+ensureCollection(paymentsDb, "payments");
+paymentsDb.payments.createIndex(
+    { idempotencyKey: 1 },
+    { unique: true }
+);
+
+// Payment service v2 uses multiple immutable transactions per order for refunds.
 if (paymentsDb.getCollectionNames().includes("transactions")) {
     const legacyOrderIndex = paymentsDb.transactions.getIndexes().find(
         index => index.name === "orderId_1" && index.unique === true
@@ -92,6 +98,7 @@ ensureUser("customer_db", "customer_user", "customer_password", [{ role: "readWr
 ensureUser("order_db", "order_user", "order_password", [{ role: "readWrite", db: "order_db" }]);
 ensureUser("restaurant_db", "restaurant_user", "restaurant_password", [{ role: "readWrite", db: "restaurant_db" }]);
 ensureUser("payment_db", "payment_user", "payment_password", [{ role: "readWrite", db: "payment_db" }]);
+ensureUser("payments_db", "payment_user", "payment_password", [{ role: "readWrite", db: "payments_db" }]);
 ensureUser("delivery_db", "delivery_user", "delivery_password", [{ role: "readWrite", db: "delivery_db" }]);
 ensureUser("notification_db", "notification_user", "notification_password", [{ role: "readWrite", db: "notification_db" }]);
 
