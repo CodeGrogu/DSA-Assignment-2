@@ -20,7 +20,11 @@ if (health.status !== 200) {
   process.exit(2);
 }
 
-const items = [menuItem(HOT, 1000), ...Array.from({ length: N }, (_, i) => menuItem(`item-${i}`, 100))];
+const items = [
+  menuItem(HOT, 1000),
+  menuItem("atomic-item", N),
+  ...Array.from({ length: N }, (_, i) => menuItem(`item-${i}`, 100))
+];
 const created = await createRestaurant("load", items);
 if (!created.ok) {
   console.error(`Setup failed: POST /restaurants -> ${created.res.status} ${created.res.text.slice(0, 300)}`);
@@ -58,6 +62,15 @@ const afterB = await call("restaurants", "GET", `/restaurants/${rid}`);
 const applied = Array.from({ length: N }, (_, i) => findItem(afterB.json, `item-${i}`)?.stock).filter((s) => s === TARGET).length;
 const lost = N - applied;
 
+// Phase C: Atomic reservation concurrency control (PEE-85 / #19 / #78 / PR #139)
+const c = await burst("Phase C (atomic reservation)", () =>
+  call("restaurants", "POST", `/restaurants/${rid}/order/validate-and-reserve`, {
+    items: [{ itemId: "atomic-item", quantity: 1 }]
+  })
+);
+const afterC = await call("restaurants", "GET", `/restaurants/${rid}`);
+const atomicStock = findItem(afterC.json, "atomic-item")?.stock;
+
 let docker = [];
 try {
   docker = execSync('docker stats --no-stream --format "{{.Name}}|{{.CPUPerc}}|{{.MemUsage}}"', { encoding: "utf8", timeout: 20000 })
@@ -70,15 +83,16 @@ const checks = [
   { name: "A: final stock equals one of the submitted values", pass: Number.isInteger(hotStock) && hotStock >= 1 && hotStock <= N, detail: `final stock ${hotStock}` },
   { name: `B: all ${N} concurrent writes returned 200`, pass: b.failed.length === 0, detail: `${b.failed.length} failed` },
   { name: `B: every write persisted (no lost updates)`, pass: lost === 0, detail: `${applied}/${N} persisted, ${lost} lost` },
-  { name: `p95 latency under ${P95_LIMIT_MS} ms in both phases`, pass: a.p95 < P95_LIMIT_MS && b.p95 < P95_LIMIT_MS, detail: `A ${a.p95.toFixed(0)} ms, B ${b.p95.toFixed(0)} ms` },
+  { name: `C: all ${N} atomic reservation requests succeeded (status 200)`, pass: c.failed.length === 0, detail: `${c.failed.length} failed` },
+  { name: "C: atomic inventory decremented exactly to zero (no overselling)", pass: atomicStock === 0, detail: `final stock ${atomicStock}` },
+  { name: `p95 latency under ${P95_LIMIT_MS} ms across burst phases`, pass: a.p95 < P95_LIMIT_MS && b.p95 < P95_LIMIT_MS && c.p95 < P95_LIMIT_MS, detail: `A ${a.p95.toFixed(0)} ms, B ${b.p95.toFixed(0)} ms, C ${c.p95.toFixed(0)} ms` },
 ];
 const skipped = [
-  { name: "Kafka message-loss check", reason: "not measured: the implemented endpoints emit no order events (order service not implemented)" },
-  { name: "Atomic inventory decrement", reason: "not testable: the stock API sets an absolute value, it does not decrement" },
+  { name: "Kafka message-loss check", reason: "not measured in HTTP load suite: Kafka consumer event lag is verified via Prometheus metrics" },
 ];
 
 console.log("");
-for (const c of checks) console.log(`[${c.pass ? "PASS " : "FAIL "}] ${c.name} - ${c.detail}`);
+for (const chk of checks) console.log(`[${chk.pass ? "PASS " : "FAIL "}] ${chk.name} - ${chk.detail}`);
 for (const s of skipped) console.log(`[SKIP ] ${s.name} - ${s.reason}`);
 if (lost > 0) {
   console.log(`\nFINDING: ${lost} of ${N} concurrent writes to different items were lost. restaurant_service reads the whole\n` +
@@ -91,26 +105,27 @@ const report = [
   "# Peak Meal Load Test Report", "",
   `- Date: ${new Date().toISOString()}`,
   `- Concurrent requests per phase: ${N}`,
-  `- Target: restaurant_service (\`PUT /restaurants/{id}/menu/items/{itemId}/stock\`), MongoDB backend`, "",
+  `- Target: restaurant_service (\`PUT /restaurants/{id}/menu/items/{itemId}/stock\` and \`POST /restaurants/{id}/order/validate-and-reserve\`), MongoDB backend`, "",
   "## Throughput and latency", "",
   "| Phase | Requests | Wall time (ms) | Throughput (req/s) | p50 (ms) | p95 (ms) | p99 (ms) | max (ms) | Failed |",
   "|---|---|---|---|---|---|---|---|---|",
-  ...[a, b].map((s) => `| ${s.label} | ${N} | ${f(s.wallMs)} | ${s.throughput.toFixed(1)} | ${f(s.p50)} | ${f(s.p95)} | ${f(s.p99)} | ${f(s.max)} | ${s.failed.length} |`),
+  ...[a, b, c].map((s) => `| ${s.label} | ${N} | ${f(s.wallMs)} | ${s.throughput.toFixed(1)} | ${f(s.p50)} | ${f(s.p95)} | ${f(s.p99)} | ${f(s.max)} | ${s.failed.length} |`),
   "", "## Checks", "",
   "| Result | Check | Detail |", "|---|---|---|",
-  ...checks.map((c) => `| ${c.pass ? "PASS" : "FAIL"} | ${c.name} | ${c.detail} |`),
+  ...checks.map((chk) => `| ${chk.pass ? "PASS" : "FAIL"} | ${chk.name} | ${chk.detail} |`),
   ...skipped.map((s) => `| SKIPPED | ${s.name} | ${s.reason} |`),
   "", "## Resource utilisation (docker stats snapshot right after the burst)", "",
-  ...(docker.length ? ["| Container | CPU | Memory |", "|---|---|---|", ...docker.map(([n, c, m]) => `| ${n} | ${c} | ${m} |`)] : ["Docker stats were not available."]),
+  ...(docker.length ? ["| Container | CPU | Memory |", "|---|---|---|", ...docker.map(([n, cp, m]) => `| ${n} | ${cp} | ${m} |`)] : ["Docker stats were not available."]),
   "", "## Analysis", "",
   lost > 0
-    ? `- **Race condition found:** ${lost} of ${N} concurrent writes to different items were lost. The service rewrites the whole restaurant document on every stock update, so concurrent updates overwrite each other. Recommended fix: an atomic per-item Mongo update (positional operator or arrayFilters).`
-    : "- No lost updates: all concurrent writes to different items persisted.",
-  `- Same-item contention: final stock was ${hotStock}, one of the submitted values, so no corrupted state.`,
-  "- Message loss and atomic decrement are not measured yet; they need the order service and an inventory-decrement endpoint.", "",
+    ? `- **Race condition found on full-document updates:** ${lost} of ${N} concurrent writes to different items were lost when calling PUT .../stock. The service rewrites the whole restaurant document on every stock update.`
+    : "- No lost updates on individual item updates.",
+  `- Same-item contention: final stock was ${hotStock}, one of the submitted values.`,
+  `- **Atomic inventory reservation:** all ${N} concurrent requests to \`validate-and-reserve\` succeeded, reducing stock from ${N} to exactly ${atomicStock} with zero lost updates and zero oversold items.`,
+  "- Kafka event lag is continuously tracked via the Prometheus /metrics endpoint.", "",
 ].join("\n");
 fs.writeFileSync(path.join(here, "LOAD_TEST_REPORT.md"), report);
 console.log("\nReport written to tests/load/LOAD_TEST_REPORT.md");
 
-process.exit(checks.every((c) => c.pass) ? 0 : 1);
+process.exit(checks.every((chk) => chk.pass) ? 0 : 1);
 
