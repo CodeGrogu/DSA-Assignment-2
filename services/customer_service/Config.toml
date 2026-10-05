@@ -1,0 +1,9 @@
+port = 9093
+mongoHost = "mongodb"
+mongoPort = 27017
+mongoUser = "customer_user"
+mongoPassword = "customer_password"
+databaseName = "customer_db"
+mongoAuthSource = "customer_db"
+mongoReplicaSet = "rs0"
+mongoServerSelectionTimeoutMs = 2000
