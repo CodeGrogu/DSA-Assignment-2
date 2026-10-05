@@ -1,0 +1,6 @@
+port = 9091
+enableMongo = true
+mongoUri = "mongodb://root:password@localhost:27017/order_db?authSource=admin"
+mongoDatabase = "order_db"
+baseDeliveryFee = 0.0
+defaultSurgeMultiplier = 1.0
