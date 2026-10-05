@@ -33,7 +33,7 @@ dependencies = [
 [[package]]
 org = "ballerina"
 name = "constraint"
-version = "1.7.0"
+version = "1.7.1"
 dependencies = [
 	{org = "ballerina", name = "jballerina.java"}
 ]
@@ -70,7 +70,7 @@ dependencies = [
 [[package]]
 org = "ballerina"
 name = "http"
-version = "2.17.1"
+version = "2.17.3"
 dependencies = [
 	{org = "ballerina", name = "auth"},
 	{org = "ballerina", name = "cache"},
@@ -103,7 +103,7 @@ modules = [
 [[package]]
 org = "ballerina"
 name = "io"
-version = "1.8.1"
+version = "1.8.2"
 dependencies = [
 	{org = "ballerina", name = "jballerina.java"},
 	{org = "ballerina", name = "lang.value"}
@@ -206,7 +206,7 @@ dependencies = [
 [[package]]
 org = "ballerina"
 name = "log"
-version = "2.17.0"
+version = "2.17.1"
 dependencies = [
 	{org = "ballerina", name = "io"},
 	{org = "ballerina", name = "jballerina.java"},
@@ -217,7 +217,7 @@ dependencies = [
 [[package]]
 org = "ballerina"
 name = "mime"
-version = "2.12.2"
+version = "2.12.3"
 dependencies = [
 	{org = "ballerina", name = "io"},
 	{org = "ballerina", name = "jballerina.java"},
@@ -249,7 +249,7 @@ dependencies = [
 [[package]]
 org = "ballerina"
 name = "os"
-version = "1.10.1"
+version = "1.10.2"
 dependencies = [
 	{org = "ballerina", name = "io"},
 	{org = "ballerina", name = "jballerina.java"}
@@ -258,7 +258,7 @@ dependencies = [
 [[package]]
 org = "ballerina"
 name = "task"
-version = "2.11.2"
+version = "2.11.3"
 dependencies = [
 	{org = "ballerina", name = "jballerina.java"},
 	{org = "ballerina", name = "time"},
@@ -268,9 +268,12 @@ dependencies = [
 [[package]]
 org = "ballerina"
 name = "time"
-version = "2.8.1"
+version = "2.8.2"
 dependencies = [
 	{org = "ballerina", name = "jballerina.java"}
+]
+modules = [
+	{org = "ballerina", packageName = "time", moduleName = "time"}
 ]
 
 [[package]]
@@ -284,7 +287,7 @@ dependencies = [
 [[package]]
 org = "ballerina"
 name = "uuid"
-version = "1.10.0"
+version = "1.10.1"
 dependencies = [
 	{org = "ballerina", name = "crypto"},
 	{org = "ballerina", name = "jballerina.java"},
@@ -306,13 +309,14 @@ modules = [
 
 [[package]]
 org = "peerpressure"
-name = "events"
+name = "metrics"
 version = "0.1.0"
 dependencies = [
+	{org = "ballerina", name = "http"},
 	{org = "ballerinai", name = "observe"}
 ]
 modules = [
-	{org = "peerpressure", packageName = "events", moduleName = "events"}
+	{org = "peerpressure", packageName = "metrics", moduleName = "metrics"}
 ]
 
 [[package]]
@@ -321,8 +325,9 @@ name = "notification_service"
 version = "0.1.0"
 dependencies = [
 	{org = "ballerina", name = "http"},
+	{org = "ballerina", name = "time"},
 	{org = "ballerinai", name = "observe"},
-	{org = "peerpressure", name = "events"}
+	{org = "peerpressure", name = "metrics"}
 ]
 modules = [
 	{org = "peerpressure", packageName = "notification_service", moduleName = "notification_service"}

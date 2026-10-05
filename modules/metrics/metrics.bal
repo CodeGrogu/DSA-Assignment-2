@@ -1,6 +1,6 @@
 import ballerina/http;
 
-public type MetricType "COUNTER" | "GAUGE" | "HISTOGRAM";
+public type MetricType "COUNTER"|"GAUGE"|"HISTOGRAM";
 
 public type MetricSample record {|
     string name;
@@ -78,7 +78,7 @@ public class MetricsRegistry {
     public function exportPrometheus() returns string {
         lock {
             string output = "";
-            foreach var [name, metric] in self.metrics.entries() {
+            foreach MetricSample metric in self.metrics {
                 output += string `# HELP ${metric.name} ${metric.help}
 `;
                 output += string `# TYPE ${metric.name} ${metric.metricType.toLowerAscii()}
@@ -89,11 +89,12 @@ public class MetricsRegistry {
                     output += string `${metric.name}${labelsText} ${metric.value}
 `;
                 } else {
+                    string extraLabels = self.formatExtraLabels(metric.labels);
                     foreach int bucket in metric.buckets {
-                        output += string `${metric.name}_bucket{le="${bucket}"}${labelsText} ${metric.value >= <decimal>bucket ? 1d : 0d}
+                        output += string `${metric.name}_bucket{le="${bucket}"${extraLabels}} ${metric.value <= <decimal>bucket ? 1d : 0d}
 `;
                     }
-                    output += string `${metric.name}_bucket{le="+Inf"}${labelsText} 1
+                    output += string `${metric.name}_bucket{le="+Inf"${extraLabels}} 1
 `;
                     output += string `${metric.name}_sum${labelsText} ${metric.sum}
 `;
@@ -102,28 +103,49 @@ public class MetricsRegistry {
                 }
             }
 
-            foreach var [key, lag] in self.consumerLag.entries() {
-                output += "# HELP kafka_consumer_lag Consumer lag reported per consumer group and topic
-";
-                output += "# TYPE kafka_consumer_lag gauge
-";
-                output += string `kafka_consumer_lag{group_topic="${key}"} ${lag}
+            if self.consumerLag.length() > 0 {
+                output += "# HELP kafka_consumer_lag Consumer lag reported per consumer group and topic\n";
+                output += "# TYPE kafka_consumer_lag gauge\n";
+                foreach var [key, lag] in self.consumerLag.entries() {
+                    output += string `kafka_consumer_lag{group_topic="${key}"} ${lag}
 `;
+                }
             }
 
             return output;
         }
     }
 
-    private function formatLabels(map<string> labels) returns string {
+    public function reset() {
+        lock {
+            self.metrics = {};
+            self.consumerLag = {};
+        }
+    }
+
+    function formatLabels(map<string> labels, string? le = ()) returns string {
         string[] parts = [];
+        if le is string {
+            parts.push(string `le="${le}"`);
+        }
         foreach var [key, value] in labels.entries() {
             parts.push(string `${key}="${value}"`);
         }
         if parts.length() == 0 {
             return "";
         }
-        return "{" + string:'join(", ", parts) + "}";
+        return "{" + string:'join(", ", ...parts) + "}";
+    }
+
+    function formatExtraLabels(map<string> labels) returns string {
+        if labels.length() == 0 {
+            return "";
+        }
+        string[] parts = [];
+        foreach var [key, value] in labels.entries() {
+            parts.push(string `${key}="${value}"`);
+        }
+        return ", " + string:'join(", ", ...parts);
     }
 }
 

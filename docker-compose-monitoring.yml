@@ -26,3 +26,8 @@ services:
       - prometheus
     networks:
       - dsa-network
+
+networks:
+  dsa-network:
+    name: dsa-network
+    external: true
