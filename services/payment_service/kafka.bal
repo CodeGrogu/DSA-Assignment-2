@@ -1,4 +1,3 @@
-import ballerina/lang.'runtime as runtime;
 import ballerina/log;
 import ballerina/time;
 import ballerinax/kafka;
@@ -39,60 +38,56 @@ class PaymentEventPublisher {
 
 final PaymentEventPublisher paymentEventPublisher = new;
 
-function init() returns error? {
-    if startKafkaConsumers {
-        _ = start runPaymentConsumers();
-    }
-}
+final kafka:ConsumerConfiguration orderConsumerConfig = {
+    groupId: paymentConsumerGroup,
+    topics: [orderTopic, sharedOrdersTopic],
+    offsetReset: kafka:OFFSET_RESET_EARLIEST,
+    autoCommit: false
+};
 
-function runPaymentConsumers() returns error? {
-    while true {
-        error? result = consumePaymentEvents();
-        if result is error {
-            log:printError("Payment event consumers stopped; retrying", 'error = result);
-            runtime:sleep(2.0d);
-        }
-    }
-}
+final kafka:ConsumerConfiguration refundConsumerConfig = {
+    groupId: refundConsumerGroup,
+    topics: [orderCancelledTopic, kitchenRejectedTopic],
+    offsetReset: kafka:OFFSET_RESET_EARLIEST,
+    autoCommit: false
+};
 
-function consumePaymentEvents() returns error? {
-    kafka:Consumer orderConsumer = check new (kafkaBootstrapServers, {
-        groupId: paymentConsumerGroup,
-        offsetReset: "earliest",
-        autoCommit: false
-    });
-    check orderConsumer->subscribe([orderTopic]);
-    kafka:Consumer refundConsumer = check new (kafkaBootstrapServers, {
-        groupId: refundConsumerGroup,
-        offsetReset: "earliest",
-        autoCommit: false
-    });
-    string[] refundTopics = [orderCancelledTopic, kitchenRejectedTopic];
-    check refundConsumer->subscribe(refundTopics);
-    log:printInfo("Payment event consumers subscribed", orderTopic = orderTopic, refundTopics = refundTopics);
+listener kafka:Listener orderKafkaListener = new (kafkaBootstrapServers, orderConsumerConfig);
+listener kafka:Listener refundKafkaListener = new (kafkaBootstrapServers, refundConsumerConfig);
 
-    while true {
-        kafka:AnydataConsumerRecord[] orderRecords = check orderConsumer->poll(0.5);
-        foreach kafka:AnydataConsumerRecord kafkaRecord in orderRecords {
+service on orderKafkaListener {
+    remote function onConsumerRecord(kafka:Caller caller, kafka:BytesConsumerRecord[] records) returns error? {
+        foreach kafka:BytesConsumerRecord kafkaRecord in records {
             error? procErr = processOrderRecord(kafkaRecord);
             if procErr is error {
                 log:printError("Failed to process order event record", 'error = procErr);
             }
         }
-        check orderConsumer->commit();
+        check caller->commit();
+    }
 
-        kafka:AnydataConsumerRecord[] refundRecords = check refundConsumer->poll(0.5);
-        foreach kafka:AnydataConsumerRecord kafkaRecord in refundRecords {
+    remote function onError(kafka:Error err) returns error? {
+        log:printError("Order Kafka consumer encountered an error", 'error = err);
+    }
+}
+
+service on refundKafkaListener {
+    remote function onConsumerRecord(kafka:Caller caller, kafka:BytesConsumerRecord[] records) returns error? {
+        foreach kafka:BytesConsumerRecord kafkaRecord in records {
             error? refErr = processRefundRecord(kafkaRecord);
             if refErr is error {
                 log:printError("Failed to process refund event record", 'error = refErr);
             }
         }
-        check refundConsumer->commit();
+        check caller->commit();
+    }
+
+    remote function onError(kafka:Error err) returns error? {
+        log:printError("Refund Kafka consumer encountered an error", 'error = err);
     }
 }
 
-function processOrderRecord(kafka:AnydataConsumerRecord kafkaRecord) returns error? {
+function processOrderRecord(kafka:BytesConsumerRecord kafkaRecord) returns error? {
     map<json> payload = check parseRecordPayload(kafkaRecord.value);
     string? eventType = check getString(payload, "type");
     boolean sharedTopic = kafkaRecord.offset.partition.topic == sharedOrdersTopic;
@@ -102,7 +97,7 @@ function processOrderRecord(kafka:AnydataConsumerRecord kafkaRecord) returns err
     }
 }
 
-function processRefundRecord(kafka:AnydataConsumerRecord kafkaRecord) returns error? {
+function processRefundRecord(kafka:BytesConsumerRecord kafkaRecord) returns error? {
     map<json> payload = check parseRecordPayload(kafkaRecord.value);
     string? eventType = check getString(payload, "type");
     string? cancelledAt = check getString(payload, "cancelledAt");
