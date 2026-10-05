@@ -2,9 +2,9 @@
 
 ## 1. Read this before presenting
 
-This runbook is based on the checked-in implementation in this repository. **The current revision cannot execute the requested complete order-to-delivery flow end-to-end.** It can demonstrate customer address verification, pricing, order creation/read, input rejection, service health and the Admin overview endpoint. Several remaining stages are code/contracts without operationally wired service surfaces:
+This runbook is based on the checked-in implementation in this repository. **The current revision cannot execute the requested complete order-to-delivery flow end-to-end.** It can demonstrate customer address verification, pricing, order creation/read, input rejection, service health, the Admin overview endpoint, and the operational Delivery Service dispatch and tracking suite. Several remaining stages are code/contracts without operationally wired service surfaces:
 
-- `services/delivery_service/service.bal` exposes only `GET /health` and `GET /metrics`; there is no driver assignment, tracking, refusal or delivery completion endpoint/consumer.
+- Delivery Service exposes operational dispatch, tracking, and milestone routes on port 9096 (`GET /delivery/track/{orderId}`, `GET /deliveries/{deliveryId}/tracking`, `POST /deliveries/{deliveryId}/accept`, `POST /deliveries/{deliveryId}/pickup`, `POST /deliveries/{deliveryId}/deliver`, `GET /drivers`), coordinates with `kitchen.orders.ready`, and emits `delivery.driver_assigned` and `delivery.status`. See `docs/defense/delivery_tracking.md` for the dedicated dispatch and fulfillment demonstration runbook.
 - Payment has no HTTP create-payment resource. Payment work is driven by Kafka, while the HTTP-created Order event does not carry a selectable `simulatorOutcome`.
 - The Order producer's `OrderConfirmed` message leaves `restaurantId` and `items` at empty contract defaults, while Restaurant rejects confirmed orders that lack either value.
 - Restaurant publishes `kitchen.orders.ready`; Order subscribes to `orders.ready`.
@@ -91,18 +91,18 @@ The following routes are declared in the service sources. Every service also dec
 | Customer | `http://localhost:9093` | `POST /customers`; `GET /customers/{customerId}`; `POST /customers/{customerId}/addresses`; `PUT /customers/{customerId}/addresses/default`; `PUT /customers/{customerId}`; `DELETE /customers/{customerId}/addresses/{addressId}`; `POST /customers/verifyAddress` and `POST /customers/verify-address`; `GET /customers/{customerId}/orders?limit={n}&offset={n}` |
 | Payment | `http://localhost:9094` | `GET /payments/{id}`; `GET /payments/order/{orderId}`. **No `POST /payments` route.** |
 | Restaurant | `http://localhost:9095` | `GET /restaurants`; `POST /restaurants`; `GET /restaurants/{restaurantId}`; `GET /restaurants/{restaurantId}/menu`; `POST /restaurants/{restaurantId}/menu/items`; `PUT /restaurants/{restaurantId}/menu/items/{itemId}/price`; `PUT /restaurants/{restaurantId}/menu/items/{itemId}/stock`; `POST /restaurants/{restaurantId}/menu/items/{itemId}/restock`; `PUT /restaurants/{restaurantId}/menu/items/{itemId}`; `POST /seed` |
-| Delivery | `http://localhost:9096` | `GET /health`; `GET /metrics` only. **No tracking/dispatch routes.** |
+| Delivery | `http://localhost:9096` | `GET /health`; `GET /metrics`; `GET /delivery/track/{orderId}`; `GET /deliveries/{deliveryId}/tracking`; `POST /deliveries/{deliveryId}/accept`; `POST /deliveries/{deliveryId}/pickup`; `POST /deliveries/{deliveryId}/deliver`; `GET /drivers` |
 | Notification | `http://localhost:9097` | `GET /notifications/recipient/{id}` |
 | Admin | `http://localhost:9098` | `GET /admin/stats/overview`; `GET /admin/reports/restaurant?from=YYYY-MM-DD&to=YYYY-MM-DD`; `GET /admin/reports/driver?from=YYYY-MM-DD&to=YYYY-MM-DD` |
 
 The port mapping is also declared in [docker/docker-compose.services.yml](../../docker/docker-compose.services.yml), [prometheus/prometheus.yml](../../prometheus/prometheus.yml) and [postman/environments/local.postman_environment.json](../../postman/environments/local.postman_environment.json).
 
-### Route checks that must not be treated as implemented
+### Route checks and non-HTTP consumer boundaries
 
 Some checked-in Postman requests expect endpoints absent from the service sources:
 
-- `POST http://localhost:9094/payments` is not declared; payment processing is Kafka-consumer driven.
-- `GET http://localhost:9096/delivery/track/{orderId}` is not declared.
+- `POST http://localhost:9094/payments` is not declared; payment processing is Kafka-consumer driven (triggered asynchronously by `orders.created`).
+- Delivery tracking and dispatch routes on port 9096 (`GET /delivery/track/{orderId}`, `GET /deliveries/{deliveryId}/tracking`, `POST /deliveries/{deliveryId}/accept`, `POST /deliveries/{deliveryId}/pickup`, `POST /deliveries/{deliveryId}/deliver`, `GET /drivers`) are operational and demonstrated in `docs/defense/delivery_tracking.md`.
 
 The collections' structural validation passing is not runtime API verification.
 
@@ -208,9 +208,11 @@ The Payment gateway simulator supports `INSUFFICIENT_FUNDS`, but the setting is 
 | Restaurant consumes | `orders.confirmed` |
 | Restaurant publishes | `orders.preparing`, `kitchen.orders.ready` |
 | Notification consumes | `orders.events`, `payments.events`, `kitchen.events`, `delivery.events` |
-| Delivery / Admin | No Kafka producer/consumer declared in their service implementations |
+| Delivery consumes | `kitchen.orders.ready` |
+| Delivery publishes | `delivery.driver_assigned`, `delivery.status` |
+| Admin | Read-only analytics; no event producers/consumers declared |
 
-Configured groups are `order-service-group`, `payment-service`, `payment-refund-service`, `restaurant-kitchen-service`, and `notification-service`. No service config fixes application-topic partitions. Message keys are customer ID for `orders.created` and order ID for several order/payment/kitchen events.
+Configured groups are `order-service-group`, `payment-service`, `payment-refund-service`, `restaurant-kitchen-service`, `delivery_service_group`, and `notification-service`. No service config fixes application-topic partitions. Message keys are customer ID for `orders.created` and order ID for several order/payment/kitchen/delivery events.
 
 The shared `peerpressure/events` module declares parent-contract records named `OrderCreatedEvent`, `PaymentCompletedEvent`, `PaymentFailedEvent`, `KitchenStatusEvent`, `DeliveryAssignedEvent`, `DeliveryStatusEvent` and `NotificationEvent`. It also retains `KitchenOrderReady` and `DeliveryStatusUpdated` records/aliases. A contract type is not proof that a producer, consumer or matching topic is wired.
 
@@ -222,8 +224,8 @@ The shared `peerpressure/events` module declares parent-contract records named `
 | Order placement | `POST :9091/orders`; creates a `CREATED` order and publishes `orders.created` when Kafka is available | **Runnable HTTP operation**; does not verify customer balance, restaurant stock or driver availability |
 | Payment | Payment consumes `orders.created`, runs simulator and emits payment events | **Not controllable as a payment HTTP request**; no public `POST /payments`, and outcome override is absent from the HTTP order payload |
 | Restaurant cooking / ready | Restaurant consumes `orders.confirmed`, validates restaurant ID/items, decrements stock, emits `orders.preparing` and `kitchen.orders.ready` | **Source path exists but current Order producer supplies empty restaurant ID/items;** Order also listens on a different ready topic (`orders.ready`) |
-| Driver assignment / transit | Event contracts and Order consumer support some delivery-status data | **Not implemented as Delivery service behavior**; Delivery exposes health/metrics only |
-| Delivery completion | Order FSM includes `DELIVERED` transition from `OUT_FOR_DELIVERY` | **No live producer or Delivery operation found** |
+| Driver assignment / transit | Delivery service consumes `kitchen.orders.ready`, runs 2dsphere nearest-driver proximity search in MongoDB `delivery_db`, locks driver to `BUSY`, emits `delivery.driver_assigned` and `delivery.status` | **Runnable on port 9096** (`GET /deliveries/{id}/tracking`, `POST /deliveries/{id}/accept`, `POST /deliveries/{id}/pickup`, `GET /delivery/track/{orderId}`); see `docs/defense/delivery_tracking.md` |
+| Delivery completion | Driver completes milestone `POST /deliveries/{id}/deliver`; driver availability resets to `AVAILABLE`, emits `delivery.status` (`DELIVERED`), advancing Order FSM to `DELIVERED` | **Runnable on port 9096**; verified via Order Service `:9091` and Notification audit `:9097` |
 | Customer notification | Notification consumer/audit lookup exist | **Not end-to-end wired**; topic names and envelope shape do not match producer messages |
 | Admin verification | `GET :9098/admin/stats/overview` | **Runnable but static/seed-file based**; not a live view of the new order |
 
@@ -257,7 +259,7 @@ Checks health on all seven ports, verifies the Windhoek address result, requests
 - `scripts/build-all.sh` runs Ballerina tests/builds modules and services (Bash).
 - `scripts/format-all.sh` and `scripts/lint-all.sh` provide repository-wide formatting/lint checks.
 - `node scripts/validate-postman.mjs` validates collection/environment JSON only.
-- `scripts/run-postman-tests.ps1` or `scripts/run-postman-tests.sh` runs Newman collections; some requests assume undeclared payment-create/delivery-track routes, so this is not the defense runner.
+- `scripts/run-postman-tests.ps1` or `scripts/run-postman-tests.sh` runs Newman collections; payment creation is driven via Kafka events rather than a direct `POST /payments` route. Delivery routes on port 9096 (`GET /delivery/track/{orderId}`, `GET /deliveries/{deliveryId}/tracking`, and milestone `POST` endpoints) are operational and documented in `docs/defense/delivery_tracking.md`.
 - Optional Newman command on Windows, for checking the existing collections rather than proving the full flow:
 
   ```powershell
@@ -278,13 +280,13 @@ Checks health on all seven ports, verifies the Windhoek address result, requests
 - Notification: audit log, dispatcher, HTTP and Kafka-listener tests.
 - Admin: analytics, API and seed data loader tests.
 - Shared modules: event contract/validation and metrics tests; Admin domain has a placeholder test.
-- Delivery: no checked-in service test package is listed.
+- Delivery: unit tests in `services/delivery_service/tests/` (`delivery_service_test.bal` and `simulation_test.bal`) covering models, coordinate boundary validation, driver profile checks, Haversine distance, dynamic ETA calculation, and delivery state machine transitions.
 
 CI also validates Compose manifests, Postman JSON, formatting, builds/tests, and container health smoke tests. Those CI checks are not equivalent to observing the entire business lifecycle.
 
 ### Test outcomes observed during package runs
 
-The package-level test runs during this preparation reported passing totals for the shared `events` module (24), shared `metrics` module (7), Order (37), Customer (32), Payment (5), Restaurant (18) and Admin (16): **139 passing tests across those seven packages**. Delivery has no test package. Notification did **not** compile in this test setup because its `peerpressure/admin_domain` dependency had not been published to the local Ballerina repository first. This is a setup failure, not a passing Notification test result. The aggregate test-loop output incorrectly implied all packages passed; do not repeat that claim. The repository's `scripts/build-all.sh` publishes shared packages before service tests and is the documented canonical sequence, but that complete sequence was not run here.
+The package-level test runs during this preparation reported passing totals for the shared `events` module (24), shared `metrics` module (7), Order (37), Customer (32), Payment (5), Restaurant (18) and Admin (16): **139 passing tests across those seven packages**. Delivery service includes unit tests in `services/delivery_service/tests/` (testing models, coordinates, Haversine distance, dynamic ETA, and transition guards). Notification did **not** compile in this test setup because its `peerpressure/admin_domain` dependency had not been published to the local Ballerina repository first. This is a setup failure, not a passing Notification test result. The aggregate test-loop output incorrectly implied all packages passed; do not repeat that claim. The repository's `scripts/build-all.sh` publishes shared packages before service tests and is the documented canonical sequence, but that complete sequence was not run here.
 
 ## 10. Dry-run checklist and observed result
 
