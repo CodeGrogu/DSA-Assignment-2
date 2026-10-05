@@ -1,200 +1,58 @@
-# ==============================================================================
-# Ballerina Microservices & Code-to-Cloud
-# ==============================================================================
-# Build outputs, executables & container generation artifacts (target/docker, target/bin)
+# Ballerina build artifacts
 target/
-generated/
 *.jar
-*.balx
+*.bala
 
-# Ballerina project metadata & cache
-.ballerina/
-Ballerina.hints
+# Ballerina project cache and lock files
+Dependencies.toml.backup
+repo/
 
-# Local configuration files & secrets
-Config.toml
+# Configuration overrides and local secrets
 Config.local.toml
 *.local.toml
 # Allow configuration templates to be shared across team members
+!services/payment_service/Config.toml
+!services/order_service/Config.toml
+!services/order_service/tests/Config.toml
+!services/customer_service/Config.toml
+!services/customer_service/tests/Config.toml
 !Config.example.toml
 !Config.toml.example
 !*.example.toml
-# Uncomment to track test config files if needed:
-#!**/tests/Config.toml
 
-# ==============================================================================
-# Messaging (Apache Kafka, KRaft & ZooKeeper)
-# ==============================================================================
-# Kafka partition logs, index files & segment data
-kafka-data/
-kafka_data/
-kafka-logs/
-kafka_logs/
-*.index
-*.timeindex
+# Node & package manager directories
+node_modules/
+.npm/
 
-# KRaft cluster metadata & combined logs
-kraft-combined-logs/
-__cluster_metadata/
-
-# ZooKeeper snapshot, transaction logs & process outputs
-zookeeper-data/
-zookeeper_data/
-zookeeper-logs/
-zookeeper_logs/
-zookeeper.out
-
-# ==============================================================================
-# Persistence: MongoDB
-# ==============================================================================
-# WiredTiger engine storage files & locks
-*.wt
-WiredTiger*
-mongod.lock
-storage.bson
-diagnostic.data/
-
-# MongoDB data volumes & backup dumps
-mongo-data/
-mongodb_data/
-mongodata/
-dump/
-dumps/
-*.bson
-
-# ==============================================================================
-# Persistence: SQL Databases (PostgreSQL, MySQL, SQLite)
-# ==============================================================================
-# SQLite database files, rollback journals & write-ahead logs
-*.sqlite
-*.sqlite3
-*.db
-*.db-journal
-*.db-wal
-*.db-shm
-
-# PostgreSQL data directories & password cache
-postgres-data/
-postgres_data/
-pgdata/
-.pgpass
-
-# MySQL data directories & storage engine files
-mysql-data/
-mysql_data/
-ibdata1
-ib_logfile*
-*.ibd
-
-# General database volumes & SQL dump backups
-data/
-db-data/
-db_data/
-volumes/
-docker/volumes/
-backups/
-*.dump
-*.backup
-*.bak
-*.sql.gz
-
-# ==============================================================================
-# Infrastructure & Containers (Docker & Docker Compose)
-# ==============================================================================
-.docker/
-docker-compose.override.yml
-docker-compose.override.yaml
-docker-compose.*.local.yml
-docker-compose.*.local.yaml
-
-# Container export archives (docker save / docker export)
-*.tar
-
-# ==============================================================================
-# Environment Variables & Security Secrets
-# ==============================================================================
-.env
-.env.*
-.env.local
-!.env.example
-!.env.template
-*.pem
-*.key
-*.crt
-secrets/
-
-# ==============================================================================
-# General Logs & Temporary Files
-# ==============================================================================
-logs/
+# Test coverage & generated execution evidence
+coverage/
+test-results/
 *.log
-*.tmp
-*.temp
-*.pid
-scratch/
 
-# ==============================================================================
-# Multi-Developer IDEs & Editors (8-Member Team)
-# ==============================================================================
-# VS Code (ignore user workspace state, allow shared extension recommendations & launch/tasks)
-.vscode/*
-!.vscode/extensions.json
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-.history/
-*.code-snippets
+# Operating system metadata
+.DS_Store
+Thumbs.db
+desktop.ini
 
-# JetBrains / IntelliJ IDEA
+# IDE, editor and local workspace configurations
 .idea/
 *.iml
 *.iws
 *.ipr
-out/
-
-# Eclipse / STS
+.fleet/
+.history/
+*.sublime-project
+*.sublime-workspace
 .project
 .classpath
 .settings/
 
-# Sublime Text
-*.sublime-project
-*.sublime-workspace
-
-# Vim / Emacs
+# Local environment caches
+.cache/
+.env
+.env.local
+.env.*.local
+*.tmp
+*.bak
 *.swp
-*.swo
 *~
-.#*
-
-# ==============================================================================
-# Multi-Platform Operating System Artifacts (Windows, macOS, Linux)
-# ==============================================================================
-# macOS
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-
-# Windows
-Thumbs.db
-ehthumbs.db
-desktop.ini
-$RECYCLE.BIN/
-
-# Linux
-.directory
-.Trash-*
-
-# ==============================================================================
-# AI Assistant & Agent Artifacts
-# ==============================================================================
-.gemini/
-.agent/
-.cursor/
-.claude/
-GEMINI.md
-AGENT.md
-CURSOR.md
-CLAUDE.md

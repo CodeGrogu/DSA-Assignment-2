@@ -1,0 +1,13 @@
+.git
+.env
+.env.*
+**/.env
+**/.env.*
+**/Config.toml
+!services/payment_service/Config.toml
+**/Config.local.toml
+**/*.pem
+**/*.key
+**/target/cache
+**/target/backup
+**/target/report
