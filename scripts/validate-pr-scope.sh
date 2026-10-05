@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # scripts/validate-pr-scope.sh
-# Discrete Pull Request Verification & Domain Scope Gate
-# Enforces exact domain, subtask, linear issue, and milestone traceability per PR.
+# Discrete Pull Request Domain Scope Report
+# Reports branch-derived issue mapping and changed files; does not enforce ownership or file scope.
 
 set -euo pipefail
 
 echo "================================================================="
-echo "       Discrete PR Verification & Traceability Gate             "
+echo "       Discrete PR Scope & Traceability Report                  "
 echo "================================================================="
 
 BRANCH="${HEAD_REF:-$(git branch --show-current 2>/dev/null || echo "")}"
@@ -17,9 +17,7 @@ echo "Target Branch:    $BRANCH"
 echo "Base Branch:      $BASE"
 echo "PR Input Number:  $PR_INPUT_NUM"
 
-if [[ "$BRANCH" =~ feature/parent-issue-([0-9]+) ]]; then
-    PARENT_NUM="${BASH_REMATCH[1]}"
-elif [[ "$BRANCH" =~ ([0-9]+) ]]; then
+if [[ "$BRANCH" =~ ^feature/parent-issue-([0-9]+)$ ]]; then
     PARENT_NUM="${BASH_REMATCH[1]}"
 else
     echo "Notice: Non-standard branch name '$BRANCH'. Performing generic scope check."
@@ -95,7 +93,7 @@ if [ -n "$PARENT_NUM" ] && [ "$PARENT_NUM" -ge 1 ] && [ "$PARENT_NUM" -le 40 ]; 
             ;;
     esac
 
-    SCOPE_STATUS="VERIFIED (Branch matches Parent Issue #${PARENT_NUM})"
+    SCOPE_STATUS="MAPPED (Branch matches Parent Issue #${PARENT_NUM}; not enforced)"
 else
     PR_NUM="${PR_INPUT_NUM:-N/A}"
     PARENT_NUM="N/A"
@@ -108,7 +106,7 @@ else
     MEMBER_NAME="General"
     DOMAIN="Platform General"
     MILESTONE="Continuous Integration"
-    SCOPE_STATUS="NON-RESTRICTED (General Workflow Branch)"
+    SCOPE_STATUS="UNMAPPED (General Workflow Branch; not enforced)"
 fi
 
 echo ""
@@ -145,7 +143,7 @@ fi
 # Output GitHub Step Summary markdown table if running under GitHub Actions
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ] && [ -w "${GITHUB_STEP_SUMMARY}" ]; then
     cat <<EOF >> "$GITHUB_STEP_SUMMARY"
-## Discrete PR Verification: \`${BRANCH}\`
+## Discrete PR Scope Report: \`${BRANCH}\`
 
 | Traceability Property | Specification / Assigned Value |
 | :--- | :--- |
@@ -167,5 +165,5 @@ EOF
 fi
 
 echo ""
-echo "Discrete PR scope verification completed successfully."
+echo "Discrete PR scope report completed (informational only)."
 exit 0

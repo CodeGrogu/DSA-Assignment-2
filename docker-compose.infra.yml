@@ -17,14 +17,17 @@ services:
       KAFKA_LISTENERS: 'PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:29093,PLAINTEXT_HOST://0.0.0.0:29092'
       KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
       KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
-      KAFKA_LOG_DIRS: '/tmp/kraft-combined-logs'
+      KAFKA_LOG_DIRS: '/var/lib/kafka/data'
       CLUSTER_ID: '${KAFKA_CLUSTER_ID:-MkU3OEVBNTcwNTJENDM2Qk}'
+      KAFKA_JMX_PORT: 9999
     healthcheck:
       test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 15s
+    volumes:
+      - kafka-data:/var/lib/kafka/data
     networks:
       - dsa-network
 
@@ -42,6 +45,34 @@ services:
     networks:
       - dsa-network
 
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: dsa-prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    networks:
+      - dsa-network
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: dsa-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/etc/grafana/dashboards
+    depends_on:
+      - prometheus
+    networks:
+      - dsa-network
+
   mongodb:
     image: mongo:7.0
     container_name: dsa-mongodb
@@ -52,26 +83,40 @@ services:
       - /bin/bash
       - -c
       - |
-        openssl rand -base64 756 > /etc/mongo-keyfile
+        if [ ! -f /data/db/.mongo-keyfile ]; then
+          openssl rand -base64 756 > /data/db/.mongo-keyfile
+          chmod 400 /data/db/.mongo-keyfile
+        fi
+        cp /data/db/.mongo-keyfile /etc/mongo-keyfile
         chown mongodb:mongodb /etc/mongo-keyfile
         chmod 400 /etc/mongo-keyfile
-        exec /usr/local/bin/docker-entrypoint.sh mongod --replSet rs0 --bind_ip_all --keyFile /etc/mongo-keyfile
-
+        /usr/local/bin/docker-entrypoint.sh mongod --replSet rs0 --bind_ip_all --keyFile /etc/mongo-keyfile &
+        MONGO_PID=$$!
+        until mongosh -u "$${MONGO_INITDB_ROOT_USERNAME}" -p "$${MONGO_INITDB_ROOT_PASSWORD}" --authenticationDatabase admin --quiet --eval "db.adminCommand({ping: 1}).ok" > /dev/null 2>&1; do
+          sleep 1
+        done
+        mongosh -u "$${MONGO_INITDB_ROOT_USERNAME}" -p "$${MONGO_INITDB_ROOT_PASSWORD}" --authenticationDatabase admin --quiet --eval "try { if (!rs.status().ok) { rs.initiate({_id: 'rs0', members: [{_id: 0, host: 'mongodb:27017'}]}); } } catch(e) { rs.initiate({_id: 'rs0', members: [{_id: 0, host: 'mongodb:27017'}]}); }" > /dev/null 2>&1 || true
+        until mongosh -u "$${MONGO_INITDB_ROOT_USERNAME}" -p "$${MONGO_INITDB_ROOT_PASSWORD}" --authenticationDatabase admin --quiet --eval "db.hello().isWritablePrimary" 2>/dev/null | grep -q "true"; do
+          sleep 1
+        done
+        mongosh -u "$${MONGO_INITDB_ROOT_USERNAME}" -p "$${MONGO_INITDB_ROOT_PASSWORD}" --authenticationDatabase admin /scripts/init-mongo.js 2>/dev/null || true
+        touch /data/db/.init-done
+        trap 'kill -SIGTERM $$MONGO_PID' SIGTERM SIGINT
+        wait $$MONGO_PID
     ports:
       - "${MONGO_PORT:-27017}:27017"
     volumes:
       - mongo-data:/data/db
-      - ./scripts/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
-
+      - ./scripts/init-mongo.js:/scripts/init-mongo.js:ro
     healthcheck:
       test:
         - CMD-SHELL
         - >
-          mongosh -u "$${MONGO_INITDB_ROOT_USERNAME}" -p "$${MONGO_INITDB_ROOT_PASSWORD}" --authenticationDatabase admin --quiet --eval "try { rs.status().ok } catch(e) { rs.initiate({_id: 'rs0', members: [{_id: 0, host: 'mongodb:27017'}]}).ok } db.adminCommand({ping: 1}).ok" || exit 1
+          [ -f /data/db/.init-done ] && mongosh -u "$${MONGO_INITDB_ROOT_USERNAME}" -p "$${MONGO_INITDB_ROOT_PASSWORD}" --authenticationDatabase admin --quiet --eval "db.hello().isWritablePrimary" 2>/dev/null | grep -q "true"
       interval: 5s
       timeout: 5s
       retries: 5
-      start_period: 5s
+      start_period: 20s
     networks:
       - dsa-network
 
@@ -91,8 +136,10 @@ services:
       - dsa-network
 
 volumes:
+  kafka-data:
   mongo-data:
 
 networks:
   dsa-network:
+    name: dsa-network
     driver: bridge

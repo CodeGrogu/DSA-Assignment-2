@@ -12,6 +12,22 @@
 | **Target Milestone** | **M1: Infrastructure, Kafka & Schema Setup** (Unlocked) |
 | **Quality Gate Status** | **IN PROGRESS** (Verified Locally, Pending Final Review) |
 
+> **Post-merge correction:** The exhibits below document PR #121 at merge time, not
+> a fully operational system. The original Dockerfile used Java 17 for Java 21
+> executables and its two Compose projects did not share a network name. The
+> formatter check edited sources, CI skipped the services Compose file, and the
+> original 15 tests missed inconsistent order amounts and status. Follow-up fixes
+> correct these defects, add the parent issue's `KitchenStatusEvent` and
+> `DeliveryStatusEvent` names and round-trip tests, and add a CI Docker runtime
+> smoke test. Runtime smoke-test results require a Docker-enabled CI run; local
+> configuration checks alone do not prove containers start.
+>
+> `scripts/validate-pr-scope.sh` reports mapping but does **not** enforce PR
+> ownership or domain boundaries. PR #121's proposed `modules/schemas` and
+> `modules/common` paths are not the implemented contract: linked issues #1,
+> #41 and #42 specify the single canonical `modules/events` package. There are
+> no JSON business ingress routes requiring HTTP interceptors yet (M2 onward).
+
 ---
 
 ### Acceptance Criteria Checklist
