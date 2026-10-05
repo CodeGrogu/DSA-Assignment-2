@@ -9,6 +9,5 @@ public const string CONSUMER_GROUP = "notification-service";
 
 // Kafka broker address, from env if set, else local default.
 public function kafkaBootstrapServers() returns string {
-
     return "localhost:29092";
 }

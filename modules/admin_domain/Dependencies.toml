@@ -11,7 +11,6 @@ distribution-version = "2201.13.5"
 org = "ballerina"
 name = "jballerina.java"
 version = "0.0.0"
-scope = "testOnly"
 
 [[package]]
 org = "ballerina"
@@ -50,6 +49,14 @@ scope = "testOnly"
 
 [[package]]
 org = "ballerina"
+name = "observe"
+version = "1.7.2"
+dependencies = [
+	{org = "ballerina", name = "jballerina.java"}
+]
+
+[[package]]
+org = "ballerina"
 name = "test"
 version = "0.0.0"
 scope = "testOnly"
@@ -63,11 +70,24 @@ modules = [
 ]
 
 [[package]]
+org = "ballerinai"
+name = "observe"
+version = "0.0.0"
+dependencies = [
+	{org = "ballerina", name = "jballerina.java"},
+	{org = "ballerina", name = "observe"}
+]
+modules = [
+	{org = "ballerinai", packageName = "observe", moduleName = "observe"}
+]
+
+[[package]]
 org = "peerpressure"
 name = "admin_domain"
 version = "0.1.0"
 dependencies = [
-	{org = "ballerina", name = "test"}
+	{org = "ballerina", name = "test"},
+	{org = "ballerinai", name = "observe"}
 ]
 modules = [
 	{org = "peerpressure", packageName = "admin_domain", moduleName = "admin_domain"}
