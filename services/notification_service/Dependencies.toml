@@ -277,6 +277,9 @@ dependencies = [
 	{org = "ballerina", name = "io"},
 	{org = "ballerina", name = "jballerina.java"}
 ]
+modules = [
+	{org = "ballerina", packageName = "os", moduleName = "os"}
+]
 
 [[package]]
 org = "ballerina"
@@ -380,7 +383,7 @@ dependencies = [
 [[package]]
 org = "ballerinax"
 name = "kafka"
-version = "4.6.6"
+version = "4.6.7"
 dependencies = [
 	{org = "ballerina", name = "crypto"},
 	{org = "ballerina", name = "jballerina.java"},
@@ -395,6 +398,20 @@ modules = [
 ]
 
 [[package]]
+org = "ballerinax"
+name = "mongodb"
+version = "5.2.4"
+dependencies = [
+	{org = "ballerina", name = "crypto"},
+	{org = "ballerina", name = "jballerina.java"},
+	{org = "ballerina", name = "log"},
+	{org = "ballerina", name = "time"}
+]
+modules = [
+	{org = "ballerinax", packageName = "mongodb", moduleName = "mongodb"}
+]
+
+[[package]]
 org = "peerpressure"
 name = "admin_domain"
 version = "0.1.0"
@@ -403,6 +420,21 @@ dependencies = [
 ]
 modules = [
 	{org = "peerpressure", packageName = "admin_domain", moduleName = "admin_domain"}
+]
+
+[[package]]
+org = "peerpressure"
+name = "kafka_client"
+version = "0.1.0"
+dependencies = [
+	{org = "ballerina", name = "lang.runtime"},
+	{org = "ballerina", name = "lang.string"},
+	{org = "ballerina", name = "log"},
+	{org = "ballerinai", name = "observe"},
+	{org = "ballerinax", name = "kafka"}
+]
+modules = [
+	{org = "peerpressure", packageName = "kafka_client", moduleName = "kafka_client"}
 ]
 
 [[package]]
@@ -425,16 +457,35 @@ dependencies = [
 	{org = "ballerina", name = "http"},
 	{org = "ballerina", name = "io"},
 	{org = "ballerina", name = "log"},
+	{org = "ballerina", name = "os"},
 	{org = "ballerina", name = "regex"},
 	{org = "ballerina", name = "test"},
 	{org = "ballerina", name = "time"},
 	{org = "ballerina", name = "uuid"},
 	{org = "ballerinai", name = "observe"},
 	{org = "ballerinax", name = "kafka"},
+	{org = "ballerinax", name = "mongodb"},
 	{org = "peerpressure", name = "admin_domain"},
-	{org = "peerpressure", name = "metrics"}
+	{org = "peerpressure", name = "kafka_client"},
+	{org = "peerpressure", name = "metrics"},
+	{org = "peerpressure", name = "resilience"}
 ]
 modules = [
 	{org = "peerpressure", packageName = "notification_service", moduleName = "notification_service"}
+]
+
+[[package]]
+org = "peerpressure"
+name = "resilience"
+version = "0.1.0"
+dependencies = [
+	{org = "ballerina", name = "lang.runtime"},
+	{org = "ballerina", name = "lang.string"},
+	{org = "ballerina", name = "log"},
+	{org = "ballerinai", name = "observe"},
+	{org = "peerpressure", name = "kafka_client"}
+]
+modules = [
+	{org = "peerpressure", packageName = "resilience", moduleName = "resilience"}
 ]
 

@@ -1,14 +1,16 @@
 # docker/Dockerfile.service
-# Standardized Ballerina Microservice Production Runtime Containerfile
+# Standardized Multi-Stage Ballerina Microservice Containerfile
 FROM ballerina/ballerina:2201.13.5 AS builder
+
 USER root
 WORKDIR /src
 ARG SERVICE_NAME
 
+# Build and publish shared modules in topological order
 COPY modules ./modules
-RUN for dir in modules/*; do \
-        if [ -f "$dir/Ballerina.toml" ]; then \
-            (cd "$dir" && bal pack && bal push --repository local) || exit 1; \
+RUN for mod in events metrics kafka_client resilience admin_domain delivery_domain; do \
+        if [ -f "modules/$mod/Ballerina.toml" ]; then \
+            (cd "modules/$mod" && bal pack && bal push --repository local) || exit 1; \
         fi; \
     done
 
@@ -17,12 +19,8 @@ RUN cd services/${SERVICE_NAME} && bal build
 
 FROM eclipse-temurin:21-jre-jammy
 
-
 WORKDIR /app
 
-
-RUN apt-get update && apt-get install -y --no-install-recommends curl && \
-    rm -rf /var/lib/apt/lists/*
 # Create non-root runtime user for container security
 RUN groupadd -g 10001 ballerina && \
     useradd -u 10001 -g ballerina -m -s /bin/bash ballerina
@@ -30,11 +28,15 @@ RUN groupadd -g 10001 ballerina && \
 ARG SERVICE_NAME
 ARG PORT
 
-# Copy compiled Ballerina executable jar from the builder stage
+# Copy compiled Ballerina executable jar and optional seed/config files
 COPY --from=builder /src/services/${SERVICE_NAME}/target/bin/${SERVICE_NAME}.jar /app/service.jar
+COPY services/${SERVICE_NAME}/ /tmp/service_assets/
+RUN if [ -f /tmp/service_assets/seed_data.json ]; then cp /tmp/service_assets/seed_data.json /app/seed_data.json; fi && \
+    if [ -f /tmp/service_assets/Config.toml ]; then cp /tmp/service_assets/Config.toml /app/Config.toml; fi && \
+    rm -rf /tmp/service_assets && \
+    chown -R 10001:10001 /app
 
 ENV PORT=${PORT}
-ENV BAL_CONFIG_VAR_PORT=${PORT}
 EXPOSE ${PORT}
 
 USER 10001

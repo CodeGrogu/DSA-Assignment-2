@@ -12,12 +12,21 @@ configurable int mongoServerSelectionTimeoutMs = 2000;
 
 final string mongoConnectionString = string `mongodb://${mongoUser}:${mongoPassword}@${mongoHost}:${mongoPort}/${databaseName}?authSource=${mongoAuthSource}&replicaSet=${mongoReplicaSet}&serverSelectionTimeoutMS=${mongoServerSelectionTimeoutMs}`;
 
+isolated mongodb:Client? sharedMongoClient = ();
+
 isolated function getMongoClient() returns mongodb:Client|error {
-    do {
-        return check new ({connection: mongoConnectionString});
-    } on fail error err {
-        log:printError("Failed to initialize MongoDB client: " + err.message(), err);
-        return err;
+    lock {
+        if sharedMongoClient is mongodb:Client {
+            return <mongodb:Client>sharedMongoClient;
+        }
+        do {
+            mongodb:Client created = check new ({connection: mongoConnectionString});
+            sharedMongoClient = created;
+            return created;
+        } on fail error err {
+            log:printError("Failed to initialize MongoDB client: " + err.message(), err);
+            return err;
+        }
     }
 }
 
@@ -36,44 +45,63 @@ isolated function decrementMenuItemStock(string restaurantId, string itemId, int
     if quantity <= 0 {
         return false;
     }
-    mongodb:Collection collection = check getRestaurantsCollection();
+    Restaurant? restaurant = check findRestaurant(restaurantId);
+    if restaurant is () {
+        return false;
+    }
 
-    map<json> filter = {
-        "id": restaurantId,
-        "menu.items.id": itemId,
-        "menu.items": {
-            "$elemMatch": {
-                "id": itemId,
-                "stock": {"$gte": quantity}
+    foreach int catIdx in 0 ..< restaurant.menu.length() {
+        foreach int itemIdx in 0 ..< restaurant.menu[catIdx].items.length() {
+            if restaurant.menu[catIdx].items[itemIdx].id == itemId {
+                string itemIdPath = string `menu.${catIdx}.items.${itemIdx}.id`;
+                string stockPath = string `menu.${catIdx}.items.${itemIdx}.stock`;
+                mongodb:Collection collection = check getRestaurantsCollection();
+                map<json> filter = {
+                    "id": restaurantId,
+                    [itemIdPath]: itemId,
+                    [stockPath]: {"$gte": quantity}
+                };
+                mongodb:Update update = {
+                    "inc": {[stockPath]: -quantity}
+                };
+                mongodb:UpdateResult result = check collection->updateOne(filter, update);
+                return result.modifiedCount == 1;
             }
         }
-    };
-
-    mongodb:Update update = {
-        "inc": {"menu.items.$.stock": -quantity}
-    };
-
-    mongodb:UpdateResult result = check collection->updateOne(filter, update);
-    return result.modifiedCount == 1;
+    }
+    return false;
 }
 
 isolated function incrementMenuItemStock(string restaurantId, string itemId, int quantity) returns boolean|error {
     if quantity <= 0 {
         return false;
     }
-    mongodb:Collection collection = check getRestaurantsCollection();
+    Restaurant? restaurant = check findRestaurant(restaurantId);
+    if restaurant is () {
+        return false;
+    }
 
-    map<json> filter = {
-        "id": restaurantId,
-        "menu.items.id": itemId
-    };
-
-    mongodb:Update update = {
-        "inc": {"menu.items.$.stock": quantity}
-    };
-
-    mongodb:UpdateResult result = check collection->updateOne(filter, update);
-    return result.modifiedCount == 1;
+    foreach int catIdx in 0 ..< restaurant.menu.length() {
+        foreach int itemIdx in 0 ..< restaurant.menu[catIdx].items.length() {
+            if restaurant.menu[catIdx].items[itemIdx].id == itemId {
+                string itemIdPath = string `menu.${catIdx}.items.${itemIdx}.id`;
+                string stockPath = string `menu.${catIdx}.items.${itemIdx}.stock`;
+                string availPath = string `menu.${catIdx}.items.${itemIdx}.isAvailable`;
+                mongodb:Collection collection = check getRestaurantsCollection();
+                map<json> filter = {
+                    "id": restaurantId,
+                    [itemIdPath]: itemId
+                };
+                mongodb:Update update = {
+                    "inc": {[stockPath]: quantity},
+                    "set": {[availPath]: true}
+                };
+                mongodb:UpdateResult result = check collection->updateOne(filter, update);
+                return result.modifiedCount == 1;
+            }
+        }
+    }
+    return false;
 }
 
 public isolated function seedDatabase() returns error? {
@@ -220,4 +248,3 @@ public isolated function seedDatabase() returns error? {
         return err;
     }
 }
-

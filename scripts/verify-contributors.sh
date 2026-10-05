@@ -8,7 +8,7 @@ set -euo pipefail
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 CYAN='\033[0;36m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 # Ensure script is executed inside a Git repository root
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null)" || {
@@ -26,7 +26,7 @@ MEMBERS=(
     "Kataliina|Kataliina|kataliinamassipa"
     "Henchoz|Henchoz|henryheita0"
     "Kondwani|kondwani11220|kondwanikunkwenzu"
-    "MEMBER 8|REPLACE_WITH_AUTHOR_NAME_OR_EMAIL"
+    "May-Lee Mulundu|May-Lee Mulundu|Mayleendapewa|itsyagirlmay"
 )
 
 fail=0
@@ -41,43 +41,23 @@ for entry in "${MEMBERS[@]}"; do
     pattern="${entry#*|}"
 
     # Count matching non-merge commits across all branches
-    count=$(git log --all --no-merges -i -E --author="$pattern" --format=%h 2>/dev/null | grep -c . || true)
+    count=$(git log --all --no-merges -i -E --author="$pattern" --format=%h 2>/dev/null | wc -l | tr -d ' ')
 
-    if [[ "$count"Here is the cleaned-up and formatted version of your script. Non-breaking space artifacts (hidden `\xA0` characters that often break Bash execution) have been removed, and the code structure has been standard-formatted for compatibility:
-
-```bash
-#!/usr/bin/env bash
-# Verifies every team member has at least one non-merge commit. Exit 0 = all verified, 1 = someone missing.
-set -uo pipefail
-cd "$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "Not inside a git repo"; exit 2; }
-
-# name|author regex (matches git author name or email, case-insensitive)
-MEMBERS=(
-  "Jaden Awaseb|Jaden|acehood3556|73761054"
-  "Florinda|Florriinnddaa|florinda.funya"
-  "Nangu Tjizoo|Nangu.Tjizoo|knangukuii"
-  "Jerganov|Jerganov|klvntapiwa3"
-  "Kataliina|Kataliina|kataliinamassipa"
-  "Henchoz|Henchoz|henryheita0"
-  "Kondwani|kondwani11220|kondwanikunkwenzu"
-  "MEMBER 8 (replace name)|REPLACE_WITH_AUTHOR_NAME_OR_EMAIL"
-)
-
-fail=0
-printf "%-28s %s\n" "Member" "Commits (non-merge, all branches)"
-for entry in "${MEMBERS[@]}"; do
-  name="${entry%%|*}"
-  pattern="${entry#*|}"
-  count=$(git log --all --no-merges -i -E --author="$pattern" --format=%h | wc -l | tr -d ' ')
-  status="OK"
-  [[ "$count" -ge 1 ]] || { status="MISSING"; fail=1; }
-  printf "%-28s %s  [%s]\n" "$name" "$count" "$status"
+    if [[ "$count" -ge 1 ]]; then
+        printf "%-28s %-10s [${GREEN}OK${NC}]\n" "$name" "$count"
+    else
+        printf "%-28s %-10s [${RED}MISSING${NC}]\n" "$name" "$count"
+        fail=1
+    fi
 done
 
-if [[ $fail -eq 0 ]]; then
-  echo "ALL 8 MEMBERS HAVE VERIFIED COMMITS"
+printf "%.s-" {1..48}
+echo ""
+
+if [[ "$fail" -eq 0 ]]; then
+    echo -e "${GREEN}[SUCCESS] All 8 team members have verified non-merge commits!${NC}"
 else
-  echo "CONTRIBUTOR AUDIT FAILED"
+    echo -e "${RED}[FAIL] One or more team members have no verified non-merge commits.${NC}"
 fi
 
-exit $fail
+exit "$fail"

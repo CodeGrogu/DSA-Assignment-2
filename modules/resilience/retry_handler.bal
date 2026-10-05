@@ -63,7 +63,7 @@ public isolated function calculateBackoff(int attempt, RetryPolicy policy) retur
 # + operation - The function to execute
 # + policy - Retry policy settings
 # + return - `()` on eventual success, or the error if non-transient or exhausted
-public isolated function executeWithRetry(isolated function () returns error? operation, RetryPolicy policy = {}) returns error? {
+public function executeWithRetry(function () returns error? operation, RetryPolicy policy = {}) returns error? {
     int attempt = 0;
     int maxAttempts = policy.maxAttempts;
     string lastError = "";

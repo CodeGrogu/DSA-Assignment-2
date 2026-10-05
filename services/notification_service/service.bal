@@ -40,6 +40,24 @@ service / on httpListener {
         return metrics:getMetricsResponse();
     }
 
+    resource function get notifications() returns json[] {
+        string[] rows = readAuditRows();
+        json[] allRecords = [];
+        foreach string row in rows {
+            string[] parts = splitPipe(row);
+            if parts.length() >= 5 {
+                allRecords.push({
+                    sentAt: parts[0],
+                    recipientId: parts[1],
+                    channel: parts[2],
+                    status: parts[3],
+                    notificationId: parts[4]
+                });
+            }
+        }
+        return allRecords;
+    }
+
     resource function get notifications/recipient/[string id]() returns json|http:NotFound {
         string[] rows = readAuditRows();
         json[] matching = [];

@@ -1,3 +1,4 @@
 startKafkaConsumers = false
-port = 9194
+port = 9094
+enableMongo = false
 

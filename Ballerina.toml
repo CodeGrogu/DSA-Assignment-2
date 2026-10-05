@@ -4,6 +4,8 @@ packages = [
     "modules/metrics",
     "modules/kafka_client",
     "modules/resilience",
+    "modules/admin_domain",
+    "modules/delivery_domain",
     "services/order_service",
     "services/customer_service",
     "services/restaurant_service",
@@ -12,4 +14,3 @@ packages = [
     "services/notification_service",
     "services/admin_service"
 ]
-

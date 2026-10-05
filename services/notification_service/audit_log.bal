@@ -47,6 +47,8 @@ public function saveAudit(domain:NotificationPayload payload, string status) ret
         return result;
     }
 
+    _ = start persistAuditToMongo(entry);
+
     log:printInfo("Audit saved",
             recipient = entry.recipientId,
             channel = entry.channel.toString(),

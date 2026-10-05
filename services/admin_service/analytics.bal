@@ -1,3 +1,5 @@
+import ballerina/time;
+
 // Result of aggregating orders + payments + deliveries.
 public type Overview record {|
     int totalOrders;
@@ -257,10 +259,21 @@ isolated function withinDateRange(string timestamp, string fromDate, string toDa
     return true;
 }
 
-// Rough minutes between two ISO timestamps. Returns 0 if either is bad.
-// We don't need perfect parsing — just enough for the demo.
+// Computes exact minutes between two RFC 3339 / ISO-8601 timestamps across midnight and multi-day boundaries.
 isolated function minutesBetween(string fromIso, string toIso) returns int {
-    // Both are "YYYY-MM-DDTHH:MM:SS..." — pull the HH and MM parts.
+    if fromIso.trim() == "" || toIso.trim() == "" {
+        return 0;
+    }
+    time:Utc|error fromUtc = time:utcFromString(fromIso.trim());
+    time:Utc|error toUtc = time:utcFromString(toIso.trim());
+    if fromUtc is time:Utc && toUtc is time:Utc {
+        decimal diffSeconds = time:utcDiffSeconds(toUtc, fromUtc);
+        if diffSeconds <= 0d {
+            return 0;
+        }
+        return <int>(diffSeconds / 60d);
+    }
+
     int fromH = isoHour(fromIso);
     int fromM = isoMinute(fromIso);
     int toH = isoHour(toIso);

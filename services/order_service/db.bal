@@ -47,16 +47,14 @@ public class OrderStore {
 
     # Inserts or updates an order document.
     public function save(Order 'order) returns error? {
+        Order cloned = 'order.clone();
         lock {
-            self.inMemoryStore['order.orderId] = 'order.clone();
+            self.inMemoryStore[cloned.orderId] = cloned;
         }
         if self.isConnected {
             mongodb:Collection? coll = self.collectionInstance;
             if coll is mongodb:Collection {
-                var insertResult = coll->insertOne('order);
-                if insertResult is error {
-                    log:printWarn("Failed to insert order into MongoDB, preserved in memory", 'error = insertResult);
-                }
+                _ = start persistOrderInsertAsync(coll, cloned);
             }
         }
     }
@@ -71,7 +69,7 @@ public class OrderStore {
         if self.isConnected {
             mongodb:Collection? coll = self.collectionInstance;
             if coll is mongodb:Collection {
-                Order? found = check coll->findOne({orderId: orderId}, targetType = Order);
+                Order?|error found = coll->findOne({orderId: orderId}, targetType = Order);
                 if found is Order {
                     lock {
                         self.inMemoryStore[orderId] = found.clone();
@@ -81,6 +79,37 @@ public class OrderStore {
             }
         }
         return ();
+    }
+
+    # Retrieves all orders in the store.
+    public function listAll() returns Order[] {
+        Order[] orders = [];
+        lock {
+            foreach Order ord in self.inMemoryStore {
+                orders.push(ord.clone());
+            }
+        }
+        return orders;
+    }
+
+    # Retrieves paginated orders for a specific customer.
+    public function getByCustomer(string customerId, int resultLimit = 10, int offset = 0) returns Order[] {
+        Order[] allOrders = self.listAll();
+        Order[] matching = [];
+        foreach Order ord in allOrders {
+            if ord.customerId == customerId {
+                matching.push(ord);
+            }
+        }
+        int startIdx = offset < 0 ? 0 : offset;
+        int maxCount = resultLimit <= 0 ? 10 : resultLimit;
+        Order[] paged = [];
+        int idx = startIdx;
+        while idx < matching.length() && paged.length() < maxCount {
+            paged.push(matching[idx]);
+            idx += 1;
+        }
+        return paged;
     }
 
     # Updates the lifecycle status of an existing order with atomic FSM transition verification.
@@ -94,7 +123,10 @@ public class OrderStore {
         if existing is () && self.isConnected {
             mongodb:Collection? coll = self.collectionInstance;
             if coll is mongodb:Collection {
-                existing = check coll->findOne({orderId: orderId}, targetType = Order);
+                Order?|error dbFound = coll->findOne({orderId: orderId}, targetType = Order);
+                if dbFound is Order {
+                    existing = dbFound;
+                }
             }
         }
 
@@ -130,18 +162,7 @@ public class OrderStore {
         if self.isConnected {
             mongodb:Collection? coll = self.collectionInstance;
             if coll is mongodb:Collection {
-                mongodb:Update update = {
-                    "set": {
-                        "status": newStatus,
-                        "paymentId": updated.paymentId,
-                        "cancellationReason": updated.cancellationReason,
-                        "updatedAt": updated.updatedAt
-                    }
-                };
-                var updateRes = coll->updateOne({orderId: orderId}, update);
-                if updateRes is error {
-                    log:printWarn("Failed to update order status in MongoDB, updated in memory", 'error = updateRes);
-                }
+                _ = start persistOrderUpdateAsync(coll, orderId, newStatus, updated.paymentId, updated.cancellationReason, updated.updatedAt);
             }
         }
 
@@ -166,6 +187,28 @@ public class OrderStore {
         lock {
             self.inMemoryStore.removeAll();
         }
+    }
+}
+
+function persistOrderInsertAsync(mongodb:Collection coll, Order 'order) {
+    error? insertResult = coll->insertOne('order);
+    if insertResult is error {
+        log:printWarn("Failed to insert order into MongoDB, preserved in memory", 'error = insertResult);
+    }
+}
+
+function persistOrderUpdateAsync(mongodb:Collection coll, string orderId, events:OrderStatus newStatus, string? paymentId, string? cancellationReason, string updatedAt) {
+    mongodb:Update update = {
+        "set": {
+            "status": newStatus,
+            "paymentId": paymentId,
+            "cancellationReason": cancellationReason,
+            "updatedAt": updatedAt
+        }
+    };
+    mongodb:UpdateResult|error updateRes = coll->updateOne({orderId: orderId}, update);
+    if updateRes is error {
+        log:printWarn("Failed to update order status in MongoDB, updated in memory", 'error = updateRes);
     }
 }
 

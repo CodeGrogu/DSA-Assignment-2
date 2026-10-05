@@ -5,6 +5,40 @@ import peerpressure/metrics as metrics;
 
 configurable int port = 9098;
 
+isolated function buildRestaurantReportJson(string fromDate, string toDate) returns json[] {
+    json[] orders = loadOrders();
+    RestaurantReport[] rows = computeRestaurantReport(orders, fromDate, toDate);
+
+    json[] result = [];
+    foreach RestaurantReport r in rows {
+        result.push({
+            restaurantId: r.restaurantId,
+            orderCount: r.orderCount,
+            grossSales: r.grossSales,
+            commissionAmount: r.commissionAmount,
+            netPayout: r.netPayout
+        });
+    }
+    return result;
+}
+
+isolated function buildDriverReportJson(string fromDate, string toDate) returns json[] {
+    json[] deliveries = loadDeliveries();
+    DriverReport[] rows = computeDriverReport(deliveries, fromDate, toDate);
+
+    json[] result = [];
+    foreach DriverReport r in rows {
+        result.push({
+            driverId: r.driverId,
+            driverName: r.driverName,
+            completedDeliveries: r.completedDeliveries,
+            averageTurnaroundMinutes: r.averageTurnaroundMinutes,
+            slaBreaches: r.slaBreaches
+        });
+    }
+    return result;
+}
+
 @http:ServiceConfig {
     cors: {
         allowOrigins: ["*"],
@@ -58,41 +92,27 @@ service / on new http:Listener(port) {
     isolated resource function get admin/reports/restaurant(http:Request req) returns json[] {
         string fromDate = req.getQueryParamValue("from") ?: "";
         string toDate = req.getQueryParamValue("to") ?: "";
+        return buildRestaurantReportJson(fromDate, toDate);
+    }
 
-        json[] orders = loadOrders();
-        RestaurantReport[] rows = computeRestaurantReport(orders, fromDate, toDate);
-
-        json[] result = [];
-        foreach RestaurantReport r in rows {
-            result.push({
-                restaurantId: r.restaurantId,
-                orderCount: r.orderCount,
-                grossSales: r.grossSales,
-                commissionAmount: r.commissionAmount,
-                netPayout: r.netPayout
-            });
-        }
-        return result;
+    // GET /admin/sla/restaurants?from=YYYY-MM-DD&to=YYYY-MM-DD
+    isolated resource function get admin/sla/restaurants(http:Request req) returns json[] {
+        string fromDate = req.getQueryParamValue("from") ?: "";
+        string toDate = req.getQueryParamValue("to") ?: "";
+        return buildRestaurantReportJson(fromDate, toDate);
     }
 
     // GET /admin/reports/driver?from=YYYY-MM-DD&to=YYYY-MM-DD
     isolated resource function get admin/reports/driver(http:Request req) returns json[] {
         string fromDate = req.getQueryParamValue("from") ?: "";
         string toDate = req.getQueryParamValue("to") ?: "";
+        return buildDriverReportJson(fromDate, toDate);
+    }
 
-        json[] deliveries = loadDeliveries();
-        DriverReport[] rows = computeDriverReport(deliveries, fromDate, toDate);
-
-        json[] result = [];
-        foreach DriverReport r in rows {
-            result.push({
-                driverId: r.driverId,
-                driverName: r.driverName,
-                completedDeliveries: r.completedDeliveries,
-                averageTurnaroundMinutes: r.averageTurnaroundMinutes,
-                slaBreaches: r.slaBreaches
-            });
-        }
-        return result;
+    // GET /admin/sla/drivers?from=YYYY-MM-DD&to=YYYY-MM-DD
+    isolated resource function get admin/sla/drivers(http:Request req) returns json[] {
+        string fromDate = req.getQueryParamValue("from") ?: "";
+        string toDate = req.getQueryParamValue("to") ?: "";
+        return buildDriverReportJson(fromDate, toDate);
     }
 }

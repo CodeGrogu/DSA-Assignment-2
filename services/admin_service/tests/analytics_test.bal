@@ -94,3 +94,18 @@ function testDriverReportBasic() {
     // SLA is 45 min, so the 60-min delivery is 1 breach
     test:assertEquals(rows[0].slaBreaches, 1);
 }
+
+@test:Config {}
+function testDriverReportCrossMidnightTurnaround() {
+    json[] deliveries = [
+        {"deliveryId": "d_mid_1", "driverId": "dr_night", "driverName": "Lukas", "status": "DELIVERED", "assignedAt": "2026-10-04T23:50:00Z", "deliveredAt": "2026-10-05T00:40:00Z"}
+    ];
+
+    DriverReport[] rows = computeDriverReport(deliveries, "", "");
+
+    test:assertEquals(rows.length(), 1);
+    test:assertEquals(rows[0].driverId, "dr_night");
+    test:assertEquals(rows[0].completedDeliveries, 1);
+    test:assertEquals(rows[0].averageTurnaroundMinutes, 50.0d);
+    test:assertEquals(rows[0].slaBreaches, 1);
+}

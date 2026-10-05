@@ -1,3 +1,4 @@
+import ballerina/http;
 import ballerina/io;
 import ballerina/log;
 import ballerina/os;
@@ -26,6 +27,23 @@ isolated function getCandidatePaths(string? customPath = ()) returns string[] {
     paths.push("services/admin_service/seed_data.json");
     paths.push("admin_service/seed_data.json");
     return paths;
+}
+
+// Fetches live JSON array from a peer microservice when configured via environment variable.
+isolated function fetchLiveArray(string envVarName, string resourcePath) returns json[] {
+    string baseUrl = os:getEnv(envVarName);
+    if baseUrl.trim() == "" {
+        return [];
+    }
+    http:Client|error clientEp = new (baseUrl.trim(), {timeout: 1.5});
+    if clientEp is error {
+        return [];
+    }
+    json|error resp = clientEp->get(resourcePath);
+    if resp is json[] {
+        return resp;
+    }
+    return [];
 }
 
 // Load the whole seed file as json safely.
@@ -67,36 +85,57 @@ public isolated function loadSeed(string? customPath = ()) returns json {
     return {};
 }
 
-// Convenience: get the "orders" array as json[].
+// Convenience: get the "orders" array as json[], merging live order_service records if ORDER_SERVICE_URL is set.
 public isolated function loadOrders(string? customPath = ()) returns json[] {
     json seed = loadSeed(customPath);
+    json[] baseOrders = [];
     if seed is map<json> && seed.hasKey("orders") {
         json orders = seed["orders"];
         if orders is json[] {
-            return orders;
+            baseOrders = orders;
         }
     }
-    return [];
+    if customPath is () && baseOrders.length() > 0 {
+        json[] liveOrders = fetchLiveArray("ORDER_SERVICE_URL", "/orders");
+        foreach json item in liveOrders {
+            baseOrders.push(item);
+        }
+    }
+    return baseOrders;
 }
 
 public isolated function loadPayments(string? customPath = ()) returns json[] {
     json seed = loadSeed(customPath);
+    json[] basePayments = [];
     if seed is map<json> && seed.hasKey("payments") {
         json payments = seed["payments"];
         if payments is json[] {
-            return payments;
+            basePayments = payments;
         }
     }
-    return [];
+    if customPath is () && basePayments.length() > 0 {
+        json[] livePayments = fetchLiveArray("PAYMENT_SERVICE_URL", "/payments");
+        foreach json item in livePayments {
+            basePayments.push(item);
+        }
+    }
+    return basePayments;
 }
 
 public isolated function loadDeliveries(string? customPath = ()) returns json[] {
     json seed = loadSeed(customPath);
+    json[] baseDeliveries = [];
     if seed is map<json> && seed.hasKey("deliveries") {
         json deliveries = seed["deliveries"];
         if deliveries is json[] {
-            return deliveries;
+            baseDeliveries = deliveries;
         }
     }
-    return [];
+    if customPath is () && baseDeliveries.length() > 0 {
+        json[] liveDeliveries = fetchLiveArray("DELIVERY_SERVICE_URL", "/deliveries");
+        foreach json item in liveDeliveries {
+            baseDeliveries.push(item);
+        }
+    }
+    return baseDeliveries;
 }

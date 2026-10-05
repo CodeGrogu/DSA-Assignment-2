@@ -47,6 +47,23 @@ service / on new http:Listener(port) {
         return metrics:getMetricsResponse();
     }
 
+    resource function get payments() returns json[] {
+        lock {
+            json[] results = [];
+            map<boolean> seenOrders = {};
+            foreach var [_, val] in inMemoryPayments.entries() {
+                if val is map<json> {
+                    json ordIdJson = val["orderId"];
+                    if ordIdJson is string && !seenOrders.hasKey(ordIdJson) {
+                        seenOrders[ordIdJson] = true;
+                        results.push(val.cloneReadOnly());
+                    }
+                }
+            }
+            return results.clone();
+        }
+    }
+
     resource function get payments/[string id]() returns http:Response {
         json? cached = ();
         lock {
@@ -157,6 +174,17 @@ service / on new http:Listener(port) {
             method = methodJson.trim();
         }
 
+        string outcome = simulatorDefaultMode;
+        json outcomeJson = payload["simulatorOutcome"];
+        if outcomeJson is string && outcomeJson.trim() != "" {
+            outcome = outcomeJson.trim();
+        }
+
+        GatewayResult|error gatewayResult = paymentGatewaySimulator.authorize(outcome, gatewayTimeoutSeconds);
+        boolean authorized = gatewayResult is GatewayResult && gatewayResult.status != FAILED;
+        string finalStatus = authorized ? "SUCCESS" : "FAILED";
+        PaymentStatus txnStatus = authorized ? COMPLETED : FAILED;
+
         string suffix = orderId;
         if orderId.startsWith("ord_") {
             suffix = orderId.substring(4);
@@ -170,8 +198,9 @@ service / on new http:Listener(port) {
             orderId: orderId,
             amount: amount,
             currency: "NAD",
-            status: "SUCCESS",
-            paymentMethod: method
+            status: finalStatus,
+            paymentMethod: method,
+            completedAt: currentTimestamp()
         };
 
         lock {
@@ -181,7 +210,6 @@ service / on new http:Listener(port) {
             inMemoryPayments["pay_" + orderId] = paymentRecord.cloneReadOnly();
         }
 
-        // Record in ledger if available
         PaymentTransaction txn = {
             transactionId: transactionId,
             orderId: orderId,
@@ -189,21 +217,29 @@ service / on new http:Listener(port) {
             amount: amount,
             currency: "NAD",
             method: method,
-            status: COMPLETED,
+            status: txnStatus,
             idempotencyKey: createIdempotencyKey(orderId, "charge"),
             createdAt: currentTimestamp()
         };
 
-        _ = start persistToLedgerAsync(txn);
+        _ = start persistAndPublishAsync(txn);
 
         return <http:Created>{body: paymentRecord};
     }
 }
 
-function persistToLedgerAsync(PaymentTransaction txn) {
-    error? persistResult = trap persistCharge(txn);
-    if persistResult is error {
-        log:printWarn("Ledger persistence skipped (ledger unavailable)", 'error = persistResult);
+function persistAndPublishAsync(PaymentTransaction txn) {
+    if enableMongo {
+        error? persistResult = trap persistCharge(txn);
+        if persistResult is error {
+            log:printWarn("Ledger persistence skipped (ledger unavailable)", 'error = persistResult);
+        }
+    }
+    if startKafkaConsumers && txn.status == COMPLETED {
+        error? pubErr = trap publishCompleted(txn);
+        if pubErr is error {
+            log:printWarn("Payment Kafka publish skipped", 'error = pubErr);
+        }
     }
 }
 

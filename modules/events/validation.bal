@@ -75,8 +75,8 @@ public isolated function validateOrderCreated(json data) returns OrderCreated|er
         }
         calculatedTotal += item.subtotal;
     }
-    if event.totalAmount != calculatedTotal {
-        return error("Validation failed: totalAmount must equal the sum of item subtotals");
+    if event.totalAmount < calculatedTotal {
+        return error("Validation failed: totalAmount must be at least the sum of item subtotals");
     }
     GeoCoordinate? destination = event.deliveryAddress.coordinates;
     if destination is GeoCoordinate {

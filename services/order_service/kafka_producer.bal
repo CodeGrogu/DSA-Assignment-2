@@ -48,6 +48,36 @@ public class OrderEventProducer {
         }
     }
 
+    private function dispatchRecordAsync(string topic, byte[] keyBytes, byte[] valBytes, string orderId) {
+        kafka:Producer? prod = self.producer;
+        if prod is () {
+            string servers = getEffectiveKafkaServers();
+            kafka:Producer|error newProd = new (servers, {
+                clientId: "order-service-producer"
+            });
+            if newProd is kafka:Producer {
+                self.producer = newProd;
+                prod = newProd;
+            } else {
+                log:printWarn("Kafka producer connection unavailable; event recorded in memory only", topic = topic, orderId = orderId);
+                return;
+            }
+        }
+        if prod is kafka:Producer {
+            kafka:AnydataProducerRecord rec = {
+                topic: topic,
+                key: keyBytes,
+                value: valBytes
+            };
+            kafka:Error? sendErr = prod->send(rec);
+            if sendErr is kafka:Error {
+                log:printError("Failed to send event to Kafka", 'error = sendErr, topic = topic, orderId = orderId);
+            } else {
+                log:printInfo("Successfully published event to Kafka", topic = topic, orderId = orderId);
+            }
+        }
+    }
+
     # Publishes an OrderCreated event to Kafka topic `orders.created` keyed by customerId.
     public function publishOrderCreated(Order 'order) returns error? {
         events:OrderItem[] eventItems = from CreateOrderItem item in 'order.items
@@ -59,17 +89,6 @@ public class OrderEventProducer {
                 subtotal: item.price * <decimal>item.quantity,
                 specialInstructions: item.specialInstructions.cloneReadOnly()
             };
-
-        if 'order.deliveryFee > 0.0d {
-            eventItems.push({
-                itemId: "DELIVERY_FEE",
-                itemName: "Dynamic Delivery Fee",
-                quantity: 1,
-                unitPrice: 'order.deliveryFee,
-                subtotal: 'order.deliveryFee,
-                specialInstructions: [].cloneReadOnly()
-            });
-        }
 
         events:OrderCreated event = {
             eventId: uuid:createType4AsString(),
@@ -88,35 +107,10 @@ public class OrderEventProducer {
         }
 
         if enableKafka {
-            kafka:Producer? prod = self.producer;
-            if prod is () {
-                kafka:Producer|error newProd = new (kafkaBootstrapServers, {
-                    clientId: "order-service-producer"
-                });
-                if newProd is kafka:Producer {
-                    self.producer = newProd;
-                    prod = newProd;
-                } else {
-                    log:printError("Kafka producer reconnection failed; OrderCreated event recorded in memory only", 'error = newProd);
-                    return;
-                }
-            }
-
-            if prod is kafka:Producer {
-                json jsonPayload = event.toJson();
-                byte[] valBytes = jsonPayload.toJsonString().toBytes();
-                kafka:AnydataProducerRecord rec = {
-                    topic: orderCreatedTopic,
-                    key: 'order.customerId.toBytes(),
-                    value: valBytes
-                };
-                kafka:Error? sendErr = prod->send(rec);
-                if sendErr is kafka:Error {
-                    log:printError("Failed to send OrderCreated event to Kafka", 'error = sendErr, topic = orderCreatedTopic, orderId = 'order.orderId);
-                } else {
-                    log:printInfo("Successfully published OrderCreated event to Kafka", topic = orderCreatedTopic, orderId = 'order.orderId);
-                }
-            }
+            json jsonPayload = event.toJson();
+            byte[] valBytes = jsonPayload.toJsonString().toBytes();
+            byte[] keyBytes = 'order.customerId.toBytes();
+            _ = start self.dispatchRecordAsync(orderCreatedTopic, keyBytes, valBytes, 'order.orderId);
         }
     }
 
@@ -147,35 +141,10 @@ public class OrderEventProducer {
         }
 
         if enableKafka {
-            kafka:Producer? prod = self.producer;
-            if prod is () {
-                kafka:Producer|error newProd = new (kafkaBootstrapServers, {
-                    clientId: "order-service-producer"
-                });
-                if newProd is kafka:Producer {
-                    self.producer = newProd;
-                    prod = newProd;
-                } else {
-                    log:printError("Kafka producer reconnection failed; OrderConfirmed event recorded in memory only", 'error = newProd);
-                    return;
-                }
-            }
-
-            if prod is kafka:Producer {
-                json jsonPayload = event.toJson();
-                byte[] valBytes = jsonPayload.toJsonString().toBytes();
-                kafka:AnydataProducerRecord rec = {
-                    topic: orderConfirmedTopic,
-                    key: 'order.orderId.toBytes(),
-                    value: valBytes
-                };
-                kafka:Error? sendErr = prod->send(rec);
-                if sendErr is kafka:Error {
-                    log:printError("Failed to send OrderConfirmed event to Kafka", 'error = sendErr, topic = orderConfirmedTopic, orderId = 'order.orderId);
-                } else {
-                    log:printInfo("Successfully published OrderConfirmed event to Kafka", topic = orderConfirmedTopic, orderId = 'order.orderId);
-                }
-            }
+            json jsonPayload = event.toJson();
+            byte[] valBytes = jsonPayload.toJsonString().toBytes();
+            byte[] keyBytes = 'order.orderId.toBytes();
+            _ = start self.dispatchRecordAsync(orderConfirmedTopic, keyBytes, valBytes, 'order.orderId);
         }
     }
 
@@ -194,35 +163,10 @@ public class OrderEventProducer {
         }
 
         if enableKafka {
-            kafka:Producer? prod = self.producer;
-            if prod is () {
-                kafka:Producer|error newProd = new (kafkaBootstrapServers, {
-                    clientId: "order-service-producer"
-                });
-                if newProd is kafka:Producer {
-                    self.producer = newProd;
-                    prod = newProd;
-                } else {
-                    log:printError("Kafka producer reconnection failed; OrderCancelled event recorded in memory only", 'error = newProd);
-                    return;
-                }
-            }
-
-            if prod is kafka:Producer {
-                json jsonPayload = event.toJson();
-                byte[] valBytes = jsonPayload.toJsonString().toBytes();
-                kafka:AnydataProducerRecord rec = {
-                    topic: orderCancelledTopic,
-                    key: orderId.toBytes(),
-                    value: valBytes
-                };
-                kafka:Error? sendErr = prod->send(rec);
-                if sendErr is kafka:Error {
-                    log:printError("Failed to send OrderCancelled event to Kafka", 'error = sendErr, topic = orderCancelledTopic, orderId = orderId);
-                } else {
-                    log:printInfo("Successfully published OrderCancelled event to Kafka", topic = orderCancelledTopic, orderId = orderId);
-                }
-            }
+            json jsonPayload = event.toJson();
+            byte[] valBytes = jsonPayload.toJsonString().toBytes();
+            byte[] keyBytes = orderId.toBytes();
+            _ = start self.dispatchRecordAsync(orderCancelledTopic, keyBytes, valBytes, orderId);
         }
     }
 

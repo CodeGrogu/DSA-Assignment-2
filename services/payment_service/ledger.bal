@@ -2,6 +2,7 @@ import ballerinax/mongodb;
 
 configurable string mongoUri = "mongodb://root:password@mongodb:27017/payments_db?authSource=admin&replicaSet=rs0";
 configurable string mongoDatabase = "payments_db";
+configurable boolean enableMongo = true;
 
 type IdempotencyRecord record {|
     string _id;
