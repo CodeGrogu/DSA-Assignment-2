@@ -1,11 +1,13 @@
 import ballerina/http;
+import ballerina/time;
 
 import peerpressure/events as _;
 
 configurable int port = 9098;
 
-service / on new http:Listener(port) {
-    resource function get health() returns json {
+isolated service / on new http:Listener(port) {
+
+    isolated resource function get health() returns json {
         return {
             status: "UP",
             "service": "admin_service",
@@ -13,5 +15,66 @@ service / on new http:Listener(port) {
             version: "0.1.0",
             contracts: "peerpressure/events:0.1.0"
         };
+    }
+
+    // GET /admin/stats/overview
+    isolated resource function get admin/stats/overview() returns json {
+        json[] orders = loadOrders();
+        json[] payments = loadPayments();
+        json[] deliveries = loadDeliveries();
+
+        Overview ov = computeOverview(orders, payments, deliveries);
+        string now = time:utcToString(time:utcNow());
+
+        return {
+            totalOrders: ov.totalOrders,
+            grossMerchandiseValue: ov.grossMerchandiseValue,
+            successfulPayments: ov.successfulPayments,
+            failedPayments: ov.failedPayments,
+            activeDeliveries: ov.activeDeliveries,
+            generatedAt: now
+        };
+    }
+
+    // GET /admin/reports/restaurant?from=YYYY-MM-DD&to=YYYY-MM-DD
+    isolated resource function get admin/reports/restaurant(http:Request req) returns json[] {
+        string fromDate = req.getQueryParamValue("from") ?: "";
+        string toDate = req.getQueryParamValue("to") ?: "";
+
+        json[] orders = loadOrders();
+        RestaurantReport[] rows = computeRestaurantReport(orders, fromDate, toDate);
+
+        json[] result = [];
+        foreach RestaurantReport r in rows {
+            result.push({
+                restaurantId: r.restaurantId,
+                orderCount: r.orderCount,
+                grossSales: r.grossSales,
+                commissionAmount: r.commissionAmount,
+                netPayout: r.netPayout
+            });
+        }
+        return result;
+    }
+
+    // GET /admin/reports/driver?from=YYYY-MM-DD&to=YYYY-MM-DD
+    isolated resource function get admin/reports/driver(http:Request req) returns json[] {
+        string fromDate = req.getQueryParamValue("from") ?: "";
+        string toDate = req.getQueryParamValue("to") ?: "";
+
+        json[] deliveries = loadDeliveries();
+        DriverReport[] rows = computeDriverReport(deliveries, fromDate, toDate);
+
+        json[] result = [];
+        foreach DriverReport r in rows {
+            result.push({
+                driverId: r.driverId,
+                driverName: r.driverName,
+                completedDeliveries: r.completedDeliveries,
+                averageTurnaroundMinutes: r.averageTurnaroundMinutes,
+                slaBreaches: r.slaBreaches
+            });
+        }
+        return result;
     }
 }
