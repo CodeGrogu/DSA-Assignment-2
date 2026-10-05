@@ -62,3 +62,29 @@ public type AddMenuItemRequest record {|
     string categoryId;
     MenuItem item;
 |};
+
+public type ValidateOrderItem record {|
+    @constraint:String {minLength: 1}
+    string itemId;
+    string name = "";
+    @constraint:Int {minValue: 1}
+    int quantity = 1;
+|};
+
+public type ValidateOrderRequest record {|
+    ValidateOrderItem[] items = [];
+    string? dayOfWeek = ();
+    string? timeOfDay = ();
+    string? date = ();
+|};
+
+public type OrderValidationResult record {|
+    boolean isValid;
+    int statusCode;
+    string status;
+    string message;
+    string? failedItemId = ();
+    int? availableStock = ();
+    int? requestedQuantity = ();
+|};
+

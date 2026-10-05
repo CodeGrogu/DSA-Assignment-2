@@ -443,6 +443,126 @@ service / on new http:Listener(port) {
         return jsonResponse(200, restaurant);
     }
 
+    isolated resource function get restaurants/[string restaurantId]/'open\-status(
+            string? dayOfWeek = (), string? timeOfDay = (), string? date = ()) returns http:Response {
+        Restaurant?|error restaurantResult = findRestaurant(restaurantId);
+        if restaurantResult is error {
+            return jsonResponse(500, {message: "Database connection failed"});
+        }
+        if restaurantResult is () {
+            return jsonResponse(404, {message: "Restaurant not found"});
+        }
+        Restaurant restaurant = restaurantResult;
+
+        string resolvedDay = dayOfWeek is string ? dayOfWeek : getCurrentDayOfWeek();
+        string resolvedTime = timeOfDay is string ? timeOfDay : getCurrentTimeOfDay();
+        boolean isOpen = isRestaurantOpenForOrdering(restaurant, dayOfWeek, timeOfDay, date);
+
+        if isOpen {
+            return jsonResponse(200, {
+                                         restaurantId: restaurantId,
+                                         status: "OPEN",
+                                         open: true,
+                                         dayOfWeek: resolvedDay,
+                                         timeOfDay: resolvedTime
+                                     });
+        }
+
+        return jsonResponse(409, {
+                                     restaurantId: restaurantId,
+                                     status: "CLOSED",
+                                     open: false,
+                                     message: "Restaurant is currently closed for ordering",
+                                     dayOfWeek: resolvedDay,
+                                     timeOfDay: resolvedTime,
+                                     operatingHours: restaurant.operatingHours
+                                 });
+    }
+
+    isolated resource function post restaurants/[string restaurantId]/'validate\-order(
+            @http:Payload ValidateOrderRequest payload) returns http:Response {
+        Restaurant?|error restaurantResult = findRestaurant(restaurantId);
+        if restaurantResult is error {
+            return jsonResponse(500, {message: "Database connection failed"});
+        }
+        if restaurantResult is () {
+            return jsonResponse(404, {message: "Restaurant not found"});
+        }
+        Restaurant restaurant = restaurantResult;
+
+        OrderValidationResult result = validateRestaurantOrder(restaurant, payload);
+        if !result.isValid {
+            map<json> errMap = {
+                status: result.status,
+                message: result.message,
+                restaurantId: restaurantId
+            };
+            if result.failedItemId is string {
+                errMap["itemId"] = result.failedItemId;
+            }
+            if result.availableStock is int {
+                errMap["availableStock"] = result.availableStock;
+            }
+            if result.requestedQuantity is int {
+                errMap["requestedQuantity"] = result.requestedQuantity;
+            }
+            return jsonResponse(result.statusCode, errMap);
+        }
+
+        return jsonResponse(200, {
+                                     status: "VALID",
+                                     restaurantId: restaurantId,
+                                     message: result.message
+                                 });
+    }
+
+    isolated resource function post restaurants/[string restaurantId]/orders(
+            @http:Payload ValidateOrderRequest payload) returns http:Response {
+        Restaurant?|error restaurantResult = findRestaurant(restaurantId);
+        if restaurantResult is error {
+            return jsonResponse(500, {message: "Database connection failed"});
+        }
+        if restaurantResult is () {
+            return jsonResponse(404, {message: "Restaurant not found"});
+        }
+        Restaurant restaurant = restaurantResult;
+
+        if !isRestaurantOpenForOrdering(restaurant, payload.dayOfWeek, payload.timeOfDay, payload.date) {
+            return jsonResponse(400, {
+                                         status: "CLOSED",
+                                         restaurantId: restaurantId,
+                                         message: "Restaurant is currently closed for ordering"
+                                     });
+        }
+
+        if payload.items.length() == 0 {
+            return jsonResponse(400, {message: "Order must contain at least one item"});
+        }
+
+        foreach ValidateOrderItem item in payload.items {
+            if item.quantity <= 0 {
+                return jsonResponse(400, {message: "Item quantity must be greater than zero"});
+            }
+            boolean|error decremented = decrementMenuItemStock(restaurantId, item.itemId, item.quantity);
+            if decremented is error {
+                return jsonResponse(500, {message: "Database connection failed"});
+            }
+            if !decremented {
+                return jsonResponse(409, {
+                                             status: "INSUFFICIENT_STOCK",
+                                             message: "Insufficient stock for item " + item.itemId,
+                                             itemId: item.itemId
+                                         });
+            }
+        }
+
+        return jsonResponse(201, {
+                                     status: "CONFIRMED",
+                                     restaurantId: restaurantId,
+                                     message: "Order placed successfully"
+                                 });
+    }
+
     isolated resource function post seed() returns http:Response {
         error? err = seedDatabase();
         if err is error {
@@ -470,7 +590,31 @@ isolated function isMenuItemIdUniqueAcrossRestaurant(Restaurant restaurant, stri
     return true;
 }
 
-isolated function isRestaurantOpenForOrdering(Restaurant restaurant, string? currentDayOfWeek = (), string? currentTime = ()) returns boolean {
+isolated function isRestaurantOpenForOrdering(
+        Restaurant restaurant, string? currentDayOfWeek = (), string? currentTime = (), string? currentDate = ()) returns boolean {
+    string resolvedDate = currentDate is string ? currentDate : getCurrentDateString();
+    foreach HolidayException holiday in restaurant.holidayExceptions {
+        if holiday.date == resolvedDate {
+            if holiday.isClosed {
+                return false;
+            }
+            if holiday.openTime is string && holiday.closeTime is string {
+                string opTime = <string>holiday.openTime;
+                string clTime = <string>holiday.closeTime;
+                if opTime.trim().length() > 0 && clTime.trim().length() > 0 {
+                    string resolvedHolidayTime = currentTime is string ? currentTime : getCurrentTimeOfDay();
+                    int curMins = parseTimeStringToMinutes(resolvedHolidayTime);
+                    int opMins = parseTimeStringToMinutes(opTime);
+                    int clMins = parseTimeStringToMinutes(clTime);
+                    if clMins < opMins {
+                        return curMins >= opMins || curMins <= clMins;
+                    }
+                    return curMins >= opMins && curMins <= clMins;
+                }
+            }
+        }
+    }
+
     string resolvedDay = currentDayOfWeek is string ? currentDayOfWeek : getCurrentDayOfWeek();
     string resolvedTime = currentTime is string ? currentTime : getCurrentTimeOfDay();
 
@@ -493,11 +637,93 @@ isolated function isRestaurantOpenForOrdering(Restaurant restaurant, string? cur
     return false;
 }
 
-isolated function validateRestaurantOpenForOrdering(Restaurant restaurant, string? currentDayOfWeek = (), string? currentTime = ()) returns string? {
-    if !isRestaurantOpenForOrdering(restaurant, currentDayOfWeek, currentTime) {
+isolated function validateRestaurantOpenForOrdering(
+        Restaurant restaurant, string? currentDayOfWeek = (), string? currentTime = (), string? currentDate = ()) returns string? {
+    if !isRestaurantOpenForOrdering(restaurant, currentDayOfWeek, currentTime, currentDate) {
         return "Restaurant is currently closed for ordering";
     }
     return ();
+}
+
+isolated function validateRestaurantOrder(Restaurant restaurant, ValidateOrderRequest request) returns OrderValidationResult {
+    boolean isOpen = isRestaurantOpenForOrdering(restaurant, request.dayOfWeek, request.timeOfDay, request.date);
+    if !isOpen {
+        return {
+            isValid: false,
+            statusCode: 409,
+            status: "CLOSED",
+            message: "Restaurant is currently closed for ordering"
+        };
+    }
+
+    if request.items.length() == 0 {
+        return {
+            isValid: false,
+            statusCode: 400,
+            status: "INVALID_REQUEST",
+            message: "Order must contain at least one item"
+        };
+    }
+
+    foreach ValidateOrderItem item in request.items {
+        if item.quantity <= 0 {
+            return {
+                isValid: false,
+                statusCode: 400,
+                status: "INVALID_QUANTITY",
+                message: "Item quantity must be greater than zero",
+                failedItemId: item.itemId,
+                requestedQuantity: item.quantity
+            };
+        }
+
+        MenuItem? matchedItem = ();
+        foreach MenuCategory category in restaurant.menu {
+            foreach MenuItem menuItem in category.items {
+                if menuItem.id == item.itemId {
+                    matchedItem = menuItem;
+                    break;
+                }
+            }
+            if matchedItem is MenuItem {
+                break;
+            }
+        }
+
+        if matchedItem is () {
+            return {
+                isValid: false,
+                statusCode: 404,
+                status: "ITEM_NOT_FOUND",
+                message: "Menu item '" + item.itemId + "' not found in restaurant menu",
+                failedItemId: item.itemId
+            };
+        }
+
+        if !matchedItem.isAvailable || matchedItem.stock < item.quantity {
+            return {
+                isValid: false,
+                statusCode: 409,
+                status: "INSUFFICIENT_STOCK",
+                message: "Insufficient stock for menu item '" + item.itemId + "'",
+                failedItemId: item.itemId,
+                availableStock: matchedItem.stock,
+                requestedQuantity: item.quantity
+            };
+        }
+    }
+
+    return {
+        isValid: true,
+        statusCode: 200,
+        status: "VALID",
+        message: "Order is valid for processing"
+    };
+}
+
+isolated function getCurrentDateString() returns string {
+    time:Civil civil = time:utcToCivil(time:utcNow());
+    return string `${civil.year.toString().padStart(4, "0")}-${civil.month.toString().padStart(2, "0")}-${civil.day.toString().padStart(2, "0")}`;
 }
 
 isolated function getCurrentDayOfWeek() returns string {
