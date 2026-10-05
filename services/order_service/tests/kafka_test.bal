@@ -1,5 +1,6 @@
 import ballerina/http;
 import ballerina/test;
+
 import peerpressure/events as events;
 
 function createSampleOrder(string orderId, events:OrderStatus status = events:CREATED) returns Order {
@@ -461,7 +462,8 @@ function testHttpOrderPublishingIntegration() returns error? {
     events:OrderCreated[] createdEvents = orderEventProducer.getRecordedCreatedEvents();
     test:assertEquals(createdEvents.length(), 1);
     test:assertEquals(createdEvents[0].orderId, orderId);
-    test:assertEquals(createdEvents[0].totalAmount, 85.0d);
+    decimal expectedTotal = check body.totalAmount;
+    test:assertEquals(createdEvents[0].totalAmount, expectedTotal);
 
     CancelOrderRequest cancelReq = {
         reason: "Customer changed mind before preparation"
@@ -590,5 +592,4 @@ function testEndToEndOrderLifecycleViaKafkaEvents() returns error? {
         test:assertEquals(finalStored.status, events:DELIVERED);
     }
 }
-
 

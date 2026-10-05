@@ -1,6 +1,7 @@
 import ballerina/lang.'runtime as runtime;
 import ballerina/log;
 import ballerinax/kafka;
+
 import peerpressure/events as events;
 
 configurable boolean startKafkaConsumers = true;
@@ -117,7 +118,7 @@ public function processPaymentCompleted(events:PaymentCompleted event) returns O
 
     // If order has already progressed downstream (e.g. PREPARING, READY, OUT_FOR_DELIVERY, DELIVERED), payment was already processed
     if existing.status == events:PREPARING || existing.status == events:READY ||
-       existing.status == events:OUT_FOR_DELIVERY || existing.status == events:DELIVERED {
+        existing.status == events:OUT_FOR_DELIVERY || existing.status == events:DELIVERED {
         log:printInfo(string `Order '${event.orderId}' is already in downstream state '${existing.status}'; ignoring duplicate PaymentCompleted`);
         return existing;
     }
@@ -264,7 +265,7 @@ public function processKitchenPreparing(string orderId) returns Order|error {
     }
 
     if existing.status == events:PREPARING || existing.status == events:READY ||
-       existing.status == events:OUT_FOR_DELIVERY || existing.status == events:DELIVERED {
+        existing.status == events:OUT_FOR_DELIVERY || existing.status == events:DELIVERED {
         log:printInfo(string `Order '${orderId}' is already at or past PREPARING ('${existing.status}'); ignoring duplicate preparing event`);
         return existing;
     }
@@ -292,7 +293,7 @@ public function processKitchenReady(string orderId) returns Order|error {
     }
 
     if existing.status == events:READY || existing.status == events:OUT_FOR_DELIVERY ||
-       existing.status == events:DELIVERED {
+        existing.status == events:DELIVERED {
         log:printInfo(string `Order '${orderId}' is already at or past READY ('${existing.status}'); ignoring duplicate ready event`);
         return existing;
     }

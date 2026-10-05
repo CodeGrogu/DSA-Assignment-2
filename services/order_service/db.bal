@@ -1,5 +1,6 @@
 import ballerina/log;
 import ballerinax/mongodb;
+
 import peerpressure/events as events;
 
 configurable boolean enableMongo = true;
@@ -119,18 +120,31 @@ public class OrderStore {
                 _ = check coll->updateOne(
                     {orderId: orderId},
                     {
-                        "$set": {
-                            "status": newStatus,
-                            "paymentId": updated.paymentId,
-                            "cancellationReason": updated.cancellationReason,
-                            "updatedAt": updated.updatedAt
-                        }
+                    "$set": {
+                        "status": newStatus,
+                        "paymentId": updated.paymentId,
+                        "cancellationReason": updated.cancellationReason,
+                        "updatedAt": updated.updatedAt
                     }
+                }
                 );
             }
         }
 
         return updated;
+    }
+
+    # Returns the count of active unfulfilled orders (not in terminal states DELIVERED or CANCELLED).
+    public function getUnfulfilledOrderCount() returns int {
+        int count = 0;
+        lock {
+            foreach Order ord in self.inMemoryStore {
+                if ord.status != events:DELIVERED && ord.status != events:CANCELLED {
+                    count += 1;
+                }
+            }
+        }
+        return count;
     }
 
     # Clears local in-memory records (useful for test resets).

@@ -1,4 +1,5 @@
 import ballerina/test;
+
 import peerpressure/events as events;
 
 @test:Config {}
