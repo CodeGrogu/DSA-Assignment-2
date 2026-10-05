@@ -120,13 +120,13 @@ public class OrderStore {
                 _ = check coll->updateOne(
                     {orderId: orderId},
                     {
-                        "$set": {
-                            "status": newStatus,
-                            "paymentId": updated.paymentId,
-                            "cancellationReason": updated.cancellationReason,
-                            "updatedAt": updated.updatedAt
-                        }
+                    "$set": {
+                        "status": newStatus,
+                        "paymentId": updated.paymentId,
+                        "cancellationReason": updated.cancellationReason,
+                        "updatedAt": updated.updatedAt
                     }
+                }
                 );
             }
         }
