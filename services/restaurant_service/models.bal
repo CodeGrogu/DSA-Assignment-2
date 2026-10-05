@@ -46,8 +46,7 @@ public type MenuCategory record {|
 |};
 
 public type Restaurant record {|
-    @constraint:String {minLength: 1}
-    string id;
+    string id = "";
     @constraint:String {minLength: 1}
     string name;
     string address;

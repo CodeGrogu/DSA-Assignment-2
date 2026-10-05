@@ -1,4 +1,5 @@
 import ballerina/http;
+import ballerina/log;
 import ballerina/uuid;
 import ballerinax/mongodb;
 
@@ -18,10 +19,19 @@ isolated service / on new http:Listener(port) {
     }
 
     isolated resource function get restaurants(string? category = (), boolean? activeOnly = ())
-            returns http:Response|error {
-        mongodb:Collection collection = check getRestaurantsCollection();
-        stream<Restaurant, error?> restaurantStream = check collection->find({},
-                projection = {"_id": 0}, targetType = Restaurant);
+            returns http:Response {
+        mongodb:Collection collection;
+        var collectionResult = getRestaurantsCollection();
+        if collectionResult is error {
+            return jsonResponse(500, {message: "Database connection failed"});
+        }
+        collection = collectionResult;
+
+        var findResult = collection->find({}, projection = {"_id": 0}, targetType = Restaurant);
+        if findResult is error {
+            return jsonResponse(500, {message: "Database connection failed"});
+        }
+        stream<Restaurant, error?> restaurantStream = findResult;
 
         Restaurant[] restaurants = [];
         while true {
@@ -30,7 +40,7 @@ isolated service / on new http:Listener(port) {
                 break;
             }
             if nextRestaurant is error {
-                return check jsonResponse(500, {message: "Failed to read restaurants"});
+                return jsonResponse(500, {message: "Failed to read restaurants"});
             }
             Restaurant restaurant = nextRestaurant.value;
             if category is string {
@@ -65,44 +75,63 @@ isolated service / on new http:Listener(port) {
             restaurants.push(restaurant);
         }
 
-        return check jsonResponse(200, restaurants);
+        return jsonResponse(200, restaurants);
     }
 
-    isolated resource function post restaurants(@http:Payload Restaurant restaurant) returns http:Response|error {
-        if restaurant.id.trim().length() == 0 {
+    isolated resource function post restaurants(@http:Payload Restaurant restaurant) returns http:Response {
+        if isPlaceholderId(restaurant.id) {
             restaurant.id = uuid:createType1AsString();
         }
 
         string? validationError = validateRestaurant(restaurant);
         if validationError is string {
-            return check jsonResponse(400, {message: validationError});
+            return jsonResponse(400, {message: validationError});
         }
 
-        mongodb:Collection collection = check getRestaurantsCollection();
-        Restaurant? existing = check collection->findOne(
+        mongodb:Collection collection;
+        var collectionResult = getRestaurantsCollection();
+        if collectionResult is error {
+            return jsonResponse(500, {message: "Database connection failed"});
+        }
+        collection = collectionResult;
+
+        Restaurant?|error existing = collection->findOne(
             {"id": restaurant.id}, projection = {"_id": 0}, targetType = Restaurant);
+        if existing is error {
+            return jsonResponse(500, {message: "Database connection failed"});
+        }
         if existing is Restaurant {
-            return check jsonResponse(409, {message: "Restaurant ID already exists"});
+            return jsonResponse(409, {message: string `Restaurant ID already exists: ${restaurant.id}`});
         }
 
-        check collection->insertOne(restaurant);
-        return check jsonResponse(201, restaurant);
+        var insertResult = collection->insertOne(restaurant);
+        if insertResult is error {
+            return jsonResponse(500, {message: "Database connection failed"});
+        }
+        return jsonResponse(201, restaurant);
     }
 
-    isolated resource function get restaurants/[string restaurantId]() returns http:Response|error {
-        Restaurant? restaurant = check findRestaurant(restaurantId);
-        if restaurant is () {
-            return check jsonResponse(404, {message: "Restaurant not found"});
+    isolated resource function get restaurants/[string restaurantId]() returns http:Response {
+        Restaurant?|error restaurant = findRestaurant(restaurantId);
+        if restaurant is error {
+            return jsonResponse(500, {message: "Database connection failed"});
         }
-        return check jsonResponse(200, restaurant);
+        if restaurant is () {
+            return jsonResponse(404, {message: "Restaurant not found"});
+        }
+        return jsonResponse(200, restaurant);
     }
 
     isolated resource function get restaurants/[string restaurantId]/menu(string? categoryId = ())
-            returns http:Response|error {
-        Restaurant? restaurant = check findRestaurant(restaurantId);
-        if restaurant is () {
-            return check jsonResponse(404, {message: "Restaurant not found"});
+            returns http:Response {
+        Restaurant?|error restaurantResult = findRestaurant(restaurantId);
+        if restaurantResult is error {
+            return jsonResponse(500, {message: "Database connection failed"});
         }
+        if restaurantResult is () {
+            return jsonResponse(404, {message: "Restaurant not found"});
+        }
+        Restaurant restaurant = restaurantResult;
 
         if categoryId is string {
             boolean categoryFound = false;
@@ -113,7 +142,7 @@ isolated service / on new http:Listener(port) {
                 }
             }
             if !categoryFound {
-                return check jsonResponse(400, {message: "Menu category does not exist"});
+                return jsonResponse(400, {message: "Menu category does not exist"});
             }
         }
 
@@ -139,20 +168,24 @@ isolated service / on new http:Listener(port) {
             categories.push({id: category.id, name: category.name, items});
         }
 
-        return check jsonResponse(200, categories);
+        return jsonResponse(200, categories);
     }
 
     isolated resource function post restaurants/[string restaurantId]/menu/items(
-            @http:Payload AddMenuItemRequest request) returns http:Response|error {
+            @http:Payload AddMenuItemRequest request) returns http:Response {
         string? validationError = validateMenuItem(request.item);
         if validationError is string {
-            return check jsonResponse(400, {message: validationError});
+            return jsonResponse(400, {message: validationError});
         }
 
-        Restaurant? restaurant = check findRestaurant(restaurantId);
-        if restaurant is () {
-            return check jsonResponse(404, {message: "Restaurant not found"});
+        Restaurant?|error restaurantResult = findRestaurant(restaurantId);
+        if restaurantResult is error {
+            return jsonResponse(500, {message: "Database connection failed"});
         }
+        if restaurantResult is () {
+            return jsonResponse(404, {message: "Restaurant not found"});
+        }
+        Restaurant restaurant = restaurantResult;
 
         boolean categoryFound = false;
         foreach MenuCategory category in restaurant.menu {
@@ -161,35 +194,48 @@ isolated service / on new http:Listener(port) {
             }
         }
         if !categoryFound {
-            return check jsonResponse(400, {message: "Menu category does not exist"});
+            return jsonResponse(400, {message: "Menu category does not exist"});
         }
-        if !isMenuItemIdUniqueAcrossRestaurant(restaurant, request.item.id, request.categoryId) {
-            return check jsonResponse(409, {message: "Menu item ID already exists in the restaurant"});
+        if !isMenuItemIdUniqueAcrossRestaurant(restaurant, request.item.id) {
+            return jsonResponse(409, {message: "Menu item ID already exists in the restaurant"});
         }
 
-        mongodb:Collection collection = check getRestaurantsCollection();
-        mongodb:UpdateResult result = check collection->updateOne(
+        mongodb:Collection collection;
+        var collectionResult = getRestaurantsCollection();
+        if collectionResult is error {
+            return jsonResponse(500, {message: "Database connection failed"});
+        }
+        collection = collectionResult;
+
+        mongodb:UpdateResult|error result = collection->updateOne(
             {"id": restaurantId, "menu.id": request.categoryId},
             {"$push": {"menu.$.items": request.item}}
         );
+        if result is error {
+            return jsonResponse(500, {message: "Database connection failed"});
+        }
         if result.matchedCount == 0 {
-            return check jsonResponse(404, {message: "Restaurant or menu category not found"});
+            return jsonResponse(404, {message: "Restaurant or menu category not found"});
         }
 
         MenuItem createdItem = request.item;
         createdItem.isAvailable = createdItem.isAvailable && createdItem.stock > 0;
-        return check jsonResponse(201, createdItem);
+        return jsonResponse(201, createdItem);
     }
 
     isolated resource function put restaurants/[string restaurantId]/menu/items/[string itemId]/price(
-            @http:Payload record {|decimal price;|} payload) returns http:Response|error {
+            @http:Payload record {|decimal price;|} payload) returns http:Response {
         if payload.price < 0.0d {
-            return check jsonResponse(400, {message: "Menu item price must be non-negative"});
+            return jsonResponse(400, {message: "Menu item price must be non-negative"});
         }
-        Restaurant? restaurant = check findRestaurant(restaurantId);
-        if restaurant is () {
-            return check jsonResponse(404, {message: "Restaurant not found"});
+        Restaurant?|error restaurantResult = findRestaurant(restaurantId);
+        if restaurantResult is error {
+            return jsonResponse(500, {message: "Database connection failed"});
         }
+        if restaurantResult is () {
+            return jsonResponse(404, {message: "Restaurant not found"});
+        }
+        Restaurant restaurant = restaurantResult;
 
         boolean itemFound = false;
         foreach MenuCategory category in restaurant.menu {
@@ -205,24 +251,41 @@ isolated service / on new http:Listener(port) {
             }
         }
         if !itemFound {
-            return check jsonResponse(404, {message: "Menu item not found"});
+            return jsonResponse(404, {message: "Menu item not found"});
         }
 
-        mongodb:Collection collection = check getRestaurantsCollection();
-        map<json> restaurantDoc = check restaurant.cloneWithType();
-        mongodb:UpdateResult _ = check collection->updateOne({"id": restaurantId}, {"$set": restaurantDoc});
-        return check jsonResponse(200, restaurant);
+        mongodb:Collection collection;
+        var collectionResult = getRestaurantsCollection();
+        if collectionResult is error {
+            return jsonResponse(500, {message: "Database connection failed"});
+        }
+        collection = collectionResult;
+
+        map<json>|error restaurantDoc = restaurant.cloneWithType();
+        if restaurantDoc is error {
+            return jsonResponse(500, {message: "Database connection failed"});
+        }
+
+        mongodb:UpdateResult|error updateResult = collection->updateOne({"id": restaurantId}, {"$set": restaurantDoc});
+        if updateResult is error {
+            return jsonResponse(500, {message: "Database connection failed"});
+        }
+        return jsonResponse(200, restaurant);
     }
 
     isolated resource function put restaurants/[string restaurantId]/menu/items/[string itemId]/stock(
-            @http:Payload record {|int stock;|} payload) returns http:Response|error {
+            @http:Payload record {|int stock;|} payload) returns http:Response {
         if payload.stock < 0 {
-            return check jsonResponse(400, {message: "Menu item stock must be non-negative"});
+            return jsonResponse(400, {message: "Menu item stock must be non-negative"});
         }
-        Restaurant? restaurant = check findRestaurant(restaurantId);
-        if restaurant is () {
-            return check jsonResponse(404, {message: "Restaurant not found"});
+        Restaurant?|error restaurantResult = findRestaurant(restaurantId);
+        if restaurantResult is error {
+            return jsonResponse(500, {message: "Database connection failed"});
         }
+        if restaurantResult is () {
+            return jsonResponse(404, {message: "Restaurant not found"});
+        }
+        Restaurant restaurant = restaurantResult;
 
         boolean itemFound = false;
         foreach MenuCategory category in restaurant.menu {
@@ -239,26 +302,43 @@ isolated service / on new http:Listener(port) {
             }
         }
         if !itemFound {
-            return check jsonResponse(404, {message: "Menu item not found"});
+            return jsonResponse(404, {message: "Menu item not found"});
         }
 
-        mongodb:Collection collection = check getRestaurantsCollection();
-        map<json> restaurantDoc = check restaurant.cloneWithType();
-        mongodb:UpdateResult _ = check collection->updateOne({"id": restaurantId}, {"$set": restaurantDoc});
-        return check jsonResponse(200, restaurant);
+        mongodb:Collection collection;
+        var collectionResult = getRestaurantsCollection();
+        if collectionResult is error {
+            return jsonResponse(500, {message: "Database connection failed"});
+        }
+        collection = collectionResult;
+
+        map<json>|error restaurantDoc = restaurant.cloneWithType();
+        if restaurantDoc is error {
+            return jsonResponse(500, {message: "Database connection failed"});
+        }
+
+        mongodb:UpdateResult|error updateResult = collection->updateOne({"id": restaurantId}, {"$set": restaurantDoc});
+        if updateResult is error {
+            return jsonResponse(500, {message: "Database connection failed"});
+        }
+        return jsonResponse(200, restaurant);
     }
 
     isolated resource function put restaurants/[string restaurantId]/menu/items/[string itemId](
-            @http:Payload MenuItem itemPayload) returns http:Response|error {
+            @http:Payload MenuItem itemPayload) returns http:Response {
         string? validationError = validateMenuItem(itemPayload);
         if validationError is string {
-            return check jsonResponse(400, {message: validationError});
+            return jsonResponse(400, {message: validationError});
         }
 
-        Restaurant? restaurant = check findRestaurant(restaurantId);
-        if restaurant is () {
-            return check jsonResponse(404, {message: "Restaurant not found"});
+        Restaurant?|error restaurantResult = findRestaurant(restaurantId);
+        if restaurantResult is error {
+            return jsonResponse(500, {message: "Database connection failed"});
         }
+        if restaurantResult is () {
+            return jsonResponse(404, {message: "Restaurant not found"});
+        }
+        Restaurant restaurant = restaurantResult;
 
         boolean itemFound = false;
         foreach MenuCategory category in restaurant.menu {
@@ -281,26 +361,34 @@ isolated service / on new http:Listener(port) {
             }
         }
         if !itemFound {
-            return check jsonResponse(404, {message: "Menu item not found"});
+            return jsonResponse(404, {message: "Menu item not found"});
         }
 
-        mongodb:Collection collection = check getRestaurantsCollection();
-        map<json> restaurantDoc = check restaurant.cloneWithType();
-        mongodb:UpdateResult _ = check collection->updateOne({"id": restaurantId}, {"$set": restaurantDoc});
-        return check jsonResponse(200, restaurant);
+        mongodb:Collection collection;
+        var collectionResult = getRestaurantsCollection();
+        if collectionResult is error {
+            return jsonResponse(500, {message: "Database connection failed"});
+        }
+        collection = collectionResult;
+
+        map<json>|error restaurantDoc = restaurant.cloneWithType();
+        if restaurantDoc is error {
+            return jsonResponse(500, {message: "Database connection failed"});
+        }
+
+        mongodb:UpdateResult|error updateResult = collection->updateOne({"id": restaurantId}, {"$set": restaurantDoc});
+        if updateResult is error {
+            return jsonResponse(500, {message: "Database connection failed"});
+        }
+        return jsonResponse(200, restaurant);
     }
 
-    isolated resource function post seed() returns http:Response|error {
+    isolated resource function post seed() returns http:Response {
         error? err = seedDatabase();
-        http:Response res = new;
         if err is error {
-            res.statusCode = 500;
-            res.setJsonPayload({message: "Failed to seed database", "error": err.message()});
-        } else {
-            res.statusCode = 200;
-            res.setJsonPayload({message: "Database seeded successfully"});
+            return jsonResponse(500, {message: "Failed to seed database", "error": err.message()});
         }
-        return res;
+        return jsonResponse(200, {message: "Database seeded successfully"});
     }
 }
 
@@ -331,10 +419,32 @@ isolated function isMenuItemIdUniqueAcrossRestaurant(Restaurant restaurant, stri
     return true;
 }
 
+isolated function isPlaceholderId(string id) returns boolean {
+    string trimmed = id.trim();
+    if trimmed.length() == 0 {
+        return true;
+    }
+    string lower = trimmed.toLowerAscii();
+    return lower == "placeholder" || lower == "auto" || lower == "<auto>" ||
+        lower == "{auto}" || lower == "default" || lower == "new" ||
+        lower == "null" || lower == "undefined" || lower == "0" ||
+        lower == "string" || lower == "temp" || lower == "none" ||
+        lower == "generate" || lower == "generated" || lower == "<placeholder>" ||
+        lower == "{placeholder}" || lower == "<generated>" || lower == "{id}";
+}
+
 isolated function validateRestaurant(Restaurant restaurant) returns string? {
-    if restaurant.id.trim().length() == 0 || restaurant.name.trim().length() == 0 ||
-            restaurant.address.trim().length() == 0 || restaurant.contactNumber.trim().length() == 0 {
-        return "Restaurant ID, name, address, and contact number are required";
+    if restaurant.id.trim().length() == 0 {
+        return "Restaurant ID is required";
+    }
+    if restaurant.name.trim().length() == 0 {
+        return "Restaurant name is required";
+    }
+    if restaurant.address.trim().length() == 0 {
+        return "Restaurant address is required";
+    }
+    if restaurant.contactNumber.trim().length() == 0 {
+        return "Restaurant contact number is required";
     }
 
     if restaurant.location.'type != "Point" {
@@ -353,11 +463,32 @@ isolated function validateRestaurant(Restaurant restaurant) returns string? {
         return "Restaurant location latitude must be between -90 and 90 degrees";
     }
 
+    foreach OperatingHours op in restaurant.operatingHours {
+        if op.dayOfWeek.trim().length() == 0 {
+            return "Operating hours day of week is required";
+        }
+        if !op.isClosed && (op.openTime.trim().length() == 0 || op.closeTime.trim().length() == 0) {
+            return "Operating hours open and close times are required when not closed";
+        }
+    }
+
+    foreach HolidayException hex in restaurant.holidayExceptions {
+        if hex.date.trim().length() == 0 {
+            return "Holiday exception date is required";
+        }
+    }
+
+    map<boolean> seenCategories = {};
     map<boolean> seenItems = {};
     foreach MenuCategory category in restaurant.menu {
         if category.id.trim().length() == 0 || category.name.trim().length() == 0 {
             return "Menu category ID and name are required";
         }
+        if seenCategories.hasKey(category.id) {
+            return "duplicate menu category ID '" + category.id + "' found across the restaurant menu";
+        }
+        seenCategories[category.id] = true;
+
         foreach MenuItem item in category.items {
             if seenItems.hasKey(item.id) {
                 return "duplicate menu item ID '" + item.id + "' found across the restaurant menu";
@@ -393,11 +524,16 @@ isolated function validateMenuItem(MenuItem item) returns string? {
 }
 
 isolated function findRestaurant(string restaurantId) returns Restaurant?|error {
-    mongodb:Collection collection = check getRestaurantsCollection();
-    return check collection->findOne({"id": restaurantId}, projection = {"_id": 0}, targetType = Restaurant);
+    do {
+        mongodb:Collection collection = check getRestaurantsCollection();
+        return check collection->findOne({"id": restaurantId}, projection = {"_id": 0}, targetType = Restaurant);
+    } on fail error err {
+        log:printError("Failed to find restaurant with ID " + restaurantId + ": " + err.message(), err);
+        return err;
+    }
 }
 
-isolated function jsonResponse(int statusCode, json payload) returns http:Response|error {
+isolated function jsonResponse(int statusCode, json payload) returns http:Response {
     http:Response response = new;
     response.statusCode = statusCode;
     response.setJsonPayload(payload);
