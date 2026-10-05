@@ -37,7 +37,7 @@ isolated function decrementMenuItemStock(string restaurantId, string itemId, int
         return false;
     }
     mongodb:Collection collection = check getRestaurantsCollection();
-    
+
     map<json> filter = {
         "id": restaurantId,
         "menu.items.id": itemId,
@@ -48,10 +48,10 @@ isolated function decrementMenuItemStock(string restaurantId, string itemId, int
             }
         }
     };
-    
+
     map<json> updateMap = {"$inc": {"menu.items.$.stock": -quantity}};
     mongodb:Update update = check updateMap.cloneWithType();
-    
+
     mongodb:UpdateResult result = check collection->updateOne(filter, update);
     return result.modifiedCount == 1;
 }
@@ -61,20 +61,18 @@ isolated function incrementMenuItemStock(string restaurantId, string itemId, int
         return false;
     }
     mongodb:Collection collection = check getRestaurantsCollection();
-    
+
     map<json> filter = {
         "id": restaurantId,
         "menu.items.id": itemId
     };
-    
+
     map<json> updateMap = {"$inc": {"menu.items.$.stock": quantity}};
     mongodb:Update update = check updateMap.cloneWithType();
-    
+
     mongodb:UpdateResult result = check collection->updateOne(filter, update);
     return result.modifiedCount == 1;
 }
-
-
 
 public isolated function seedDatabase() returns error? {
     do {

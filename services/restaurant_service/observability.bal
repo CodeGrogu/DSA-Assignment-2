@@ -1,4 +1,3 @@
-import ballerina/http;
 import ballerina/log;
 import ballerina/observe;
 
@@ -43,8 +42,6 @@ isolated function setConsumerLagMetric(string groupId, string topic, int lag) {
         log:printError("Failed to set Kafka consumer lag metric", metricResult);
     }
 }
-
-
 
 isolated function getOrCreateCounter(string name, map<string> tags) returns observe:Counter|error {
     observe:Counter|observe:Gauge? currentMetric = observe:lookupMetric(name, tags = tags);

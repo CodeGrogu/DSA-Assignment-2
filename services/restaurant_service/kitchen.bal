@@ -83,7 +83,7 @@ function startKitchenPreparation(events:OrderConfirmedEvent confirmedOrder) retu
         value: preparingEvent.toJsonString().toBytes()
     });
 
-    future<()> preparationJob = start runKitchenPreparationJob(confirmedOrder, restaurant.address);
+    _ = start runKitchenPreparationJob(confirmedOrder, restaurant.address);
 }
 
 isolated function validateConfirmedKitchenOrder(events:OrderConfirmedEvent confirmedOrder) returns string? {
