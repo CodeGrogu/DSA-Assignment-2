@@ -11,6 +11,16 @@ An in-progress distributed food delivery platform built with **Ballerina Swan La
 
 ---
 
+## Current Architecture Status
+
+The platform is implemented as seven Ballerina microservices supported by shared event contracts in `modules/events`.
+
+The shared event module currently defines order, payment, kitchen, delivery, and notification event types, together with status enumerations and common domain types such as `Money`, `Address`, `GeoCoordinate`, and `OrderItem`.
+
+The seven services currently expose health-check endpoints. Business endpoints, event producers/consumers, persistence operations, and the complete end-to-end order lifecycle are being implemented incrementally.
+
+For a detailed description of the current architecture and event model, see [`docs/architecture.md`](docs/architecture.md).
+
 ## 1. Planned System Architecture & C4 Diagrams
 
 ### 1.1 C4 Level 1: System Context Diagram
