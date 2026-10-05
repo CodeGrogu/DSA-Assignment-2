@@ -1,0 +1,16 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: "ballerina-services"
+    metrics_path: "/metrics"
+    scheme: http
+    static_configs:
+      - targets:
+          - "order-service:9091"
+          - "customer-service:9093"
+          - "payment-service:9094"
+          - "restaurant-service:9095"
+          - "delivery-service:9096"
+          - "notification-service:9097"
+          - "admin-service:9098"

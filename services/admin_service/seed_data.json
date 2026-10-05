@@ -1,0 +1,22 @@
+{
+  "orders": [
+    { "orderId": "o1", "customerId": "c1", "restaurantId": "r1", "totalAmount": 120.00, "status": "DELIVERED", "createdAt": "2026-10-01T12:00:00Z" },
+    { "orderId": "o2", "customerId": "c2", "restaurantId": "r1", "totalAmount": 85.50,  "status": "DELIVERED", "createdAt": "2026-10-02T13:30:00Z" },
+    { "orderId": "o3", "customerId": "c3", "restaurantId": "r2", "totalAmount": 210.00, "status": "DELIVERED", "createdAt": "2026-10-02T19:00:00Z" },
+    { "orderId": "o4", "customerId": "c4", "restaurantId": "r2", "totalAmount": 45.00,  "status": "CANCELLED", "createdAt": "2026-10-03T10:00:00Z" },
+    { "orderId": "o5", "customerId": "c5", "restaurantId": "r1", "totalAmount": 155.75, "status": "OUT_FOR_DELIVERY", "createdAt": "2026-10-04T18:00:00Z" }
+  ],
+  "payments": [
+    { "paymentId": "p1", "orderId": "o1", "amount": 120.00, "status": "COMPLETED", "completedAt": "2026-10-01T12:01:00Z" },
+    { "paymentId": "p2", "orderId": "o2", "amount": 85.50,  "status": "COMPLETED", "completedAt": "2026-10-02T13:31:00Z" },
+    { "paymentId": "p3", "orderId": "o3", "amount": 210.00, "status": "COMPLETED", "completedAt": "2026-10-02T19:01:00Z" },
+    { "paymentId": "p4", "orderId": "o4", "amount": 45.00,  "status": "FAILED",    "completedAt": "2026-10-03T10:00:30Z" },
+    { "paymentId": "p5", "orderId": "o5", "amount": 155.75, "status": "COMPLETED", "completedAt": "2026-10-04T18:01:00Z" }
+  ],
+  "deliveries": [
+    { "deliveryId": "d1", "orderId": "o1", "driverId": "dr1", "driverName": "Tomas", "status": "DELIVERED", "assignedAt": "2026-10-01T12:05:00Z", "deliveredAt": "2026-10-01T12:35:00Z" },
+    { "deliveryId": "d2", "orderId": "o2", "driverId": "dr1", "driverName": "Tomas", "status": "DELIVERED", "assignedAt": "2026-10-02T13:35:00Z", "deliveredAt": "2026-10-02T14:10:00Z" },
+    { "deliveryId": "d3", "orderId": "o3", "driverId": "dr2", "driverName": "Maria", "status": "DELIVERED", "assignedAt": "2026-10-02T19:05:00Z", "deliveredAt": "2026-10-02T19:50:00Z" },
+    { "deliveryId": "d4", "orderId": "o5", "driverId": "dr2", "driverName": "Maria", "status": "IN_TRANSIT", "assignedAt": "2026-10-04T18:05:00Z" }
+  ]
+}
