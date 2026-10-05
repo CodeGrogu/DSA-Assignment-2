@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Food Delivery — Admin Dashboard</h1>
+      <span id="last-updated">Waiting for data...</span>
+    </header>
+
+    <section class="kpi-grid">
+      <div class="kpi-card feature">
+        <div class="kpi-icon">
+          <svg viewBox="0 0 24 24"><path d="M12 2v20M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
+        </div>
+        <div>
+          <div class="kpi-label">GMV (NAD)</div>
+          <div class="kpi-value" id="kpi-gmv">—</div>
+        </div>
+      </div>
+
+      <div class="kpi-card orders">
+        <div class="kpi-icon">
+          <svg viewBox="0 0 24 24"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0" /></svg>
+        </div>
+        <div>
+          <div class="kpi-label">Total Orders</div>
+          <div class="kpi-value" id="kpi-orders">—</div>
+        </div>
+      </div>
+
+      <div class="kpi-card ok">
+        <div class="kpi-icon">
+          <svg viewBox="0 0 24 24"><path d="M22 11.1V12a10 10 0 1 1-5.9-9.1M22 4 12 14l-3-3" /></svg>
+        </div>
+        <div>
+          <div class="kpi-label">Successful Payments</div>
+          <div class="kpi-value" id="kpi-payments-ok">—</div>
+        </div>
+      </div>
+
+      <div class="kpi-card fail">
+        <div class="kpi-icon">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="m15 9-6 6M9 9l6 6" /></svg>
+        </div>
+        <div>
+          <div class="kpi-label">Failed Payments</div>
+          <div class="kpi-value kpi-warn" id="kpi-payments-fail">—</div>
+        </div>
+      </div>
+
+      <div class="kpi-card active">
+        <div class="kpi-icon">
+          <svg viewBox="0 0 24 24"><path d="M1 3h15v13H1zM16 8h4l3 3v5h-7zM5.5 21a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM18.5 21a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z" /></svg>
+        </div>
+        <div>
+          <div class="kpi-label">Active Deliveries</div>
+          <div class="kpi-value" id="kpi-active">—</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Service Health</h2>
+      <div class="health-grid">
+        <div class="health-item">
+          <span class="dot" id="health-notif"></span>
+          <span>notification_service :9095</span>
+        </div>
+        <div class="health-item">
+          <span class="dot" id="health-admin"></span>
+          <span>admin_service :9098</span>
+        </div>
+      </div>
+      <p class="hint">Green = reachable, red = not responding.</p>
+    </section>
+
+    <section class="panel">
+      <h2>Recent Notifications (cust-42)</h2>
+      <div class="table-wrap">
+        <table id="notif-table">
+          <thead>
+            <tr>
+              <th>Sent At</th>
+              <th>Channel</th>
+              <th>Status</th>
+              <th>Notification ID</th>
+            </tr>
+          </thead>
+          <tbody id="notif-body">
+            <tr>
+              <td colspan="4" class="empty">No data yet</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <script src="app.js"></script>
+  </body>
+</html>
