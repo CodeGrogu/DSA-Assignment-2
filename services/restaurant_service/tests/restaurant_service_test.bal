@@ -2,6 +2,8 @@ import ballerina/http;
 import ballerina/test;
 import ballerina/uuid;
 
+import peerpressure/events as events;
+
 @test:Config {}
 function testValidateRestaurantRejectsDuplicateMenuItemIdsAcrossCategories() returns error? {
     Restaurant restaurant = {
@@ -82,6 +84,74 @@ function testIsMenuItemIdUniqueAcrossRestaurantAllowsSameIdInDifferentCategoryWh
             "I-1 exists in C-1, so exclusion of C-2 should not permit it");
     test:assertFalse(isMenuItemIdUniqueAcrossRestaurant(restaurant, "I-7"),
             "I-7 exists in the restaurant, so global check without exclusion should fail");
+}
+
+@test:Config {}
+function testIsMenuItemIdUniqueAcrossRestaurantRejectsSameIdOutsideExcludedCategory() returns error? {
+    Restaurant restaurant = {
+        id: "R-103",
+        name: "Category Exclusion Check",
+        address: "Bismarck Street",
+        location: {'type: "Point", coordinates: [17.0658d, -22.5333d]},
+        contactNumber: "081-300-4000",
+        menu: [
+            {
+                id: "C-1",
+                name: "Mains",
+                items: [{id: "I-9", name: "Burger", price: 45.00d, taxRate: 0.15d, stock: 3, isAvailable: true}]
+            },
+            {
+                id: "C-2",
+                name: "Desserts",
+                items: [{id: "I-9", name: "Cake", price: 30.00d, taxRate: 0.15d, stock: 4, isAvailable: true}]
+            }
+        ]
+    };
+
+    test:assertFalse(isMenuItemIdUniqueAcrossRestaurant(restaurant, "I-9", "C-2"),
+            "The same ID remains invalid when it still exists in a non-excluded category");
+}
+
+@test:Config {}
+function testStockDecrementQueryIsConditionalAndCannotGoBelowZero() returns error? {
+    string stockPath = "menu.0.items.1.stock";
+    map<json> filter = buildStockDecrementFilter("R-103", "I-9", 2, 0, 1);
+    map<json> update = buildStockDecrementUpdate(2, 0, 1);
+    map<json> increments = <map<json>>update["$inc"];
+
+    test:assertEquals(filter["id"], "R-103");
+    test:assertEquals(filter["menu.0.items.1.id"], "I-9");
+    test:assertEquals(filter[stockPath], {"$gte": 2},
+                                         "The atomic update must match only when stock covers the requested quantity");
+    test:assertEquals(increments[stockPath], -2,
+            "The matching update must decrement stock atomically");
+}
+
+@test:Config {}
+function testConfirmedKitchenOrderRejectsMissingItemsAndNonPositiveQuantities() returns error? {
+    events:OrderConfirmedEvent emptyOrder = {
+        eventId: "E-1",
+        orderId: "O-1",
+        restaurantId: "R-1",
+        items: [],
+        paymentId: "P-1",
+        estimatedDeliveryMinutes: 20,
+        confirmedAt: "2026-10-05T10:00:00Z"
+    };
+    test:assertTrue(validateConfirmedKitchenOrder(emptyOrder) is string,
+            "Kitchen must reject confirmed orders without items");
+
+    events:OrderConfirmedEvent invalidQuantityOrder = {
+        eventId: "E-2",
+        orderId: "O-2",
+        restaurantId: "R-1",
+        items: [{itemId: "I-1", itemName: "Meal", quantity: 0, unitPrice: 10.0d, subtotal: 0.0d}],
+        paymentId: "P-2",
+        estimatedDeliveryMinutes: 20,
+        confirmedAt: "2026-10-05T10:00:00Z"
+    };
+    test:assertTrue(validateConfirmedKitchenOrder(invalidQuantityOrder) is string,
+            "Kitchen must reject non-positive order quantities");
 }
 
 @test:Config {}

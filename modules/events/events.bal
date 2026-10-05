@@ -15,6 +15,8 @@ public type OrderCreatedEvent OrderCreated;
 public type OrderConfirmed readonly & record {|
     string eventId;
     string orderId;
+    string restaurantId;
+    OrderItem[] items;
     string paymentId;
     int estimatedDeliveryMinutes;
     string confirmedAt;
@@ -81,6 +83,7 @@ public type KitchenOrderReady readonly & record {|
     string eventId;
     string orderId;
     string restaurantId;
+    string pickupAddress;
     string pickupReadyAt;
 |};
 

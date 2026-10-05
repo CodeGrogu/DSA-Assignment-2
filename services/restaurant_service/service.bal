@@ -4,8 +4,6 @@ import ballerina/time;
 import ballerina/uuid;
 import ballerinax/mongodb;
 
-import peerpressure/metrics as metrics;
-
 configurable int port = 9095;
 
 service / on new http:Listener(port) {
@@ -20,9 +18,9 @@ service / on new http:Listener(port) {
         };
         time:Utc endTime = time:utcNow();
         decimal durationMs = time:utcDiffSeconds(endTime, startTime) * 1000d;
-        metrics:recordHttpRequest("GET", "/health", 200, durationMs, "restaurant_service");
-        metrics:recordMessageLatency("orders.ready", durationMs, "restaurant_service");
-        metrics:setConsumerLagMetric("restaurant_service_group", "orders.ready", 0);
+        recordHttpRequest("GET", "/health", 200, durationMs, "restaurant_service");
+        recordMessageLatency("kitchen.orders.ready", durationMs, "restaurant_service");
+        setConsumerLagMetric("restaurant-kitchen-service", "orders.confirmed", 0);
         return response;
     }
 
@@ -452,7 +450,7 @@ service / on new http:Listener(port) {
     }
 
     resource function get metrics() returns http:Response {
-        return metrics:getMetricsResponse();
+        return getMetricsResponse();
     }
 }
 
