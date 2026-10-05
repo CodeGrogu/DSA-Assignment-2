@@ -1,0 +1,13 @@
+[package]
+org = "peerpressure"
+name = "kafka_client"
+version = "0.1.0"
+distribution = "2201.13.5"
+
+[build-options]
+observabilityIncluded = true
+
+[[dependency]]
+org = "ballerinax"
+name = "kafka"
+version = "4.6.6"

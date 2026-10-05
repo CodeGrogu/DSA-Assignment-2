@@ -1,0 +1,123 @@
+services:
+  order-service:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.service
+      args:
+        SERVICE_NAME: order_service
+        PORT: 9091
+    container_name: dsa-order-service
+    ports:
+      - "9091:9091"
+    environment:
+      PORT: 9091
+      KAFKA_BROKER: kafka:9092
+      MONGO_URI: mongodb://${MONGO_ROOT_USER:-root}:${MONGO_ROOT_PASSWORD:-password}@mongodb:27017/orders_db?authSource=admin
+    networks:
+      - dsa-network
+
+  customer-service:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.service
+      args:
+        SERVICE_NAME: customer_service
+        PORT: 9093
+    container_name: dsa-customer-service
+    ports:
+      - "9093:9093"
+    environment:
+      PORT: 9093
+      KAFKA_BROKER: kafka:9092
+      MONGO_URI: mongodb://${MONGO_ROOT_USER:-root}:${MONGO_ROOT_PASSWORD:-password}@mongodb:27017/customers_db?authSource=admin
+    networks:
+      - dsa-network
+
+  payment-service:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.service
+      args:
+        SERVICE_NAME: payment_service
+        PORT: 9094
+    container_name: dsa-payment-service
+    ports:
+      - "9094:9094"
+    environment:
+      PORT: 9094
+      KAFKA_BROKER: kafka:9092
+      MONGO_URI: mongodb://${MONGO_ROOT_USER:-root}:${MONGO_ROOT_PASSWORD:-password}@mongodb:27017/payments_db?authSource=admin
+    networks:
+      - dsa-network
+
+  restaurant-service:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.service
+      args:
+        SERVICE_NAME: restaurant_service
+        PORT: 9095
+    container_name: dsa-restaurant-service
+    ports:
+      - "9095:9095"
+    environment:
+      PORT: 9095
+      KAFKA_BROKER: kafka:9092
+      MONGO_URI: mongodb://${MONGO_ROOT_USER:-root}:${MONGO_ROOT_PASSWORD:-password}@mongodb:27017/restaurants_db?authSource=admin
+    networks:
+      - dsa-network
+
+  delivery-service:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.service
+      args:
+        SERVICE_NAME: delivery_service
+        PORT: 9096
+    container_name: dsa-delivery-service
+    ports:
+      - "9096:9096"
+    environment:
+      PORT: 9096
+      KAFKA_BROKER: kafka:9092
+      MONGO_URI: mongodb://${MONGO_ROOT_USER:-root}:${MONGO_ROOT_PASSWORD:-password}@mongodb:27017/delivery_db?authSource=admin
+    networks:
+      - dsa-network
+
+  notification-service:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.service
+      args:
+        SERVICE_NAME: notification_service
+        PORT: 9097
+    container_name: dsa-notification-service
+    ports:
+      - "9097:9097"
+    environment:
+      PORT: 9097
+      KAFKA_BROKER: kafka:9092
+      MONGO_URI: mongodb://${MONGO_ROOT_USER:-root}:${MONGO_ROOT_PASSWORD:-password}@mongodb:27017/notifications_db?authSource=admin
+    networks:
+      - dsa-network
+
+  admin-service:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.service
+      args:
+        SERVICE_NAME: admin_service
+        PORT: 9098
+    container_name: dsa-admin-service
+    ports:
+      - "9098:9098"
+    environment:
+      PORT: 9098
+      KAFKA_BROKER: kafka:9092
+      MONGO_URI: mongodb://${MONGO_ROOT_USER:-root}:${MONGO_ROOT_PASSWORD:-password}@mongodb:27017/admin_db?authSource=admin
+    networks:
+      - dsa-network
+
+networks:
+  dsa-network:
+    external: true

@@ -12,3 +12,9 @@ org = "peerpressure"
 name = "events"
 version = "0.1.0"
 repository = "local"
+
+[[dependency]]
+org = "peerpressure"
+name = "metrics"
+version = "0.1.0"
+repository = "local"
