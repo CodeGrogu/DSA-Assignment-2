@@ -305,6 +305,19 @@ isolated service / on new http:Listener(port) {
 }
 
 isolated function isMenuItemIdUniqueAcrossRestaurant(Restaurant restaurant, string itemId, string? excludeCategoryId = ()) returns boolean {
+    if excludeCategoryId is string {
+        foreach MenuCategory category in restaurant.menu {
+            if category.id == excludeCategoryId {
+                foreach MenuItem item in category.items {
+                    if item.id == itemId {
+                        return true;
+                    }
+                }
+                break;
+            }
+        }
+    }
+
     foreach MenuCategory category in restaurant.menu {
         if excludeCategoryId is string && category.id == excludeCategoryId {
             continue;
