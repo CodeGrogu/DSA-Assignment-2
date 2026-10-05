@@ -407,6 +407,18 @@ modules = [
 
 [[package]]
 org = "peerpressure"
+name = "metrics"
+version = "0.1.0"
+dependencies = [
+	{org = "ballerina", name = "http"},
+	{org = "ballerinai", name = "observe"}
+]
+modules = [
+	{org = "peerpressure", packageName = "metrics", moduleName = "metrics"}
+]
+
+[[package]]
+org = "peerpressure"
 name = "payment_service"
 version = "0.1.0"
 dependencies = [
@@ -418,7 +430,8 @@ dependencies = [
 	{org = "ballerinai", name = "observe"},
 	{org = "ballerinax", name = "kafka"},
 	{org = "ballerinax", name = "mongodb"},
-	{org = "peerpressure", name = "events"}
+	{org = "peerpressure", name = "events"},
+	{org = "peerpressure", name = "metrics"}
 ]
 modules = [
 	{org = "peerpressure", packageName = "payment_service", moduleName = "payment_service"}
