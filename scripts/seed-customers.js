@@ -225,21 +225,99 @@ const customers = [
   }
 ];
 
-const customerDb = db.getSiblingDB("customer_db");
-const collection = customerDb.customers;
+const log = typeof print === "function" ? print : console.log;
+const exitProcess = function (code) {
+  if (typeof quit === "function") {
+    quit(code);
+  } else if (typeof process !== "undefined" && typeof process.exit === "function") {
+    process.exit(code);
+  }
+};
 
-customers.forEach(function (customer) {
-  const result = collection.updateOne(
-    { id: customer.id },
-    { $set: customer },
-    { upsert: true }
-  );
+(function seedCustomers() {
+  // Check database connection and handle connection errors
+  try {
+    if (typeof db === "undefined") {
+      throw new Error(
+        "MongoDB database context ('db') is undefined. Ensure this script is executed via mongosh or with an active database connection."
+      );
+    }
+    const ping = db.adminCommand({ ping: 1 });
+    if (!ping || ping.ok !== 1) {
+      throw new Error("MongoDB ping responded with: " + JSON.stringify(ping));
+    }
+  } catch (connErr) {
+    log("MongoDB connection error: " + (connErr.message || connErr));
+    exitProcess(1);
+    return;
+  }
 
-  print(
-    customer.id +
-    " -> " +
-    (result.upsertedId ? "inserted" : "updated")
-  );
-});
+  // Perform idempotent customer seeding
+  try {
+    // Attempt to load customer profiles from external seed file if available; fallback to embedded records
+    let customerData = customers;
+    try {
+      if (typeof require === "function") {
+        const fs = require("fs");
+        const path = require("path");
+        const candidates = [
+          path.resolve(__dirname, "../data/seed_customers.json"),
+          path.resolve(process.cwd(), "data/seed_customers.json"),
+          "data/seed_customers.json"
+        ];
+        for (const candidate of candidates) {
+          if (fs.existsSync(candidate)) {
+            const content = fs.readFileSync(candidate, "utf8");
+            const parsed = JSON.parse(content);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              customerData = parsed;
+              log("Loaded " + customerData.length + " customer records from " + candidate);
+              break;
+            }
+          }
+        }
+      }
+    } catch (_readErr) {
+      // Graceful fallback to embedded customers array
+      customerData = customers;
+    }
 
-print("Customer seed completed. Total customers: " + collection.countDocuments());
+    const customerDb = db.getSiblingDB("customer_db");
+    const collection = customerDb.customers;
+
+    let insertedCount = 0;
+    let updatedCount = 0;
+
+    customerData.forEach(function (customer) {
+      const result = collection.updateOne(
+        { id: customer.id },
+        { $set: customer },
+        { upsert: true }
+      );
+
+      if (result.upsertedId) {
+        insertedCount++;
+        log(customer.id + " -> inserted");
+      } else {
+        updatedCount++;
+        log(customer.id + " -> updated");
+      }
+    });
+
+    const totalCount = collection.countDocuments();
+    log(
+      "Customer seed completed successfully. Inserted: " +
+      insertedCount +
+      ", Updated: " +
+      updatedCount +
+      ", Total customers: " +
+      totalCount
+    );
+
+    exitProcess(0);
+  } catch (seedErr) {
+    log("Error during customer seed execution: " + (seedErr.message || seedErr));
+    exitProcess(1);
+    return;
+  }
+})();
