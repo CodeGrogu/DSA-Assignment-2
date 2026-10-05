@@ -2,6 +2,8 @@
 packages = [
     "modules/events",
     "modules/metrics",
+    "modules/kafka_client",
+    "modules/resilience",
     "services/order_service",
     "services/customer_service",
     "services/restaurant_service",
@@ -10,3 +12,4 @@ packages = [
     "services/notification_service",
     "services/admin_service"
 ]
+
