@@ -563,6 +563,72 @@ service / on new http:Listener(port) {
                                  });
     }
 
+    isolated resource function post restaurants/[string restaurantId]/'order/validate\-and\-reserve(
+            @http:Payload ValidateAndReserveRequest request) returns http:Response {
+        // 1. Fetch restaurant for hours validation
+        Restaurant?|error restaurantResult = findRestaurant(restaurantId);
+        if restaurantResult is error || restaurantResult is () {
+            return jsonResponse(404, {message: "Restaurant not found"});
+        }
+        Restaurant restaurant = restaurantResult;
+
+        // 2. Validate Operating Hours
+        string? hoursError = validateOperatingHours(restaurant, request.orderTimestamp);
+        if hoursError is string {
+            return jsonResponse(409, {"error": "RESTAURANT_CLOSED", message: hoursError});
+        }
+
+        // 3. Atomic Conditional Decrement for each item
+        mongodb:Collection collection;
+        var collectionResult = getRestaurantsCollection();
+        if collectionResult is error {
+            return jsonResponse(500, {message: "Database connection failed"});
+        }
+        collection = collectionResult;
+
+        foreach OrderItemReservation item in request.items {
+            int? categoryIndex = ();
+            int? itemIndex = ();
+
+            foreach int i in 0 ..< restaurant.menu.length() {
+                foreach int j in 0 ..< restaurant.menu[i].items.length() {
+                    if restaurant.menu[i].items[j].id == item.itemId {
+                        categoryIndex = i;
+                        itemIndex = j;
+                        break;
+                    }
+                }
+                if categoryIndex is int {
+                    break;
+                }
+            }
+
+            if categoryIndex is () || itemIndex is () {
+                return jsonResponse(409, {"error": "ITEM_NOT_FOUND", itemId: item.itemId, message: string `Item ${item.itemId} not found`});
+            }
+
+            string stockPath = string `menu.${categoryIndex}.items.${itemIndex}.stock`;
+
+            // Atomic conditional filter: restaurant exists, menu contains item, and stock >= quantity
+            map<json> filter = {
+                "id": restaurantId,
+                [stockPath]: {"$gte": item.quantity}
+            };
+            mongodb:Update update = {
+                "$inc": {[stockPath]: -item.quantity}
+            };
+
+            mongodb:UpdateResult|error updateRes = collection->updateOne(filter, update);
+
+            if updateRes is error || updateRes.modifiedCount == 0 {
+                // Failed atomic check: either item does not exist or insufficient stock
+                return jsonResponse(409, {"error": "INSUFFICIENT_STOCK", itemId: item.itemId, message: string `Item ${item.itemId} has insufficient stock or is unavailable`});
+            }
+        }
+
+        return jsonResponse(200, {status: "RESERVED", restaurantId: restaurantId, message: "Stock successfully reserved and operating hours validated"});
+    }
+
     isolated resource function post seed() returns http:Response {
         error? err = seedDatabase();
         if err is error {
@@ -874,4 +940,63 @@ isolated function jsonResponse(int statusCode, json payload) returns http:Respon
     response.statusCode = statusCode;
     response.setJsonPayload(payload);
     return response;
+}
+
+public isolated function validateOperatingHours(Restaurant restaurant, string? orderTimestamp) returns string? {
+    time:Utc orderUtc = time:utcNow();
+    if orderTimestamp is string {
+        var parsed = time:utcFromString(orderTimestamp);
+        if parsed is error {
+            return "Invalid order timestamp format; RFC 3339 expected";
+        }
+        orderUtc = parsed;
+    }
+    // Convert to CAT (UTC+2)
+    time:Utc catUtc = time:utcAddSeconds(orderUtc, 7200d);
+    time:Civil civil = time:utcToCivil(catUtc); // CAT is UTC+02:00
+    string currentDate = string `${civil.year}-${civil.month.toString().padStart(2, "0")}-${civil.day.toString().padStart(2, "0")}`;
+    string currentTime = string `${civil.hour.toString().padStart(2, "0")}:${civil.minute.toString().padStart(2, "0")}`;
+
+    // 1. Check Holiday Exceptions
+    foreach HolidayException hex in restaurant.holidayExceptions {
+        if hex.date == currentDate {
+            if hex.isClosed {
+                return string `Restaurant is closed on holiday exception date: ${currentDate}`;
+            }
+            if hex.openTime is string && hex.closeTime is string {
+                if currentTime < <string>hex.openTime || currentTime > <string>hex.closeTime {
+                    return string `Order placed outside holiday operating hours (${<string>hex.openTime} - ${<string>hex.closeTime})`;
+                }
+            }
+        }
+    }
+
+    // 2. Determine Day of Week and Validate Weekly Schedule
+    // Map civil date to day of week string: "Monday", "Tuesday", etc.
+    string dayName = getDayOfWeekName(civil);
+    foreach OperatingHours op in restaurant.operatingHours {
+        if op.dayOfWeek.toLowerAscii() == dayName.toLowerAscii() {
+            if op.isClosed {
+                return string `Restaurant is closed on ${op.dayOfWeek}`;
+            }
+            if currentTime < op.openTime || currentTime > op.closeTime {
+                return string `Order placed outside regular operating hours (${op.openTime} - ${op.closeTime} CAT)`;
+            }
+            return (); // Open and valid
+        }
+    }
+    return "No operating hours configured for this day; restaurant closed";
+}
+
+isolated function getDayOfWeekName(time:Civil civil) returns string {
+    string[] days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    int? dayOfWeek = civil.dayOfWeek;
+    if dayOfWeek is () {
+        return "Sunday";
+    }
+    int index = dayOfWeek - 1;
+    if index < 0 || index >= days.length() {
+        index = 0;
+    }
+    return days[index];
 }

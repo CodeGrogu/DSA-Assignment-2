@@ -415,19 +415,6 @@ modules = [
 
 [[package]]
 org = "peerpressure"
-name = "metrics"
-version = "0.1.0"
-dependencies = [
-	{org = "ballerina", name = "http"},
-	{org = "ballerina", name = "test"},
-	{org = "ballerinai", name = "observe"}
-]
-modules = [
-	{org = "peerpressure", packageName = "metrics", moduleName = "metrics"}
-]
-
-[[package]]
-org = "peerpressure"
 name = "restaurant_service"
 version = "0.1.0"
 dependencies = [

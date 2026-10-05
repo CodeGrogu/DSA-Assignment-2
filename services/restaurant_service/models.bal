@@ -63,6 +63,26 @@ public type AddMenuItemRequest record {|
     MenuItem item;
 |};
 
+public type OrderItemReservation record {|
+    @constraint:String {minLength: 1}
+    string itemId;
+    @constraint:Int {minValue: 1}
+    int quantity;
+|};
+
+public type ValidateAndReserveRequest record {|
+    # ISO 8601 / RFC 3339 timestamp of order placement (defaults to current time if omitted)
+    string? orderTimestamp = ();
+    OrderItemReservation[] items;
+|};
+
+public type StockReservationFailure record {|
+    string itemId;
+    string reason; // "INSUFFICIENT_STOCK" | "ITEM_NOT_FOUND" | "RESTAURANT_CLOSED"
+    int availableStock;
+    int requestedQuantity;
+|};
+
 public type ValidateOrderItem record {|
     @constraint:String {minLength: 1}
     string itemId;
