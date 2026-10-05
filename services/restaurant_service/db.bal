@@ -10,14 +10,19 @@ configurable string mongoReplicaSet = "rs0";
 configurable string databaseName = "restaurant_db";
 
 final string mongoConnectionString = string `mongodb://${mongoUser}:${mongoPassword}@${mongoHost}:${mongoPort}/${databaseName}?authSource=${mongoAuthSource}&replicaSet=${mongoReplicaSet}`;
-final mongodb:Client mongoClient = checkpanic new ({connection: mongoConnectionString});
 
-function getRestaurantsCollection() returns mongodb:Collection|error {
+isolated function getMongoClient() returns mongodb:Client|error {
+    return new ({connection: mongoConnectionString});
+}
+
+isolated function getRestaurantsCollection() returns mongodb:Collection|error {
+    mongodb:Client mongoClient = check getMongoClient();
     mongodb:Database restaurantDb = check mongoClient->getDatabase(databaseName);
     return check restaurantDb->getCollection("restaurants");
 }
 
-public function seedDatabase() returns error? {
+public isolated function seedDatabase() returns error? {
+    mongodb:Client mongoClient = check getMongoClient();
     mongodb:Database restaurantDb = check mongoClient->getDatabase(databaseName);
     mongodb:Collection restaurantsCollection = check restaurantDb->getCollection("restaurants");
 

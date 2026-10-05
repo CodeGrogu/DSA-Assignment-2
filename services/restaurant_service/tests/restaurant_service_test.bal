@@ -48,6 +48,36 @@ function testValidateRestaurantRejectsDuplicateMenuItemIdsAcrossCategories() ret
     test:assertTrue(validationError is string, "Duplicate item IDs across categories should fail validation");
     test:assertTrue((<string>validationError).includes("duplicate menu item ID"),
             "Validation message should point to duplicate menu item ID");
+    test:assertFalse(isMenuItemIdUniqueAcrossRestaurant(restaurant, "I-1"),
+            "The helper should recognize the same item ID already exists in another category");
+}
+
+@test:Config {}
+function testIsMenuItemIdUniqueAcrossRestaurantAllowsSameIdInDifferentCategoryWhenExcluded() returns error? {
+    Restaurant restaurant = {
+        id: "R-102",
+        name: "Category Check",
+        address: "Long Street",
+        location: {'type: "Point", coordinates: [17.0658d, -22.5333d]},
+        contactNumber: "081-100-2000",
+        menu: [
+            {
+                id: "C-1",
+                name: "Mains",
+                items: [{id: "I-7", name: "Burger", price: 45.00d, taxRate: 0.15d, stock: 3, isAvailable: true}]
+            },
+            {
+                id: "C-2",
+                name: "Desserts",
+                items: [{id: "I-7", name: "Cake", price: 30.00d, taxRate: 0.15d, stock: 4, isAvailable: true}]
+            }
+        ]
+    };
+
+    test:assertFalse(isMenuItemIdUniqueAcrossRestaurant(restaurant, "I-7"),
+            "A duplicate item ID should still fail globally even when the value repeats across categories");
+    test:assertTrue(isMenuItemIdUniqueAcrossRestaurant(restaurant, "I-7", "C-2"),
+            "The exclusion should permit a same-ID check when ignoring the current category being updated");
 }
 
 @test:Config {}
