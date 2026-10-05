@@ -399,8 +399,22 @@ modules = [
 org = "peerpressure"
 name = "admin_domain"
 version = "0.1.0"
+dependencies = [
+	{org = "ballerinai", name = "observe"}
+]
 modules = [
 	{org = "peerpressure", packageName = "admin_domain", moduleName = "admin_domain"}
+]
+
+[[package]]
+org = "peerpressure"
+name = "events"
+version = "0.1.0"
+dependencies = [
+	{org = "ballerinai", name = "observe"}
+]
+modules = [
+	{org = "peerpressure", packageName = "events", moduleName = "events"}
 ]
 
 [[package]]
@@ -417,7 +431,8 @@ dependencies = [
 	{org = "ballerina", name = "uuid"},
 	{org = "ballerinai", name = "observe"},
 	{org = "ballerinax", name = "kafka"},
-	{org = "peerpressure", name = "admin_domain"}
+	{org = "peerpressure", name = "admin_domain"},
+	{org = "peerpressure", name = "events"}
 ]
 modules = [
 	{org = "peerpressure", packageName = "notification_service", moduleName = "notification_service"}
