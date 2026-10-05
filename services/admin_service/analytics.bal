@@ -1,4 +1,3 @@
-
 // Result of aggregating orders + payments + deliveries.
 public type Overview record {|
     int totalOrders;
@@ -10,7 +9,7 @@ public type Overview record {|
 |};
 
 // Compute the platform overview from raw json arrays.
-public function computeOverview(json[] orders, json[] payments, json[] deliveries) returns Overview {
+public isolated function computeOverview(json[] orders, json[] payments, json[] deliveries) returns Overview {
     int totalOrders = orders.length();
 
     // GMV: sum of all non-cancelled order totals.
@@ -61,7 +60,7 @@ public function computeOverview(json[] orders, json[] payments, json[] deliverie
 }
 
 // Safe string read from a json object.
-function getString(map<json> obj, string key) returns string {
+isolated function getString(map<json> obj, string key) returns string {
     if obj.hasKey(key) {
         json v = obj[key];
         if v is string {
@@ -72,7 +71,7 @@ function getString(map<json> obj, string key) returns string {
 }
 
 // Safe decimal read from a json object.
-function getDecimal(map<json> obj, string key) returns decimal {
+isolated function getDecimal(map<json> obj, string key) returns decimal {
     if obj.hasKey(key) {
         json v = obj[key];
         if v is int {
@@ -114,7 +113,7 @@ const decimal SLA_MINUTES = 45.0d;
 
 // Compute per-restaurant reports, filtered by date range if given.
 // fromDate / toDate are "YYYY-MM-DD" strings. Empty string means "no filter".
-public function computeRestaurantReport(json[] orders, string fromDate, string toDate) returns RestaurantReport[] {
+public isolated function computeRestaurantReport(json[] orders, string fromDate, string toDate) returns RestaurantReport[] {
     map<RestaurantReport> byRestaurant = {};
 
     foreach json o in orders {
@@ -172,7 +171,7 @@ public function computeRestaurantReport(json[] orders, string fromDate, string t
 }
 
 // Compute per-driver reports, filtered by date range.
-public function computeDriverReport(json[] deliveries, string fromDate, string toDate) returns DriverReport[] {
+public isolated function computeDriverReport(json[] deliveries, string fromDate, string toDate) returns DriverReport[] {
     map<DriverReport> byDriver = {};
     map<int> turnaroundSum = {};
     map<int> turnaroundCount = {};
@@ -244,7 +243,7 @@ public function computeDriverReport(json[] deliveries, string fromDate, string t
 
 // True if timestamp falls within [fromDate, toDate] inclusive.
 // Empty strings mean "no bound on that side".
-function withinDateRange(string timestamp, string fromDate, string toDate) returns boolean {
+isolated function withinDateRange(string timestamp, string fromDate, string toDate) returns boolean {
     if timestamp == "" {
         return false;
     }
@@ -260,7 +259,7 @@ function withinDateRange(string timestamp, string fromDate, string toDate) retur
 
 // Rough minutes between two ISO timestamps. Returns 0 if either is bad.
 // We don't need perfect parsing — just enough for the demo.
-function minutesBetween(string fromIso, string toIso) returns int {
+isolated function minutesBetween(string fromIso, string toIso) returns int {
     // Both are "YYYY-MM-DDTHH:MM:SS..." — pull the HH and MM parts.
     int fromH = isoHour(fromIso);
     int fromM = isoMinute(fromIso);
@@ -270,7 +269,7 @@ function minutesBetween(string fromIso, string toIso) returns int {
     return delta < 0 ? 0 : delta;
 }
 
-function isoHour(string iso) returns int {
+isolated function isoHour(string iso) returns int {
     if iso.length() < 13 {
         return 0;
     }
@@ -279,7 +278,7 @@ function isoHour(string iso) returns int {
     return parsed is int ? parsed : 0;
 }
 
-function isoMinute(string iso) returns int {
+isolated function isoMinute(string iso) returns int {
     if iso.length() < 16 {
         return 0;
     }

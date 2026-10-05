@@ -5,9 +5,9 @@ import peerpressure/events as _;
 
 configurable int port = 9098;
 
-service / on new http:Listener(port) {
+isolated service / on new http:Listener(port) {
 
-    resource function get health() returns json {
+    isolated resource function get health() returns json {
         return {
             status: "UP",
             "service": "admin_service",
@@ -18,7 +18,7 @@ service / on new http:Listener(port) {
     }
 
     // GET /admin/stats/overview
-    resource function get admin/stats/overview() returns json {
+    isolated resource function get admin/stats/overview() returns json {
         json[] orders = loadOrders();
         json[] payments = loadPayments();
         json[] deliveries = loadDeliveries();
@@ -37,7 +37,7 @@ service / on new http:Listener(port) {
     }
 
     // GET /admin/reports/restaurant?from=YYYY-MM-DD&to=YYYY-MM-DD
-    resource function get admin/reports/restaurant(http:Request req) returns json[] {
+    isolated resource function get admin/reports/restaurant(http:Request req) returns json[] {
         string fromDate = req.getQueryParamValue("from") ?: "";
         string toDate = req.getQueryParamValue("to") ?: "";
 
@@ -58,7 +58,7 @@ service / on new http:Listener(port) {
     }
 
     // GET /admin/reports/driver?from=YYYY-MM-DD&to=YYYY-MM-DD
-    resource function get admin/reports/driver(http:Request req) returns json[] {
+    isolated resource function get admin/reports/driver(http:Request req) returns json[] {
         string fromDate = req.getQueryParamValue("from") ?: "";
         string toDate = req.getQueryParamValue("to") ?: "";
 
