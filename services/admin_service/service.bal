@@ -5,6 +5,12 @@ import peerpressure/metrics as metrics;
 
 configurable int port = 9098;
 
+@http:ServiceConfig {
+    cors: {
+        allowOrigins: ["*"],
+        allowMethods: ["GET", "OPTIONS"]
+    }
+}
 service / on new http:Listener(port) {
 
     resource function get health() returns json {

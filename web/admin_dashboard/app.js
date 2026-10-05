@@ -1,6 +1,15 @@
 const ADMIN_OVERVIEW = "http://localhost:9098/admin/stats/overview";
-const ADMIN_HEALTH = "http://localhost:9098/health";
-const NOTIF_HEALTH = "http://localhost:9095/notifications/recipient/cust-42";
+const NOTIF_URL = "http://localhost:9097/notifications/recipient/cust-42";
+
+const SERVICES = [
+  { id: "health-order", name: "order_service", port: 9091 },
+  { id: "health-customer", name: "customer_service", port: 9093 },
+  { id: "health-payment", name: "payment_service", port: 9094 },
+  { id: "health-restaurant", name: "restaurant_service", port: 9095 },
+  { id: "health-delivery", name: "delivery_service", port: 9096 },
+  { id: "health-notif", name: "notification_service", port: 9097 },
+  { id: "health-admin", name: "admin_service", port: 9098 },
+];
 
 const POLL_MS = 5000;
 
@@ -59,21 +68,30 @@ async function loadOverview() {
     setText("kpi-payments-fail", formatNumber(data.failedPayments));
     setText("kpi-active", formatNumber(data.activeDeliveries));
 
-    setHealth("health-admin", true);
     setText("last-updated", "Updated " + new Date().toLocaleTimeString());
     document.getElementById("last-updated").classList.remove("stale");
   } catch (e) {
-    setHealth("health-admin", false);
     setText("last-updated", "Admin service unreachable");
     document.getElementById("last-updated").classList.add("stale");
   }
 }
 
+async function checkHealth() {
+  await Promise.allSettled(
+    SERVICES.map(async (svc) => {
+      try {
+        const res = await fetchWithTimeout(`http://localhost:${svc.port}/health`, 2500);
+        setHealth(svc.id, res.ok);
+      } catch (e) {
+        setHealth(svc.id, false);
+      }
+    })
+  );
+}
+
 async function loadNotifications() {
   try {
-    const res = await fetchWithTimeout(NOTIF_HEALTH, 3000);
-    setHealth("health-notif", res.ok || res.status === 404);
-
+    const res = await fetchWithTimeout(NOTIF_URL, 3000);
     if (res.status === 404) {
       document.getElementById("notif-body").innerHTML =
         '<tr><td colspan="4" class="empty">No notifications for cust-42 yet</td></tr>';
@@ -98,13 +116,19 @@ async function loadNotifications() {
       '</tr>'
     ).join('');
   } catch (e) {
-    setHealth("health-notif", false);
+    // If not reachable or error, leave empty state
   }
 }
 
 function refresh() {
   loadOverview();
+  checkHealth();
   loadNotifications();
+}
+
+const refreshBtn = document.getElementById("btn-refresh");
+if (refreshBtn) {
+  refreshBtn.addEventListener("click", () => refresh());
 }
 
 refresh();
