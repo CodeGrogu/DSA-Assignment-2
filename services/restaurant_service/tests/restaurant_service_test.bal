@@ -2,6 +2,8 @@ import ballerina/http;
 import ballerina/test;
 import ballerina/uuid;
 
+import peerpressure/events as events;
+
 @test:Config {}
 function testValidateRestaurantRejectsDuplicateMenuItemIdsAcrossCategories() returns error? {
     Restaurant restaurant = {
@@ -82,6 +84,95 @@ function testIsMenuItemIdUniqueAcrossRestaurantAllowsSameIdInDifferentCategoryWh
             "I-1 exists in C-1, so exclusion of C-2 should not permit it");
     test:assertFalse(isMenuItemIdUniqueAcrossRestaurant(restaurant, "I-7"),
             "I-7 exists in the restaurant, so global check without exclusion should fail");
+}
+
+@test:Config {}
+function testIsMenuItemIdUniqueAcrossRestaurantRejectsSameIdOutsideExcludedCategory() returns error? {
+    Restaurant restaurant = {
+        id: "R-103",
+        name: "Category Exclusion Check",
+        address: "Bismarck Street",
+        location: {'type: "Point", coordinates: [17.0658d, -22.5333d]},
+        contactNumber: "081-300-4000",
+        menu: [
+            {
+                id: "C-1",
+                name: "Mains",
+                items: [{id: "I-9", name: "Burger", price: 45.00d, taxRate: 0.15d, stock: 3, isAvailable: true}]
+            },
+            {
+                id: "C-2",
+                name: "Desserts",
+                items: [{id: "I-9", name: "Cake", price: 30.00d, taxRate: 0.15d, stock: 4, isAvailable: true}]
+            }
+        ]
+    };
+
+    test:assertFalse(isMenuItemIdUniqueAcrossRestaurant(restaurant, "I-9", "C-2"),
+            "The same ID remains invalid when it still exists in a non-excluded category");
+}
+
+@test:Config {}
+function testStockDecrementRejectsNegativeOrZeroQuantity() returns error? {
+    boolean|error resZero = decrementMenuItemStock("R001", "M1", 0);
+    test:assertTrue(resZero is boolean && !resZero, "Zero quantity decrement must return false without DB operation");
+
+    boolean|error resNeg = decrementMenuItemStock("R001", "M1", -5);
+    test:assertTrue(resNeg is boolean && !resNeg, "Negative quantity decrement must return false without DB operation");
+}
+
+@test:Config {}
+function testStockDecrementQueryIsConditionalAndCannotGoBelowZero() returns error? {
+    AtomicInventory inventory = new (1);
+    int attempts = 10;
+    future<boolean>[] futures = [];
+
+    foreach int i in 0 ..< attempts {
+        future<boolean> f = start inventory.decrement(1);
+        futures.push(f);
+    }
+
+    int successCount = 0;
+    int failureCount = 0;
+    foreach future<boolean> f in futures {
+        boolean result = check wait f;
+        if result {
+            successCount += 1;
+        } else {
+            failureCount += 1;
+        }
+    }
+
+    test:assertEquals(successCount, 1, "Exactly one concurrent checkout must succeed in taking the last item");
+    test:assertEquals(failureCount, 9, "All 9 subsequent burst attempts must be cleanly rejected");
+    test:assertEquals(inventory.getStock(), 0, "Inventory must never drop below zero");
+}
+
+@test:Config {}
+function testConfirmedKitchenOrderRejectsMissingItemsAndNonPositiveQuantities() returns error? {
+    events:OrderConfirmedEvent emptyOrder = {
+        eventId: "E-1",
+        orderId: "O-1",
+        restaurantId: "R-1",
+        items: [],
+        paymentId: "P-1",
+        estimatedDeliveryMinutes: 20,
+        confirmedAt: "2026-10-05T10:00:00Z"
+    };
+    test:assertTrue(validateConfirmedKitchenOrder(emptyOrder) is string,
+            "Kitchen must reject confirmed orders without items");
+
+    events:OrderConfirmedEvent invalidQuantityOrder = {
+        eventId: "E-2",
+        orderId: "O-2",
+        restaurantId: "R-1",
+        items: [{itemId: "I-1", itemName: "Meal", quantity: 0, unitPrice: 10.0d, subtotal: 0.0d}],
+        paymentId: "P-2",
+        estimatedDeliveryMinutes: 20,
+        confirmedAt: "2026-10-05T10:00:00Z"
+    };
+    test:assertTrue(validateConfirmedKitchenOrder(invalidQuantityOrder) is string,
+            "Kitchen must reject non-positive order quantities");
 }
 
 @test:Config {}
@@ -334,6 +425,34 @@ function testPlaceholderIdResolutionAndUuidGeneration() returns error? {
 }
 
 @test:Config {}
+function testRestaurantOpenForOrderingRespectsExplicitWindow() returns error? {
+    Restaurant restaurant = {
+        id: "R-110",
+        name: "Open Hours Check",
+        address: "Market Street",
+        location: {'type: "Point", coordinates: [17.0658d, -22.5333d]},
+        contactNumber: "081-200-3000",
+        operatingHours: [
+            {dayOfWeek: "Monday", openTime: "08:00", closeTime: "18:00", isClosed: false},
+            {dayOfWeek: "Tuesday", openTime: "09:00", closeTime: "17:00", isClosed: false}
+        ]
+    };
+
+    test:assertTrue(isRestaurantOpenForOrdering(restaurant, "Monday", "09:30"),
+            "The restaurant should be open during its configured Monday window");
+    test:assertTrue(isRestaurantOpenForOrdering(restaurant, "Monday", "18:00"),
+            "The closing boundary should still count as open");
+    test:assertFalse(isRestaurantOpenForOrdering(restaurant, "Monday", "07:59"),
+            "The restaurant should be closed before opening time");
+    test:assertFalse(isRestaurantOpenForOrdering(restaurant, "Tuesday", "07:00"),
+            "The restaurant should be closed outside its Tuesday schedule");
+    test:assertTrue(validateRestaurantOpenForOrdering(restaurant, "Monday", "12:00") is (),
+            "The validation helper should return nil when the restaurant is open");
+    test:assertTrue(validateRestaurantOpenForOrdering(restaurant, "Friday", "12:00") is string,
+            "The validation helper should reject ordering when no valid operating-hours row matches");
+}
+
+@test:Config {}
 function testValidateRestaurantRejectsDuplicateCategoryIds() returns error? {
     Restaurant restaurant = {
         id: "R-105",
@@ -389,3 +508,216 @@ function testPostSeedFailsGracefullyWhenMongoOffline() returns error? {
     map<json> payloadMap = <map<json>>payload;
     test:assertTrue(payloadMap.hasKey("message"), "Payload should contain message property");
 }
+
+isolated class AtomicInventory {
+    private int stock;
+
+    isolated function init(int initialStock) {
+        self.stock = initialStock;
+    }
+
+    isolated function decrement(int quantity) returns boolean {
+        lock {
+            if self.stock >= quantity {
+                self.stock -= quantity;
+                return true;
+            }
+            return false;
+        }
+    }
+
+    isolated function getStock() returns int {
+        lock {
+            return self.stock;
+        }
+    }
+}
+
+@test:Config {}
+function testValidateOrderRejectsClosedRestaurantWithConflict409() returns error? {
+    Restaurant testRestaurant = {
+        id: "R-VAL-1",
+        name: "Validator Test Diner",
+        address: "100 Kaiser Street",
+        location: {'type: "Point", coordinates: [17.0658d, -22.5333d]},
+        contactNumber: "081-999-8888",
+        operatingHours: [
+            {dayOfWeek: "Monday", openTime: "08:00", closeTime: "17:00", isClosed: false}
+        ],
+        menu: [
+            {
+                id: "C-1",
+                name: "Meals",
+                items: [
+                    {
+                        id: "ITEM-1",
+                        name: "Kapana",
+                        price: 50.0d,
+                        taxRate: 0.15d,
+                        stock: 10,
+                        isAvailable: true
+                    }
+                ]
+            }
+        ]
+    };
+
+    ValidateOrderRequest closedReq = {
+        items: [{itemId: "ITEM-1", quantity: 1}],
+        dayOfWeek: "Monday",
+        timeOfDay: "22:00"
+    };
+
+    OrderValidationResult result = validateRestaurantOrder(testRestaurant, closedReq);
+    test:assertFalse(result.isValid, "Order outside operating hours must be rejected");
+    test:assertEquals(result.statusCode, 409, "Closed restaurant orders must return HTTP 409 Conflict");
+    test:assertEquals(result.status, "CLOSED", "Status must be CLOSED");
+}
+
+@test:Config {}
+function testValidateOrderAcceptsOpenRestaurantWithSufficientStock() returns error? {
+    Restaurant testRestaurant = {
+        id: "R-VAL-2",
+        name: "Validator Test Diner",
+        address: "100 Kaiser Street",
+        location: {'type: "Point", coordinates: [17.0658d, -22.5333d]},
+        contactNumber: "081-999-8888",
+        operatingHours: [
+            {dayOfWeek: "Monday", openTime: "08:00", closeTime: "17:00", isClosed: false}
+        ],
+        menu: [
+            {
+                id: "C-1",
+                name: "Meals",
+                items: [
+                    {
+                        id: "ITEM-1",
+                        name: "Kapana",
+                        price: 50.0d,
+                        taxRate: 0.15d,
+                        stock: 10,
+                        isAvailable: true
+                    }
+                ]
+            }
+        ]
+    };
+
+    ValidateOrderRequest openReq = {
+        items: [{itemId: "ITEM-1", quantity: 2}],
+        dayOfWeek: "Monday",
+        timeOfDay: "12:00"
+    };
+
+    OrderValidationResult result = validateRestaurantOrder(testRestaurant, openReq);
+    test:assertTrue(result.isValid, "Order during open hours with sufficient stock must be valid");
+    test:assertEquals(result.statusCode, 200, "Valid order must return HTTP 200");
+    test:assertEquals(result.status, "VALID", "Status must be VALID");
+}
+
+@test:Config {}
+function testValidateOrderRejectsInsufficientStockWithConflict409() returns error? {
+    Restaurant testRestaurant = {
+        id: "R-VAL-3",
+        name: "Validator Test Diner",
+        address: "100 Kaiser Street",
+        location: {'type: "Point", coordinates: [17.0658d, -22.5333d]},
+        contactNumber: "081-999-8888",
+        operatingHours: [
+            {dayOfWeek: "Monday", openTime: "08:00", closeTime: "17:00", isClosed: false}
+        ],
+        menu: [
+            {
+                id: "C-1",
+                name: "Meals",
+                items: [
+                    {
+                        id: "ITEM-1",
+                        name: "Kapana",
+                        price: 50.0d,
+                        taxRate: 0.15d,
+                        stock: 2,
+                        isAvailable: true
+                    }
+                ]
+            }
+        ]
+    };
+
+    ValidateOrderRequest excessiveReq = {
+        items: [{itemId: "ITEM-1", quantity: 5}],
+        dayOfWeek: "Monday",
+        timeOfDay: "12:00"
+    };
+
+    OrderValidationResult result = validateRestaurantOrder(testRestaurant, excessiveReq);
+    test:assertFalse(result.isValid, "Order exceeding available stock must be rejected");
+    test:assertEquals(result.statusCode, 409, "Insufficient stock must return HTTP 409 Conflict");
+    test:assertEquals(result.status, "INSUFFICIENT_STOCK", "Status must be INSUFFICIENT_STOCK");
+    test:assertEquals(result.availableStock, 2, "Available stock should match item stock");
+}
+
+@test:Config {}
+function testValidateOrderRejectsInvalidQuantityWithBadRequest400() returns error? {
+    Restaurant testRestaurant = {
+        id: "R-VAL-4",
+        name: "Validator Test Diner",
+        address: "100 Kaiser Street",
+        location: {'type: "Point", coordinates: [17.0658d, -22.5333d]},
+        contactNumber: "081-999-8888",
+        operatingHours: [
+            {dayOfWeek: "Monday", openTime: "08:00", closeTime: "17:00", isClosed: false}
+        ],
+        menu: [
+            {
+                id: "C-1",
+                name: "Meals",
+                items: [
+                    {
+                        id: "ITEM-1",
+                        name: "Kapana",
+                        price: 50.0d,
+                        taxRate: 0.15d,
+                        stock: 10,
+                        isAvailable: true
+                    }
+                ]
+            }
+        ]
+    };
+
+    ValidateOrderRequest zeroReq = {
+        items: [{itemId: "ITEM-1", quantity: 0}],
+        dayOfWeek: "Monday",
+        timeOfDay: "12:00"
+    };
+
+    OrderValidationResult result = validateRestaurantOrder(testRestaurant, zeroReq);
+    test:assertFalse(result.isValid, "Non-positive quantity must be rejected");
+    test:assertEquals(result.statusCode, 400, "Non-positive quantity must return HTTP 400 Bad Request");
+    test:assertEquals(result.status, "INVALID_QUANTITY", "Status must be INVALID_QUANTITY");
+}
+
+@test:Config {}
+function testRestaurantOpenForOrderingRespectsHolidayExceptions() returns error? {
+    Restaurant restaurant = {
+        id: "R-HOL-1",
+        name: "Holiday Diner",
+        address: "77 Independence Ave",
+        location: {'type: "Point", coordinates: [17.0658d, -22.5333d]},
+        contactNumber: "081-111-3333",
+        operatingHours: [
+            {dayOfWeek: "Monday", openTime: "08:00", closeTime: "20:00", isClosed: false}
+        ],
+        holidayExceptions: [
+            {date: "2026-12-25", isClosed: true}
+        ]
+    };
+
+    test:assertTrue(isRestaurantOpenForOrdering(restaurant, "Monday", "12:00", "2026-10-05"),
+            "Should be open on a normal operating Monday");
+
+    test:assertFalse(isRestaurantOpenForOrdering(restaurant, "Monday", "12:00", "2026-12-25"),
+            "Must be closed on holiday exception date even if day of week has normal hours");
+}
+
