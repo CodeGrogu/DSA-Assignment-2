@@ -21,6 +21,14 @@ dependencies = [
 
 [[package]]
 org = "ballerina"
+name = "avro"
+version = "1.2.4"
+dependencies = [
+	{org = "ballerina", name = "jballerina.java"}
+]
+
+[[package]]
+org = "ballerina"
 name = "cache"
 version = "3.10.0"
 dependencies = [
@@ -194,6 +202,9 @@ version = "0.0.0"
 dependencies = [
 	{org = "ballerina", name = "jballerina.java"}
 ]
+modules = [
+	{org = "ballerina", packageName = "lang.runtime", moduleName = "lang.runtime"}
+]
 
 [[package]]
 org = "ballerina"
@@ -338,6 +349,42 @@ modules = [
 
 [[package]]
 org = "ballerinax"
+name = "confluent.cavroserdes"
+version = "1.0.3"
+dependencies = [
+	{org = "ballerina", name = "avro"},
+	{org = "ballerina", name = "jballerina.java"},
+	{org = "ballerinai", name = "observe"},
+	{org = "ballerinax", name = "confluent.cregistry"}
+]
+
+[[package]]
+org = "ballerinax"
+name = "confluent.cregistry"
+version = "0.4.5"
+dependencies = [
+	{org = "ballerina", name = "jballerina.java"}
+]
+
+[[package]]
+org = "ballerinax"
+name = "kafka"
+version = "4.6.6"
+dependencies = [
+	{org = "ballerina", name = "crypto"},
+	{org = "ballerina", name = "jballerina.java"},
+	{org = "ballerina", name = "time"},
+	{org = "ballerina", name = "uuid"},
+	{org = "ballerinai", name = "observe"},
+	{org = "ballerinax", name = "confluent.cavroserdes"},
+	{org = "ballerinax", name = "confluent.cregistry"}
+]
+modules = [
+	{org = "ballerinax", packageName = "kafka", moduleName = "kafka"}
+]
+
+[[package]]
+org = "ballerinax"
 name = "mongodb"
 version = "5.2.4"
 dependencies = [
@@ -379,11 +426,13 @@ name = "order_service"
 version = "0.1.0"
 dependencies = [
 	{org = "ballerina", name = "http"},
+	{org = "ballerina", name = "lang.runtime"},
 	{org = "ballerina", name = "log"},
 	{org = "ballerina", name = "test"},
 	{org = "ballerina", name = "time"},
 	{org = "ballerina", name = "uuid"},
 	{org = "ballerinai", name = "observe"},
+	{org = "ballerinax", name = "kafka"},
 	{org = "ballerinax", name = "mongodb"},
 	{org = "peerpressure", name = "events"},
 	{org = "peerpressure", name = "metrics"}

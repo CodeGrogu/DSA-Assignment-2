@@ -1,4 +1,15 @@
 port = 9091
-enableMongo = false
 baseDeliveryFee = 0.0
 defaultSurgeMultiplier = 1.0
+enableMongo = false
+mongoUri = "mongodb://localhost:27017/test_db"
+mongoDatabase = "test_db"
+kafkaBootstrapServers = "localhost:9092"
+enableKafka = false
+orderCreatedTopic = "orders.created"
+orderCancelledTopic = "orders.cancelled"
+startKafkaConsumers = false
+paymentsCompletedTopic = "payments.completed"
+paymentsFailedTopic = "payments.failed"
+deliveryStatusUpdatedTopic = "delivery.status_updated"
+orderConsumerGroup = "order-service-group"
