@@ -16,6 +16,7 @@ Config.toml
 Config.local.toml
 *.local.toml
 # Allow configuration templates to be shared across team members
+!services/payment_service/Config.toml
 !Config.example.toml
 !Config.toml.example
 !*.example.toml
