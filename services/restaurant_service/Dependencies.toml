@@ -5,7 +5,7 @@
 
 [ballerina]
 dependencies-toml-version = "2"
-distribution-version = "2201.13.5"
+distribution-version = "2201.13.6"
 
 [[package]]
 org = "ballerina"
@@ -411,19 +411,6 @@ dependencies = [
 ]
 modules = [
 	{org = "peerpressure", packageName = "events", moduleName = "events"}
-]
-
-[[package]]
-org = "peerpressure"
-name = "metrics"
-version = "0.1.0"
-dependencies = [
-	{org = "ballerina", name = "http"},
-	{org = "ballerina", name = "test"},
-	{org = "ballerinai", name = "observe"}
-]
-modules = [
-	{org = "peerpressure", packageName = "metrics", moduleName = "metrics"}
 ]
 
 [[package]]
