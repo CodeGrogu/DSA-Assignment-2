@@ -157,6 +157,16 @@ service / on new http:Listener(port) {
         return <http:Created>{body: newOrder};
     }
 
+    # Lists all orders in the platform.
+    resource function get orders() returns Order[] {
+        return orderStore.listAll();
+    }
+
+    # Retrieves paginated orders for a specific customer.
+    resource function get customers/[string customerId]/orders(int resultLimit = 10, int offset = 0) returns Order[] {
+        return orderStore.getByCustomer(customerId, resultLimit, offset);
+    }
+
     # Retrieves order status and details by order ID.
     resource function get orders/[string orderId]() returns http:Ok|http:NotFound|http:InternalServerError {
         time:Utc startTime = time:utcNow();
@@ -247,7 +257,7 @@ service / on new http:Listener(port) {
         pricingEngine.setSupplyDemand(orderStore.getUnfulfilledOrderCount(), pricingEngine.getAvailableDrivers());
 
         string cancelledAt = currentTimestamp();
-        error? pubErr = orderEventProducer.publishOrderCancelled(orderId, reason, "CUSTOMER", cancelledAt);
+        error? pubErr = orderEventProducer.publishOrderCancelled(orderId, reason, "CUSTOMER", cancelledAt, 'order.customerId);
         if pubErr is error {
             log:printError("Failed to publish OrderCancelled event", 'error = pubErr, orderId = orderId);
         }

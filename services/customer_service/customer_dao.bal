@@ -1,6 +1,8 @@
 import ballerina/log;
+import ballerina/os;
 import ballerinax/mongodb;
 
+configurable string mongoUri = "";
 configurable string mongoHost = "mongodb";
 configurable int mongoPort = 27017;
 configurable string mongoUser = "customer_user";
@@ -10,15 +12,56 @@ configurable string mongoAuthSource = "customer_db";
 configurable string mongoReplicaSet = "rs0";
 configurable int mongoServerSelectionTimeoutMs = 2000;
 
-final string mongoConnectionString = string `mongodb://${mongoUser}:${mongoPassword}@${mongoHost}:${mongoPort}/${databaseName}?authSource=${mongoAuthSource}&replicaSet=${mongoReplicaSet}&serverSelectionTimeoutMS=${mongoServerSelectionTimeoutMs}`;
+isolated function resolveMongoConnectionString() returns string {
+    string envUri = os:getEnv("MONGO_URI");
+    if envUri.trim() != "" {
+        return envUri.trim();
+    }
+    if mongoUri.trim() != "" {
+        return mongoUri.trim();
+    }
+    return string `mongodb://${mongoUser}:${mongoPassword}@${mongoHost}:${mongoPort}/${databaseName}?authSource=${mongoAuthSource}&replicaSet=${mongoReplicaSet}&serverSelectionTimeoutMS=${mongoServerSelectionTimeoutMs}`;
+}
+
+isolated mongodb:Client? sharedMongoClient = ();
 
 isolated function getMongoClient() returns mongodb:Client|error {
-    do {
-        return check new ({connection: mongoConnectionString});
-    } on fail error err {
-        log:printError("Failed to initialize MongoDB client: " + err.message(), err);
-        return err;
+    lock {
+        mongodb:Client? existing = sharedMongoClient;
+        if existing is mongodb:Client {
+            return existing;
+        }
+        mongodb:Client|error created = new ({connection: resolveMongoConnectionString()});
+        if created is mongodb:Client {
+            sharedMongoClient = created;
+            return created;
+        }
+        log:printError("Failed to initialize MongoDB client: " + created.message(), created);
+        return created;
     }
+}
+
+public isolated function listAllCustomers() returns Customer[]|error {
+    mongodb:Collection|error collection = getCustomerCollection();
+    if collection is error {
+        return error DatabaseOperationError("Failed to access collection: " + collection.message());
+    }
+    stream<Customer, error?>|error customerStream = collection->find({}, projection = {"_id": 0}, targetType = Customer);
+    if customerStream is error {
+        return error DatabaseOperationError("Failed to query customers: " + customerStream.message());
+    }
+    Customer[] customers = [];
+    while true {
+        record {|Customer value;|}|error? nextItem = customerStream.next();
+        if nextItem is () {
+            break;
+        }
+        if nextItem is error {
+            return error DatabaseOperationError("Failed to read customer stream: " + nextItem.message());
+        }
+        customers.push(nextItem.value);
+    }
+    return customers;
 }
 
 public isolated function getCustomerCollection() returns mongodb:Collection|error {
@@ -60,7 +103,7 @@ public isolated function getCustomerById(string id) returns Customer|error {
         return error DatabaseOperationError("Failed to access collection: " + collection.message());
     }
 
-    record {}|error? result = collection->findOne({id: id});
+    record {}|error? result = collection->findOne({id: id}, projection = {"_id": 0});
     if result is error {
         return error DatabaseOperationError("Failed to query customer: " + result.message());
     }
@@ -225,10 +268,14 @@ public isolated function deleteCustomerAddress(
 
     CustomerAddress[] remainingAddresses = [];
     boolean addressFound = false;
+    boolean wasDefault = false;
 
     foreach CustomerAddress addr in customerResult.addresses {
         if addr.id == addressId {
             addressFound = true;
+            if addr.isDefault {
+                wasDefault = true;
+            }
         } else {
             remainingAddresses.push(addr);
         }
@@ -236,6 +283,10 @@ public isolated function deleteCustomerAddress(
 
     if !addressFound {
         return error AddressNotFoundError("Address not found");
+    }
+
+    if wasDefault && remainingAddresses.length() > 0 {
+        remainingAddresses[0].isDefault = true;
     }
 
     json|error addressesJson = remainingAddresses.cloneWithType(json);
@@ -255,6 +306,72 @@ public isolated function deleteCustomerAddress(
     );
     if result is error {
         return error DatabaseOperationError("Failed to update customer addresses: " + result.message());
+    }
+
+    if result.matchedCount == 0 {
+        return error CustomerNotFoundError("Customer not found");
+    }
+
+    return;
+}
+
+public isolated function updateExistingCustomerAddress(
+        string customerId,
+        string addressId,
+        CustomerAddress address
+) returns error? {
+    mongodb:Collection|error collection = getCustomerCollection();
+    if collection is error {
+        return error DatabaseOperationError("Failed to access collection: " + collection.message());
+    }
+
+    Customer|error customerResult = getCustomerById(customerId);
+    if customerResult is error {
+        if customerResult is CustomerNotFoundError {
+            return customerResult;
+        }
+        if customerResult is DatabaseOperationError {
+            return customerResult;
+        }
+        return error DatabaseOperationError("Failed to query customer: " + customerResult.message());
+    }
+
+    boolean addressFound = false;
+    CustomerAddress[] updatedAddresses = [];
+
+    foreach CustomerAddress addr in customerResult.addresses {
+        if addr.id == addressId {
+            addressFound = true;
+            updatedAddresses.push(address);
+        } else {
+            if address.isDefault {
+                addr.isDefault = false;
+            }
+            updatedAddresses.push(addr);
+        }
+    }
+
+    if !addressFound {
+        return error AddressNotFoundError("Address not found");
+    }
+
+    json|error addressesJson = updatedAddresses.cloneWithType(json);
+    if addressesJson is error {
+        return error DatabaseOperationError("Failed to serialize addresses: " + addressesJson.message());
+    }
+
+    mongodb:Update update = {
+        "set": {
+            "addresses": addressesJson
+        }
+    };
+
+    mongodb:UpdateResult|error result = collection->updateOne(
+        {id: customerId},
+        update
+    );
+    if result is error {
+        return error DatabaseOperationError("Failed to update customer address: " + result.message());
     }
 
     if result.matchedCount == 0 {

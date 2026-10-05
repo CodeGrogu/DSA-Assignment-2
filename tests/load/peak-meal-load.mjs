@@ -151,4 +151,3 @@ fs.writeFileSync(path.join(here, "LOAD_TEST_REPORT.md"), report);
 console.log("\nReport written to tests/load/LOAD_TEST_REPORT.md");
 
 process.exit(checks.every((chk) => chk.pass) ? 0 : 1);
-

@@ -4,7 +4,7 @@ public const DeliveryTaskStatus AT_RESTAURANT = "AT_RESTAURANT";
 public const DeliveryTaskStatus OUT_FOR_DELIVERY = "OUT_FOR_DELIVERY";
 public const DeliveryTaskStatus DELIVERED = "DELIVERED";
 
-public function isValidDeliveryTransition(DeliveryTaskStatus currentStatus, DeliveryTaskStatus nextStatus) returns boolean {
+public isolated function isValidDeliveryTransition(DeliveryTaskStatus currentStatus, DeliveryTaskStatus nextStatus) returns boolean {
     match currentStatus {
         UNASSIGNED => {
             return nextStatus == DRIVER_ASSIGNED;
@@ -27,7 +27,7 @@ public function isValidDeliveryTransition(DeliveryTaskStatus currentStatus, Deli
     }
 }
 
-public function transitionDelivery(DeliveryTaskStatus currentStatus, DeliveryTaskStatus nextStatus) returns DeliveryTaskStatus|error {
+public isolated function transitionDelivery(DeliveryTaskStatus currentStatus, DeliveryTaskStatus nextStatus) returns DeliveryTaskStatus|error {
     if isValidDeliveryTransition(currentStatus, nextStatus) {
         return nextStatus;
     }

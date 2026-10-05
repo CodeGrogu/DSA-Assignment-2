@@ -26,6 +26,31 @@ function testPaymentFailedContract() returns error? {
 }
 
 @test:Config {}
+function testPaymentRefundedAndKitchenRejectedContracts() returns error? {
+    PaymentRefundedEvent refunded = {
+        eventId: "evt-refunded",
+        paymentId: "pay-1",
+        orderId: "ord-1",
+        customerId: "cust-1",
+        amount: 20.50,
+        currency: "NAD",
+        paymentMethod: "CARD",
+        refundedAt: "2026-09-21T12:03:00Z"
+    };
+    test:assertEquals(check validatePaymentRefunded(paymentRefundedToJson(refunded)), refunded);
+
+    KitchenRejectedEvent rejected = {
+        eventId: "evt-rejected",
+        orderId: "ord-1",
+        customerId: "cust-1",
+        restaurantId: "rest-1",
+        reason: "Insufficient stock",
+        rejectedAt: "2026-09-21T12:03:30Z"
+    };
+    test:assertEquals(check validateKitchenRejected(kitchenRejectedToJson(rejected)), rejected);
+}
+
+@test:Config {}
 function testKitchenStatusContract() returns error? {
     KitchenStatusEvent event = {
         eventId: "evt-kitchen",

@@ -4,42 +4,19 @@
     { "orderId": "o2", "customerId": "c2", "restaurantId": "r1", "totalAmount": 85.50,  "status": "DELIVERED", "createdAt": "2026-10-02T13:30:00Z" },
     { "orderId": "o3", "customerId": "c3", "restaurantId": "r2", "totalAmount": 210.00, "status": "DELIVERED", "createdAt": "2026-10-02T19:00:00Z" },
     { "orderId": "o4", "customerId": "c4", "restaurantId": "r2", "totalAmount": 45.00,  "status": "CANCELLED", "createdAt": "2026-10-03T10:00:00Z" },
-    { "orderId": "o5", "customerId": "c5", "restaurantId": "r1", "totalAmount": 155.75, "status": "OUT_FOR_DELIVERY", "createdAt": "2026-10-04T18:00:00Z" },
-    { "orderId": "ORD-SEED-001", "customerId": "CUST-001", "restaurantId": "R001", "totalAmount": 145.00, "status": "DELIVERED", "createdAt": "2026-10-01T12:00:00Z" },
-    { "orderId": "ORD-SEED-002", "customerId": "CUST-002", "restaurantId": "R001", "totalAmount": 110.00, "status": "DELIVERED", "createdAt": "2026-10-02T13:30:00Z" },
-    { "orderId": "ORD-SEED-003", "customerId": "CUST-003", "restaurantId": "R002", "totalAmount": 240.00, "status": "DELIVERED", "createdAt": "2026-10-02T19:00:00Z" },
-    { "orderId": "ORD-SEED-004", "customerId": "CUST-004", "restaurantId": "R002", "totalAmount": 70.00,  "status": "CANCELLED", "createdAt": "2026-10-03T10:00:00Z" },
-    { "orderId": "ORD-SEED-005", "customerId": "CUST-005", "restaurantId": "R004", "totalAmount": 195.00, "status": "OUT_FOR_DELIVERY", "createdAt": "2026-10-04T18:00:00Z" },
-    { "orderId": "ORD-SEED-006", "customerId": "CUST-006", "restaurantId": "R004", "totalAmount": 240.00, "status": "READY", "createdAt": "2026-10-04T18:30:00Z" },
-    { "orderId": "ORD-SEED-007", "customerId": "CUST-007", "restaurantId": "R001", "totalAmount": 115.00, "status": "PREPARING", "createdAt": "2026-10-04T19:00:00Z" },
-    { "orderId": "ORD-SEED-008", "customerId": "CUST-008", "restaurantId": "R002", "totalAmount": 165.00, "status": "CONFIRMED", "createdAt": "2026-10-04T19:15:00Z" },
-    { "orderId": "ORD-SEED-010", "customerId": "CUST-010", "restaurantId": "R005", "totalAmount": 175.00, "status": "DELIVERED", "createdAt": "2026-10-03T14:00:00Z" }
+    { "orderId": "o5", "customerId": "c5", "restaurantId": "r1", "totalAmount": 155.75, "status": "OUT_FOR_DELIVERY", "createdAt": "2026-10-04T18:00:00Z" }
   ],
   "payments": [
     { "paymentId": "p1", "orderId": "o1", "amount": 120.00, "status": "COMPLETED", "completedAt": "2026-10-01T12:01:00Z" },
     { "paymentId": "p2", "orderId": "o2", "amount": 85.50,  "status": "COMPLETED", "completedAt": "2026-10-02T13:31:00Z" },
     { "paymentId": "p3", "orderId": "o3", "amount": 210.00, "status": "COMPLETED", "completedAt": "2026-10-02T19:01:00Z" },
     { "paymentId": "p4", "orderId": "o4", "amount": 45.00,  "status": "FAILED",    "completedAt": "2026-10-03T10:00:30Z" },
-    { "paymentId": "p5", "orderId": "o5", "amount": 155.75, "status": "COMPLETED", "completedAt": "2026-10-04T18:01:00Z" },
-    { "paymentId": "PAY-SEED-001", "orderId": "ORD-SEED-001", "amount": 145.00, "status": "COMPLETED", "completedAt": "2026-10-01T12:01:30Z" },
-    { "paymentId": "PAY-SEED-002", "orderId": "ORD-SEED-002", "amount": 110.00, "status": "COMPLETED", "completedAt": "2026-10-02T13:31:15Z" },
-    { "paymentId": "PAY-SEED-003", "orderId": "ORD-SEED-003", "amount": 240.00, "status": "COMPLETED", "completedAt": "2026-10-02T19:01:20Z" },
-    { "paymentId": "PAY-SEED-004", "orderId": "ORD-SEED-004", "amount": 70.00,  "status": "REFUNDED",  "completedAt": "2026-10-03T10:05:00Z" },
-    { "paymentId": "PAY-SEED-005", "orderId": "ORD-SEED-005", "amount": 195.00, "status": "COMPLETED", "completedAt": "2026-10-04T18:01:10Z" },
-    { "paymentId": "PAY-SEED-006", "orderId": "ORD-SEED-006", "amount": 240.00, "status": "COMPLETED", "completedAt": "2026-10-04T18:31:05Z" },
-    { "paymentId": "PAY-SEED-007", "orderId": "ORD-SEED-007", "amount": 115.00, "status": "COMPLETED", "completedAt": "2026-10-04T19:01:15Z" },
-    { "paymentId": "PAY-SEED-008", "orderId": "ORD-SEED-008", "amount": 165.00, "status": "COMPLETED", "completedAt": "2026-10-04T19:15:45Z" },
-    { "paymentId": "PAY-SEED-010", "orderId": "ORD-SEED-010", "amount": 175.00, "status": "COMPLETED", "completedAt": "2026-10-03T14:01:25Z" }
+    { "paymentId": "p5", "orderId": "o5", "amount": 155.75, "status": "COMPLETED", "completedAt": "2026-10-04T18:01:00Z" }
   ],
   "deliveries": [
     { "deliveryId": "d1", "orderId": "o1", "driverId": "dr1", "driverName": "Tomas", "status": "DELIVERED", "assignedAt": "2026-10-01T12:05:00Z", "deliveredAt": "2026-10-01T12:35:00Z" },
     { "deliveryId": "d2", "orderId": "o2", "driverId": "dr1", "driverName": "Tomas", "status": "DELIVERED", "assignedAt": "2026-10-02T13:35:00Z", "deliveredAt": "2026-10-02T14:10:00Z" },
     { "deliveryId": "d3", "orderId": "o3", "driverId": "dr2", "driverName": "Maria", "status": "DELIVERED", "assignedAt": "2026-10-02T19:05:00Z", "deliveredAt": "2026-10-02T19:50:00Z" },
-    { "deliveryId": "d4", "orderId": "o5", "driverId": "dr2", "driverName": "Maria", "status": "IN_TRANSIT", "assignedAt": "2026-10-04T18:05:00Z" },
-    { "deliveryId": "DEL-SEED-001", "orderId": "ORD-SEED-001", "driverId": "drv_001", "driverName": "Tomas Nekundi", "status": "DELIVERED", "assignedAt": "2026-10-01T12:10:00Z", "deliveredAt": "2026-10-01T12:45:00Z" },
-    { "deliveryId": "DEL-SEED-002", "orderId": "ORD-SEED-002", "driverId": "drv_002", "driverName": "Maria Shilongo", "status": "DELIVERED", "assignedAt": "2026-10-02T13:40:00Z", "deliveredAt": "2026-10-02T14:15:00Z" },
-    { "deliveryId": "DEL-SEED-003", "orderId": "ORD-SEED-003", "driverId": "drv_003", "driverName": "Lukas Hamutenya", "status": "DELIVERED", "assignedAt": "2026-10-02T19:10:00Z", "deliveredAt": "2026-10-02T19:50:00Z" },
-    { "deliveryId": "DEL-SEED-005", "orderId": "ORD-SEED-005", "driverId": "drv_004", "driverName": "Selma Amukoto", "status": "OUT_FOR_DELIVERY", "assignedAt": "2026-10-04T18:10:00Z" },
-    { "deliveryId": "DEL-SEED-010", "orderId": "ORD-SEED-010", "driverId": "drv_005", "driverName": "Johannes Nuuyoma", "status": "DELIVERED", "assignedAt": "2026-10-03T14:10:00Z", "deliveredAt": "2026-10-03T14:40:00Z" }
+    { "deliveryId": "d4", "orderId": "o5", "driverId": "dr2", "driverName": "Maria", "status": "IN_TRANSIT", "assignedAt": "2026-10-04T18:05:00Z" }
   ]
 }

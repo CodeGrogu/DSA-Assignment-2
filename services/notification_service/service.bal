@@ -40,6 +40,27 @@ service / on httpListener {
         return metrics:getMetricsResponse();
     }
 
+    resource function get notifications() returns json[] {
+        string[] rows = readAuditRows();
+        json[] allRecords = [];
+        foreach string row in rows {
+            string[] parts = splitPipe(row);
+            if parts.length() >= 5 {
+                allRecords.push({
+                    sentAt: parts[0],
+                    recipientId: parts[1],
+                    channel: parts[2],
+                    status: parts[3],
+                    notificationId: parts[4]
+                });
+            }
+        }
+        if allRecords.length() == 0 {
+            return queryAuditFromMongo();
+        }
+        return allRecords;
+    }
+
     resource function get notifications/recipient/[string id]() returns json|http:NotFound {
         string[] rows = readAuditRows();
         json[] matching = [];
@@ -57,6 +78,14 @@ service / on httpListener {
             }
         }
 
+        if matching.length() == 0 {
+            json[] mongoRecords = queryAuditFromMongo();
+            foreach json item in mongoRecords {
+                if item is map<json> && item["recipientId"] == id {
+                    matching.push(item);
+                }
+            }
+        }
         if matching.length() == 0 {
             return http:NOT_FOUND;
         }

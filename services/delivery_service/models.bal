@@ -1,34 +1,15 @@
-public type DriverAvailability "AVAILABLE"|"BUSY"|"OFFLINE";
+import peerpressure/delivery_domain as domain;
 
-public type DriverState "AVAILABLE"|"ASSIGNED"|"DELIVERING"|"OFFLINE";
+public type DriverAvailability domain:DriverAvailability;
 
-public type VehicleCategory "CAR"|"MOTORCYCLE"|"BICYCLE"|"VAN";
+public type DriverState domain:DriverState;
 
-public type DeliveryTaskStatus
-    "UNASSIGNED"|"DRIVER_ASSIGNED"|"AT_RESTAURANT"|"OUT_FOR_DELIVERY"|"DELIVERED";
+public type VehicleCategory domain:VehicleCategory;
 
-public type LocationCoordinates readonly & record {|
-    decimal latitude;
-    decimal longitude;
-|};
+public type DeliveryTaskStatus domain:DeliveryTaskStatus;
 
-public type Driver readonly & record {|
-    string id;
-    string name;
-    string phone;
-    VehicleCategory vehicleCategory;
-    DriverAvailability availability;
-    DriverState state;
-    LocationCoordinates location;
-|};
+public type LocationCoordinates domain:LocationCoordinates;
 
-public type DeliveryTask readonly & record {|
-    string deliveryId;
-    string orderId;
-    string? driverId = ();
-    DeliveryTaskStatus status;
-    string createdAt;
-    string? assignedAt = ();
-    string? pickedUpAt = ();
-    string? deliveredAt = ();
-|};
+public type Driver domain:Driver;
+
+public type DeliveryTask domain:DeliveryTask;

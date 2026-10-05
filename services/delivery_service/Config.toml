@@ -1,0 +1,12 @@
+port = 9096
+enableMongo = true
+mongoUri = "mongodb://delivery_user:delivery_password@mongodb:27017/delivery_db?authSource=delivery_db&replicaSet=rs0"
+mongoDatabase = "delivery_db"
+enableKafka = true
+startKafkaConsumers = true
+kafkaBootstrapServers = "kafka:9092"
+kitchenReadyTopic = "kitchen.orders.ready"
+deliveryAssignedTopic = "delivery.assigned"
+deliveryStatusTopic = "delivery.status"
+deliveryEventsTopic = "delivery.events"
+deliveryConsumerGroup = "delivery-service-group"

@@ -9,6 +9,7 @@ public type MetricSample record {|
     decimal value = 0d;
     map<string> labels = {};
     int[] buckets = [10, 50, 100, 250, 500, 1000, 5000];
+    int[] bucketCounts = [0, 0, 0, 0, 0, 0, 0];
     int count = 0;
     decimal sum = 0d;
 |};
@@ -17,55 +18,75 @@ public class MetricsRegistry {
     private map<MetricSample> metrics = {};
     private map<int> consumerLag = {};
 
+    isolated function seriesKey(string name, map<string> labels) returns string {
+        return name + self.formatLabels(labels);
+    }
+
     public function incrementCounter(string name, string help, map<string>? labels = ()) {
         lock {
-            MetricSample metric = self.metrics[name] ?: {
+            map<string> resolvedLabels = (labels ?: {}).clone();
+            string key = self.seriesKey(name, resolvedLabels);
+            MetricSample metric = self.metrics[key] ?: {
                 name: name,
                 help: help,
                 metricType: "COUNTER",
                 value: 0d,
-                labels: labels ?: {},
+                labels: resolvedLabels,
                 buckets: [10, 50, 100, 250, 500, 1000, 5000],
+                bucketCounts: [0, 0, 0, 0, 0, 0, 0],
                 count: 0,
                 sum: 0d
             };
             metric.value += 1d;
-            self.metrics[name] = metric;
+            self.metrics[key] = metric;
         }
     }
 
     public function setGauge(string name, string help, decimal value, map<string>? labels = ()) {
         lock {
+            map<string> resolvedLabels = (labels ?: {}).clone();
+            string key = self.seriesKey(name, resolvedLabels);
             MetricSample metric = {
                 name: name,
                 help: help,
                 metricType: "GAUGE",
                 value: value,
-                labels: labels ?: {},
+                labels: resolvedLabels,
                 buckets: [10, 50, 100, 250, 500, 1000, 5000],
+                bucketCounts: [0, 0, 0, 0, 0, 0, 0],
                 count: 0,
                 sum: 0d
             };
-            self.metrics[name] = metric;
+            self.metrics[key] = metric;
         }
     }
 
     public function observeLatency(string name, string help, decimal latencyMs, map<string>? labels = ()) {
         lock {
-            MetricSample metric = self.metrics[name] ?: {
+            map<string> resolvedLabels = (labels ?: {}).clone();
+            string key = self.seriesKey(name, resolvedLabels);
+            MetricSample metric = self.metrics[key] ?: {
                 name: name,
                 help: help,
                 metricType: "HISTOGRAM",
                 value: 0d,
-                labels: labels ?: {},
+                labels: resolvedLabels,
                 buckets: [10, 50, 100, 250, 500, 1000, 5000],
+                bucketCounts: [0, 0, 0, 0, 0, 0, 0],
                 count: 0,
                 sum: 0d
             };
             metric.value = latencyMs;
             metric.count += 1;
             metric.sum += latencyMs;
-            self.metrics[name] = metric;
+            int idx = 0;
+            while idx < metric.buckets.length() {
+                if latencyMs <= <decimal>metric.buckets[idx] {
+                    metric.bucketCounts[idx] = metric.bucketCounts[idx] + 1;
+                }
+                idx += 1;
+            }
+            self.metrics[key] = metric;
         }
     }
 
@@ -78,11 +99,15 @@ public class MetricsRegistry {
     public function exportPrometheus() returns string {
         lock {
             string output = "";
+            map<boolean> emittedHeader = {};
             foreach MetricSample metric in self.metrics {
-                output += string `# HELP ${metric.name} ${metric.help}
+                if !emittedHeader.hasKey(metric.name) {
+                    emittedHeader[metric.name] = true;
+                    output += string `# HELP ${metric.name} ${metric.help}
 `;
-                output += string `# TYPE ${metric.name} ${metric.metricType.toLowerAscii()}
+                    output += string `# TYPE ${metric.name} ${metric.metricType.toLowerAscii()}
 `;
+                }
 
                 string labelsText = self.formatLabels(metric.labels);
                 if metric.metricType == "COUNTER" || metric.metricType == "GAUGE" {
@@ -90,11 +115,15 @@ public class MetricsRegistry {
 `;
                 } else {
                     string extraLabels = self.formatExtraLabels(metric.labels);
-                    foreach int bucket in metric.buckets {
-                        output += string `${metric.name}_bucket{le="${bucket}"${extraLabels}} ${metric.value <= <decimal>bucket ? 1d : 0d}
+                    int idx = 0;
+                    while idx < metric.buckets.length() {
+                        int bucket = metric.buckets[idx];
+                        int bCount = metric.bucketCounts[idx];
+                        output += string `${metric.name}_bucket{le="${bucket}"${extraLabels}} ${bCount}
 `;
+                        idx += 1;
                     }
-                    output += string `${metric.name}_bucket{le="+Inf"${extraLabels}} 1
+                    output += string `${metric.name}_bucket{le="+Inf"${extraLabels}} ${metric.count}
 `;
                     output += string `${metric.name}_sum${labelsText} ${metric.sum}
 `;
@@ -123,7 +152,7 @@ public class MetricsRegistry {
         }
     }
 
-    function formatLabels(map<string> labels, string? le = ()) returns string {
+    isolated function formatLabels(map<string> labels, string? le = ()) returns string {
         string[] parts = [];
         if le is string {
             parts.push(string `le="${le}"`);
@@ -137,7 +166,7 @@ public class MetricsRegistry {
         return "{" + string:'join(", ", ...parts) + "}";
     }
 
-    function formatExtraLabels(map<string> labels) returns string {
+    isolated function formatExtraLabels(map<string> labels) returns string {
         if labels.length() == 0 {
             return "";
         }

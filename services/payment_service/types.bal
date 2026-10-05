@@ -1,11 +1,11 @@
 import peerpressure/events;
 
-public enum PaymentStatus {
-    PENDING = "PENDING",
-    COMPLETED = "COMPLETED",
-    FAILED = "FAILED",
-    REFUNDED = "REFUNDED"
-}
+public type PaymentStatus events:PaymentStatus;
+
+public const events:PaymentStatus PENDING = events:PENDING;
+public const events:PaymentStatus COMPLETED = events:COMPLETED;
+public const events:PaymentStatus FAILED = events:FAILED;
+public const events:PaymentStatus REFUNDED = events:REFUNDED;
 
 public enum EntryType {
     DEBIT = "DEBIT",
@@ -21,16 +21,19 @@ public enum GatewayOutcome {
 }
 
 public type PaymentTransaction record {|
+    string? paymentId = ();
     string transactionId;
     string orderId;
     string customerId;
     decimal amount;
     string currency;
     string method;
+    string? paymentMethod = ();
     PaymentStatus status;
     string? failureReason = ();
     string idempotencyKey;
     string createdAt;
+    string? completedAt = ();
 |};
 
 public type LedgerEntry record {|
@@ -51,16 +54,17 @@ public type GatewayResult record {|
     string? failureReason = ();
 |};
 
-public type KitchenRejectedEvent record {|
-    string eventId;
-    string orderId;
-    string reason;
-    string rejectedAt;
-|};
+public type KitchenRejectedEvent events:KitchenRejectedEvent;
 
 public type OrderCreatedEvent events:OrderCreatedEvent;
 
 public type OrderCancelledEvent events:OrderCancelledEvent;
+
+public type PaymentCompletedEvent events:PaymentCompletedEvent;
+
+public type PaymentFailedEvent events:PaymentFailedEvent;
+
+public type PaymentRefundedEvent events:PaymentRefundedEvent;
 
 public type OrderCreatedMessage record {|
     string eventId;
@@ -69,6 +73,7 @@ public type OrderCreatedMessage record {|
     string restaurantId;
     events:OrderItem[] items;
     decimal totalAmount;
+    decimal deliveryFee = 0d;
     events:Address deliveryAddress;
     events:OrderStatus status = events:CREATED;
     string createdAt;
@@ -80,6 +85,7 @@ public type OrderCreatedMessage record {|
 public type OrderCancelledMessage record {|
     string eventId;
     string orderId;
+    string customerId = "";
     string reason;
     string cancelledBy;
     string cancelledAt;
@@ -87,52 +93,13 @@ public type OrderCancelledMessage record {|
 |};
 
 public type KitchenRejectedMessage record {|
-    *KitchenRejectedEvent;
-    string 'type?;
-|};
-
-public type PaymentCompletedEvent record {|
     string eventId;
-    string paymentId;
-    string transactionId;
     string orderId;
-    string customerId;
-    decimal amount;
-    string currency;
-    string paymentMethod;
-    PaymentStatus status;
-    string transactionReference;
-    string completedAt;
-    string timestamp;
-|};
-
-public type PaymentFailedEvent record {|
-    string eventId;
-    string transactionId;
-    string orderId;
-    string customerId;
-    decimal amount;
-    string currency;
-    string paymentMethod;
-    PaymentStatus status;
+    string customerId = "";
+    string restaurantId = "";
     string reason;
-    string errorCode;
-    string failedAt;
-    string timestamp;
-|};
-
-public type PaymentRefundedEvent record {|
-    string eventId;
-    string paymentId;
-    string transactionId;
-    string orderId;
-    string customerId;
-    decimal amount;
-    string currency;
-    string paymentMethod;
-    PaymentStatus status;
-    string refundedAt;
-    string timestamp;
+    string rejectedAt;
+    string 'type?;
 |};
 
 public type PaymentApiError record {|

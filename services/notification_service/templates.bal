@@ -1,39 +1,45 @@
-// Renders a message body for a given template and event payload.
-// For now we just return a generic sentence per template.
+// Renders a message body for a given template and event payload, interpolating order/payment/driver details when present.
 public function renderBody(string template, json data) returns string {
+    string orderId = extractField(data, "orderId");
+    string driverName = extractField(data, "driverName");
+    string reason = extractField(data, "reason");
+    string suffix = orderId != "" ? string ` (Order #${orderId})` : "";
+
     match template {
         "order_created_customer" => {
-            return "We received your order. Hang tight!";
+            return string `We received your order${suffix}. Hang tight!`;
         }
         "order_confirmed_customer" => {
-            return "Your order has been confirmed.";
+            return string `Your order${suffix} has been confirmed.`;
         }
         "order_ready_customer" => {
-            return "Your food is ready and waiting for pickup.";
+            return string `Your food${suffix} is ready and waiting for pickup.`;
         }
         "pickup_ready_driver" => {
-            return "A pickup is ready for you at the restaurant.";
+            return string `A pickup${suffix} is ready for you at the restaurant.`;
         }
         "payment_receipt_customer" => {
-            return "Payment received. Thanks!";
+            return string `Payment received${suffix}. Thanks!`;
         }
         "payment_failed_customer" => {
-            return "Your payment didn't go through. Please try again.";
+            string detail = reason != "" ? string `: ${reason}` : "";
+            return string `Your payment${suffix} didn't go through${detail}. Please try again.`;
         }
         "driver_assigned_customer" => {
-            return "A driver is on the way to pick up your order.";
+            string who = driverName != "" ? string `Driver ${driverName}` : "A driver";
+            return string `${who} is on the way to pick up your order${suffix}.`;
         }
         "delivered_customer" => {
-            return "Your order has been delivered. Enjoy!";
+            return string `Your order${suffix} has been delivered. Enjoy!`;
         }
         "sla_breach_customer" => {
-            return "We're sorry — your order is running late.";
+            return string `We're sorry — your order${suffix} is running late.`;
         }
         "sla_breach_driver" => {
-            return "You've exceeded the SLA on this delivery. Please update status.";
+            return string `You've exceeded the SLA on this delivery${suffix}. Please update status.`;
         }
         _ => {
-            return "You have a new update on your order.";
+            return string `You have a new update on your order${suffix}.`;
         }
     }
 }

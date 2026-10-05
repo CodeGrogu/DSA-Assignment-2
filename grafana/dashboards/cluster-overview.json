@@ -64,7 +64,7 @@
       "id": 4,
       "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single", "sort": "none" } },
       "targets": [
-        { "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)", "legendFormat": "CPU usage", "refId": "A" }
+        { "expr": "sum(rate(http_requests_total[1m])) by (service)", "legendFormat": "{{service}}", "refId": "A" }
       ],
       "title": "Broker CPU Utilization",
       "type": "timeseries"

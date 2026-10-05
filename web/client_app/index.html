@@ -10,6 +10,8 @@
     href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap"
     rel="stylesheet"
   />
+  <!-- Leaflet CSS for Map Rendering -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="../shared.css" />
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -24,32 +26,121 @@
             <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0" />
           </svg>
         </div>
-        <div class="brand-title-group">
-          <h1>Food Delivery Windhoek</h1>
-          <p class="brand-subtitle">Customer Portal &bull; Live Ordering &amp; Telemetry</p>
+      </div>
+
+      <!-- Center Global Search Bar -->
+      <div class="header-global-search">
+        <div class="menu-search-wrapper">
+          <span class="search-input-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+          </span>
+          <input
+            type="text"
+            id="menu-search-input"
+            class="form-input menu-search-input"
+            placeholder="Search dishes or ingredients (e.g. Kapana, Vetkoek)..."
+            oninput="handleMenuSearch(this.value)"
+          />
+          <button
+            type="button"
+            id="search-clear-btn"
+            class="search-clear-btn"
+            onclick="clearMenuSearch()"
+            style="display: none;"
+            title="Clear search"
+          >
+            &times;
+          </button>
         </div>
       </div>
 
-      <!-- Compact Header Controls: Account Quick Select, Cart Trigger & Hub -->
+      <!-- Compact Header Controls: Unified Pill, Notifs, Cart, and Menu Button -->
       <div class="header-controls">
-        <!-- Account Quick Chip with Custom Dropdown Styling -->
-        <div class="account-pill-box">
-          <span class="account-pill-label">Account:</span>
-          <div class="custom-select-wrap select-sm header-select-wrapper" title="Active Customer Account">
-            <select id="header-customer-select" class="custom-select select-sm header-customer-select" aria-label="Active Customer Account" onchange="handleCustomerChange(this.value)">
-              <option value="" disabled selected>Loading...</option>
-            </select>
+        <!-- Unified White Scored Pill Component (Surge + State Pill) -->
+        <div class="header-unified-pill" id="header-unified-pill">
+          <!-- Left Half: Surge Pricing Badge -->
+          <div class="header-surge-pill" id="header-surge-pill" title="Platform Status & Pricing">
+            <span class="surge-status-offline" id="surge-status-offline" style="display: none;">Offline</span>
+            <div class="surge-online-content" id="surge-online-content">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+              </svg>
+              <span class="surge-badge-text" id="surge-multiplier-tag">1.0x</span>
+              <span class="surge-fee-text text-mono" id="surge-delivery-fee">N$ 15.00</span>
+            </div>
           </div>
-          <button type="button" class="btn btn-sm btn-outline header-reg-btn" onclick="openRegisterModal()" title="Register New Customer">
-            <svg viewBox="0 0 24 24">
-              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-              <circle cx="9" cy="7" r="4" />
-              <line x1="19" y1="8" x2="19" y2="14" />
-              <line x1="22" y1="11" x2="16" y2="11" />
-            </svg>
-            <span>Register</span>
+
+          <!-- Tablet Center Score / Divider Line -->
+          <div class="pill-divider" id="header-pill-divider" style="display: none;"></div>
+
+          <!-- Right Half: Live Order Tracking Badge & Popover -->
+          <div class="header-active-order-badge-wrapper" id="header-active-order-badge-wrapper" style="display: none;" onmouseenter="handleOrderBadgeMouseEnter()" onmouseleave="handleOrderBadgeMouseLeave()">
+            <button type="button" class="header-order-badge" id="header-order-badge" onclick="switchMainTab('tracking'); handleOrderBadgeClick(event);" title="Click to view live tracking map">
+              <span class="order-badge-dot" id="order-badge-pulse"></span>
+              <span class="order-badge-stage" id="order-badge-stage">Preparing</span>
+              <span class="order-badge-count" id="order-badge-count" style="display: none;">1/2</span>
+            </button>
+            <div class="order-badge-popover" id="order-badge-popover">
+              <div class="order-popover-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span id="order-popover-ref" style="font-weight: 700; font-size: 12px; color: var(--text-main);">Order Ref #...</span>
+                <span class="status-pill" id="order-popover-status">PREPARING</span>
+              </div>
+              <div class="order-popover-driver-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; font-size: 12px;">
+                <div style="display: flex; align-items: center; gap: 6px; overflow: hidden;">
+                  <span id="order-popover-vehicle-icon" style="display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; flex-shrink: 0;">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#eb4d28" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="5.5" cy="17.5" r="3.5"></circle>
+                      <circle cx="18.5" cy="17.5" r="3.5"></circle>
+                      <path d="M15 6h-3l-3 5.5h6l1.5-3.5H19"></path>
+                      <path d="M9 11.5l3 6"></path>
+                    </svg>
+                  </span>
+                  <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                    <strong id="order-popover-driver-name">Tomas Nekundi</strong>
+                    <span style="color: var(--text-muted); font-size: 11px; display: block;" id="order-popover-driver-vehicle">Motorcycle</span>
+                  </div>
+                </div>
+                <a href="tel:+264812345601" class="btn btn-xs btn-outline" id="order-popover-call-btn" style="flex-shrink: 0;">Call Driver</a>
+              </div>
+              <div class="order-popover-eta-row" style="margin-top: 6px; font-size: 11px; color: var(--text-muted);">
+                <span id="order-popover-eta">ETA: ~15 mins (2.4 km)</span>
+              </div>
+              <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border);">
+                <button type="button" class="btn btn-xs btn-primary" id="tab-btn-tracking" style="width: 100%; justify-content: center;" onclick="switchMainTab('tracking'); const pop = document.getElementById('order-badge-popover'); if (pop) pop.style.display = 'none';">
+                  <span>Open Live Tracking Map</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Customer User Badge & Auth Button -->
+        <div id="customer-user-badge" style="display: none; align-items: center; gap: 8px;">
+          <div class="user-status-pill">
+            <span class="user-avatar" id="header-user-avatar">👤</span>
+            <div class="user-info-text">
+              <span class="user-name" id="header-user-name">Guest Customer</span>
+              <span class="user-balance" id="header-user-balance">N$ 0.00</span>
+            </div>
+          </div>
+          <button type="button" class="btn btn-sm btn-outline" onclick="openProfileDrawer()">
+            Profile
           </button>
         </div>
+        <button type="button" class="btn btn-sm btn-primary" id="btn-header-login" onclick="openCustomerLoginModal()">
+          <span>Sign In / Register</span>
+        </button>
+
+        <!-- Square Notifications Trigger Button with Unread Badge -->
+        <button type="button" class="btn btn-icon-square" id="btn-toggle-notifs" onclick="toggleNotificationsDrawer()" title="View Notifications">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" />
+          </svg>
+          <span class="square-badge" id="header-notifs-count" style="display: none;">0</span>
+        </button>
 
         <!-- Cart Trigger Button with Live Counter Badge -->
         <button type="button" class="btn btn-cart btn-sm" id="btn-toggle-cart" onclick="toggleCartDrawer()" title="View Shopping Cart">
@@ -62,94 +153,22 @@
           <span class="cart-badge" id="header-cart-count">0</span>
         </button>
 
-        <!-- Return to Platform Hub -->
-        <a href="../index.html" class="btn btn-outline btn-sm hub-link" title="Return to Platform Hub">
-          <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
-          <span>Hub</span>
-        </a>
+        <!-- Menu Drawer Hamburger Trigger Button -->
+        <button type="button" class="btn btn-icon-square" id="btn-toggle-menu" onclick="toggleMenuDrawer()" title="Account &amp; Navigation Menu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </button>
       </div>
     </div>
 
-    <!-- Tier 2: Clean Navigation Tabs with Active Indicators and Badges -->
-    <div class="header-nav-strip">
-      <div class="header-container">
-        <nav class="header-nav" role="tablist" aria-label="Client Portal Sections">
-          <button
-            type="button"
-            class="nav-tab-btn active"
-            role="tab"
-            aria-selected="true"
-            data-tab="menu"
-            id="tab-btn-menu"
-            onclick="switchMainTab('menu')"
-          >
-            <svg viewBox="0 0 24 24">
-              <rect x="3" y="3" width="7" height="7" />
-              <rect x="14" y="3" width="7" height="7" />
-              <rect x="14" y="14" width="7" height="7" />
-              <rect x="3" y="14" width="7" height="7" />
-            </svg>
-            <span>Explore &amp; Menu</span>
-            <span class="tab-badge" id="badge-menu">LIVE</span>
-          </button>
-          <button
-            type="button"
-            class="nav-tab-btn"
-            role="tab"
-            aria-selected="false"
-            data-tab="tracking"
-            id="tab-btn-tracking"
-            onclick="switchMainTab('tracking')"
-          >
-            <svg viewBox="0 0 24 24">
-              <polygon points="3 11 22 2 13 21 11 13 3 11" />
-            </svg>
-            <span>Live Tracking</span>
-            <span class="tab-badge nav-badge" id="active-orders-count" style="display: none;">0</span>
-          </button>
-          <button
-            type="button"
-            class="nav-tab-btn"
-            role="tab"
-            aria-selected="false"
-            data-tab="account"
-            id="tab-btn-account"
-            onclick="switchMainTab('account')"
-          >
-            <svg viewBox="0 0 24 24">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-              <circle cx="12" cy="7" r="4" />
-            </svg>
-            <span>Account &amp; Addresses</span>
-            <span class="tab-badge" id="badge-account">PROFILE</span>
-          </button>
-          <button
-            type="button"
-            class="nav-tab-btn"
-            role="tab"
-            aria-selected="false"
-            data-tab="notifs"
-            id="tab-btn-notifs"
-            onclick="switchMainTab('notifs')"
-          >
-            <svg viewBox="0 0 24 24">
-              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" />
-            </svg>
-            <span>Notifications</span>
-            <span class="tab-badge nav-badge notifs-badge" id="notifs-unread-count" style="display: none;">0</span>
-          </button>
-        </nav>
-      </div>
+    <!-- Header Progress Track at Bottom Edge -->
+    <div class="header-progress-track" id="header-order-progress-track" style="display: none;">
+      <div class="header-progress-fill" id="header-order-progress-fill" style="width: 0%;"></div>
     </div>
   </header>
-
-  <!-- Service Health & Connectivity Banner -->
-  <div id="service-status-banner" class="service-banner banner-checking">
-    <div class="banner-inner">
-      <span class="banner-dot"></span>
-      <span id="service-status-text">Probing backend microservices (:9091, :9093, :9095, :9096, :9097)...</span>
-    </div>
-  </div>
 
   <main class="main-container">
 
@@ -157,624 +176,246 @@
     <!-- VIEW 1: EXPLORE & MENU CATALOG                                       -->
     <!-- ==================================================================== -->
     <section id="view-menu" class="view-panel active">
-      <!-- Live Dynamic Surge Pricing Banner with Info Tooltip -->
-      <div class="card surge-banner-card">
-        <div class="surge-content">
-          <div class="card-icon card-icon-orange">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
-            </svg>
+
+      <!-- Restaurant Showcase Banner Cards (Inspired by Reference Design) -->
+      <section class="restaurant-showcase-section">
+        <div class="restaurant-showcase-header">
+          <div>
+            <span class="showcase-tag-badge">Explore Windhoek Kitchens</span>
+            <h2 class="showcase-title">Choose Your Restaurant</h2>
+            <p class="showcase-subtitle">Select a kitchen to explore their freshly grilled kapana, potjiekos, and local delicacies</p>
           </div>
-          <div class="surge-info">
-            <div class="surge-title-line">
-              <h3>Live Dynamic Surge Pricing</h3>
-              <span class="status-pill pill-surge" id="surge-multiplier-tag">1.0x Normal Demand</span>
-              
-              <!-- Info Tooltip for Peak Demand Multipliers -->
-              <div class="tooltip-container">
-                <button type="button" class="tooltip-trigger-btn" aria-label="Surge pricing information">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <line x1="12" y1="16" x2="12" y2="12"></line>
-                    <line x1="12" y1="8" x2="12.01" y2="8"></line>
+          <button type="button" class="btn btn-sm btn-outline btn-showcase-map" onclick="switchMainTab('tracking')" title="Explore all restaurants on interactive map">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px;">
+              <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon>
+              <line x1="8" y1="2" x2="8" y2="18"></line>
+              <line x1="16" y1="6" x2="16" y2="22"></line>
+            </svg>
+            <span>Explore on Map</span>
+          </button>
+        </div>
+
+        <!-- Horizontal Scroll / Carousel Track for Restaurant Cards -->
+        <div class="restaurant-carousel-wrapper">
+          <button type="button" class="track-arrow-btn prev" id="track-arrow-prev" onclick="scrollRestaurantTrack(-1)" aria-label="Previous restaurants" style="display: none;">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+          </button>
+          <div class="restaurant-cards-track" id="restaurant-cards-track">
+            <div class="empty-state-card" style="width: 100%;">
+              <p>Loading live restaurants from Restaurant Service (:9095)...</p>
+            </div>
+          </div>
+          <button type="button" class="track-arrow-btn next" id="track-arrow-next" onclick="scrollRestaurantTrack(1)" aria-label="Next restaurants">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+          </button>
+        </div>
+
+      </section>
+
+      <!-- Menu Catalog & Category Filters Section (Edge-to-Edge Night Bleed with Centered Container) -->
+      <section class="menu-catalog-section" id="menu-catalog-section">
+        <div class="menu-catalog-container">
+          <div class="menu-catalog-header">
+            <div>
+              <h2>Restaurant Dishes &amp; Catalog</h2>
+              <p class="section-desc">Freshly prepared artisan dishes &amp; real-time kitchen availability</p>
+            </div>
+
+            <!-- Category Filter Bar -->
+            <div class="catalog-controls-bar">
+              <!-- Category Filter Carousel (Strictly 3 visible at a time) -->
+              <div class="category-carousel-wrapper">
+                <button type="button" class="carousel-nav-btn prev" id="cat-carousel-prev" onclick="slideCategoryCarousel(-1)" aria-label="Previous categories" style="display: none;">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="15 18 9 12 15 6"></polyline>
                   </svg>
                 </button>
-                <div class="tooltip-popover">
-                  <div class="tooltip-title">Peak Demand Pricing Model</div>
-                  <p class="tooltip-text">
-                    Surge multipliers dynamically scale platform delivery fees based on real-time city-wide order density and active courier availability across Windhoek zones.
-                  </p>
-                  <div class="tooltip-scale-row">
-                    <span class="scale-item"><strong>1.0x</strong> Normal</span>
-                    <span class="scale-item"><strong>1.2x – 1.8x</strong> Peak Lunch/Dinner</span>
-                    <span class="scale-item"><strong>2.0x+</strong> Severe Weather / Rush</span>
+                <div class="category-filter-chips-viewport">
+                  <div class="category-filters-container" id="category-filter-chips">
+                    <!-- Rendered dynamically strictly for selected restaurant -->
                   </div>
-                  <p class="tooltip-footnote">100% of the surge premium goes directly to active couriers to incentivize faster delivery times.</p>
                 </div>
+                <button type="button" class="carousel-nav-btn next" id="cat-carousel-next" onclick="slideCategoryCarousel(1)" aria-label="Next categories">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="9 18 15 12 9 6"></polyline>
+                  </svg>
+                </button>
               </div>
             </div>
-            <p class="surge-subtitle">Real-time supply and demand telemetry streamed from Order Service (:9091).</p>
-          </div>
-        </div>
-        <div class="surge-stats">
-          <div class="surge-stat-item">
-            <span class="stat-label">Platform Delivery Fee</span>
-            <strong class="stat-value text-mono" id="surge-delivery-fee">N$ 15.00</strong>
-          </div>
-        </div>
-      </div>
-
-      <!-- Restaurant Banner: Kapana Corner, Single Quarters, Katutura -->
-      <div class="card restaurant-banner-card">
-        <div class="restaurant-banner-header">
-          <div class="restaurant-brand-box">
-            <div class="restaurant-avatar">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M18 8h1a4 4 0 0 1 0 8h-1"></path>
-                <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path>
-                <line x1="6" y1="1" x2="6" y2="4"></line>
-                <line x1="10" y1="1" x2="10" y2="4"></line>
-                <line x1="14" y1="1" x2="14" y2="4"></line>
-              </svg>
-            </div>
-            <div>
-              <div class="restaurant-title-row">
-                <h2 id="rest-name-display">Kapana Corner</h2>
-                <div class="restaurant-status-indicator">
-                  <span class="status-dot online" id="restaurant-open-dot"></span>
-                  <span class="status-dot-label" id="restaurant-open-text">OPEN FOR ORDERS</span>
-                </div>
-              </div>
-              <p class="restaurant-location-line" id="rest-subtitle">Single Quarters, Katutura, Windhoek</p>
-            </div>
           </div>
 
-          <!-- Restaurant Selector Dropdown with Custom Chevron -->
-          <div class="restaurant-picker-group">
-            <label for="restaurant-select" class="input-label">Select Restaurant</label>
-            <div class="custom-select-wrapper">
-              <select id="restaurant-select" class="form-select restaurant-select" onchange="handleRestaurantChange(this.value)">
-                <option value="R001" selected>Kapana Corner (R001)</option>
-              </select>
+          <!-- Dishes Grid -->
+          <div class="dishes-grid" id="menu-items-container">
+            <div class="empty-state-card">
+              <p>Loading freshly prepared dishes...</p>
             </div>
           </div>
         </div>
-
-        <!-- Restaurant Metadata Strip -->
-        <div class="restaurant-meta-grid" id="restaurant-meta-grid">
-          <div class="meta-item">
-            <span class="meta-label">Location Address</span>
-            <strong class="meta-value" id="rest-address">Single Quarters, Katutura, Windhoek</strong>
-          </div>
-          <div class="meta-item">
-            <span class="meta-label">Operating Hours</span>
-            <strong class="meta-value" id="rest-hours">08:00 – 22:00 Daily</strong>
-          </div>
-          <div class="meta-item">
-            <span class="meta-label">Contact Phone</span>
-            <strong class="meta-value text-mono" id="rest-phone">+264-81-111-2222</strong>
-          </div>
-          <div class="meta-item">
-            <span class="meta-label">Windhoek Coordinates</span>
-            <strong class="meta-value text-mono" id="rest-coords">[17.0658, -22.5333]</strong>
-          </div>
-        </div>
-      </div>
-
-      <!-- Menu Catalog & Category Filters Section -->
-      <div class="menu-catalog-section">
-        <div class="menu-catalog-header">
-          <div>
-            <h2>Restaurant Dishes &amp; Catalog</h2>
-            <p class="section-desc">Live dishes and real-time inventory from Restaurant Service (:9095)</p>
-          </div>
-
-          <!-- Search & Category Filter Bar -->
-          <div class="catalog-controls-bar">
-            <!-- Instant Text Search Input -->
-            <div class="menu-search-wrapper">
-              <span class="search-input-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="11" cy="11" r="8"></circle>
-                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                </svg>
-              </span>
-              <input
-                type="text"
-                id="menu-search-input"
-                class="form-input menu-search-input"
-                placeholder="Search dishes or ingredients (e.g. Kapana, Vetkoek)..."
-                oninput="handleMenuSearch(this.value)"
-              />
-              <button
-                type="button"
-                id="search-clear-btn"
-                class="search-clear-btn"
-                onclick="clearMenuSearch()"
-                style="display: none;"
-                title="Clear search"
-              >
-                &times;
-              </button>
-            </div>
-
-            <!-- Category Filter Chips -->
-            <div class="category-filters-container" id="category-filter-chips">
-              <!-- Rendered dynamically ('All', 'Street Food & Kapana', 'Sides', 'Beverages') -->
-            </div>
-          </div>
-        </div>
-
-        <!-- Dishes Grid -->
-        <div class="dishes-grid" id="menu-items-container">
-          <div class="empty-state-card">
-            <p>Loading dishes from Restaurant Service (:9095)...</p>
-          </div>
-        </div>
-      </div>
+      </section>
     </section>
 
     <!-- ==================================================================== -->
-    <!-- VIEW 2: LIVE ORDER TRACKING & TELEMETRY                               -->
+    <!-- VIEW 2: LIVE ORDER TRACKING (FULLSCREEN MAP & DRIVER HUD)            -->
     <!-- ==================================================================== -->
-    <section id="view-tracking" class="view-panel" style="display: none;">
-      <div class="card tracking-main-card">
-        <div class="card-header-split">
-          <div class="card-title-group">
-            <div class="card-icon card-icon-orange">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
-              </svg>
-            </div>
-            <div>
-              <h2>Live Order &amp; Delivery Tracking</h2>
-              <p class="section-desc">Real-time status progression, courier distance telemetry, and route visualizer</p>
-            </div>
+    <section id="view-tracking" class="view-panel tracking-fullscreen-view" style="display: none;">
+      <!-- Fullscreen Map Background Canvas -->
+      <div id="client-google-map" class="tracking-fullscreen-map"></div>
+
+      <!-- Top Floating Controls: Back to Menu & Order Selector -->
+      <div class="tracking-top-bar">
+        <button type="button" class="tracking-back-btn" onclick="switchMainTab('menu')" title="Return to Menu">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
+          <span>Back to Menu</span>
+        </button>
+
+        <div class="tracking-top-actions">
+          <div class="tracking-select-wrapper custom-select-wrapper" id="tracking-order-select-wrapper">
+            <select id="tracking-order-select" class="form-select tracking-order-select" onchange="selectOrderToTrack(this.value)">
+              <option value="" disabled selected>Loading active orders...</option>
+            </select>
           </div>
-
-          <!-- Order Selection Controls with Custom Dropdown Chevron -->
-          <div class="order-select-controls">
-            <div class="form-group mb-0">
-              <label for="tracking-order-select" class="input-label">Select Order to Track</label>
-              <div class="custom-select-wrapper tracking-select-wrapper">
-                <select id="tracking-order-select" class="form-select tracking-order-select" onchange="selectOrderToTrack(this.value)">
-                  <option value="" disabled selected>No active orders</option>
-                </select>
-              </div>
-            </div>
-            <button type="button" class="btn btn-outline tracking-refresh-btn" onclick="pollLiveOrderTracking()" title="Refresh telemetry">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
-              </svg>
-              <span>Refresh</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- 6-Step Lifecycle Stepper with Active Pulse and Timestamps -->
-        <div class="stepper-wrapper">
-          <div class="lifecycle-stepper" id="lifecycle-stepper">
-            <!-- Step 1: CREATED -->
-            <div class="stepper-step" id="step-created" data-status="CREATED">
-              <div class="step-circle">1</div>
-              <span class="step-label">Created</span>
-              <span class="step-time text-mono" id="step-time-created">—</span>
-            </div>
-            <div class="stepper-track-line" id="line-1"></div>
-
-            <!-- Step 2: CONFIRMED -->
-            <div class="stepper-step" id="step-confirmed" data-status="CONFIRMED">
-              <div class="step-circle">2</div>
-              <span class="step-label">Confirmed</span>
-              <span class="step-time text-mono" id="step-time-confirmed">—</span>
-            </div>
-            <div class="stepper-track-line" id="line-2"></div>
-
-            <!-- Step 3: PREPARING -->
-            <div class="stepper-step" id="step-preparing" data-status="PREPARING">
-              <div class="step-circle">3</div>
-              <span class="step-label">Preparing</span>
-              <span class="step-time text-mono" id="step-time-preparing">—</span>
-            </div>
-            <div class="stepper-track-line" id="line-3"></div>
-
-            <!-- Step 4: READY -->
-            <div class="stepper-step" id="step-ready" data-status="READY">
-              <div class="step-circle">4</div>
-              <span class="step-label">Ready</span>
-              <span class="step-time text-mono" id="step-time-ready">—</span>
-            </div>
-            <div class="stepper-track-line" id="line-4"></div>
-
-            <!-- Step 5: OUT_FOR_DELIVERY -->
-            <div class="stepper-step" id="step-out" data-status="OUT_FOR_DELIVERY">
-              <div class="step-circle">5</div>
-              <span class="step-label">Out for Delivery</span>
-              <span class="step-time text-mono" id="step-time-out">—</span>
-            </div>
-            <div class="stepper-track-line" id="line-5"></div>
-
-            <!-- Step 6: DELIVERED -->
-            <div class="stepper-step" id="step-delivered" data-status="DELIVERED">
-              <div class="step-circle">6</div>
-              <span class="step-label">Delivered</span>
-              <span class="step-time text-mono" id="step-time-delivered">—</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Telemetry & Tracking Grid -->
-        <div class="tracking-grid">
-          <!-- Left Column: Order Summary & Actions -->
-          <div class="tracking-subcard">
-            <div class="subcard-header">
-              <span class="subcard-title">Order Status Details</span>
-              <span class="status-pill" id="track-order-status-pill">WAITING FOR ORDER</span>
-            </div>
-            <div class="detail-rows-container">
-              <div class="detail-data-row">
-                <span class="data-label">Order ID:</span>
-                <span class="data-value text-mono" id="track-order-id">—</span>
-              </div>
-              <div class="detail-data-row">
-                <span class="data-label">Restaurant ID:</span>
-                <span class="data-value text-mono" id="track-restaurant-id">—</span>
-              </div>
-              <div class="detail-data-row">
-                <span class="data-label">Total Amount:</span>
-                <span class="data-value text-mono" id="track-total-amount">—</span>
-              </div>
-              <div class="detail-data-row">
-                <span class="data-label">Assigned Courier ID:</span>
-                <span class="data-value text-mono" id="track-driver-id">—</span>
-              </div>
-              <div class="detail-data-row">
-                <span class="data-label">Delivery Street:</span>
-                <span class="data-value" id="track-delivery-address">—</span>
-              </div>
-            </div>
-
-            <!-- Cancellation Row Guarded when PREPARING -->
-            <div class="cancellation-action-box">
-              <button type="button" class="btn btn-outline btn-danger" id="btn-cancel-order" onclick="cancelCurrentOrder()" disabled>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <line x1="15" y1="9" x2="9" y2="15"></line>
-                  <line x1="9" y1="9" x2="15" y2="15"></line>
-                </svg>
-                <span>Cancel Order</span>
-              </button>
-              <p class="cancellation-helper-text" id="cancel-guard-notice">
-                Order cancellation is permitted only prior to kitchen preparation (CREATED or CONFIRMED).
-              </p>
-            </div>
-          </div>
-
-          <!-- Right Column: Courier Telemetry Card & Route Track Visualizer -->
-          <div class="tracking-subcard">
-            <div class="subcard-header">
-              <span class="subcard-title">Courier Telemetry</span>
-              <span class="subcard-aux text-mono" id="track-driver-coords">Lat: —, Lon: —</span>
-            </div>
-
-            <!-- Courier Identity Tile -->
-            <div class="courier-profile-tile">
-              <div class="courier-avatar">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                  <circle cx="12" cy="7" r="4"></circle>
-                </svg>
-              </div>
-              <div class="courier-details">
-                <strong class="courier-name" id="track-driver-name">Tomas Nekundi</strong>
-                <span class="courier-vehicle" id="track-driver-vehicle">Motorcycle &bull; TVS Star HLX 125</span>
-              </div>
-              <a href="tel:+264812345601" class="btn btn-sm btn-outline call-driver-link" id="track-driver-phone-link" title="Call Courier">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
-                </svg>
-                <span>Call Driver</span>
-              </a>
-            </div>
-
-            <!-- Distance and ETA Metric Tiles -->
-            <div class="metrics-two-up">
-              <div class="metric-tile">
-                <span class="metric-label">Courier Distance</span>
-                <div class="metric-number-line">
-                  <span class="metric-number text-mono" id="track-distance-km">0.0</span>
-                  <span class="metric-unit">km</span>
-                </div>
-                <span class="metric-footnote">Windhoek degree projection</span>
-              </div>
-              <div class="metric-tile">
-                <span class="metric-label">Estimated Arrival</span>
-                <div class="metric-number-line">
-                  <span class="metric-number text-mono" id="track-eta-mins">—</span>
-                </div>
-                <span class="metric-footnote">Based on 30 km/h urban speed</span>
-              </div>
-            </div>
-
-            <!-- Route Track Visualizer with Animated Progression -->
-            <div class="route-visualizer-container">
-              <div class="route-nodes-row">
-                <div class="route-node-item">
-                  <span class="node-marker marker-restaurant" title="Restaurant Kitchen">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M18 8h1a4 4 0 0 1 0 8h-1"></path>
-                      <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path>
-                    </svg>
-                  </span>
-                  <span class="node-title">Restaurant</span>
-                </div>
-                <div class="route-node-item">
-                  <span class="node-title-center" id="route-stage-text">En Route to Customer</span>
-                </div>
-                <div class="route-node-item">
-                  <span class="node-marker marker-doorstep" title="Customer Doorstep">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-                      <polyline points="9 22 9 12 15 12 15 22"></polyline>
-                    </svg>
-                  </span>
-                  <span class="node-title">Your Doorstep</span>
-                </div>
-              </div>
-
-              <!-- Animated Route Track Bar -->
-              <div class="route-track-bar">
-                <div class="route-track-fill" id="track-segment-fill" style="width: 15%;"></div>
-                <div class="courier-track-pin" id="courier-track-pin" style="left: 15%;">
-                  <span class="courier-pin-pulse"></span>
-                  <span class="courier-pin-icon">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <rect x="1" y="3" width="15" height="13"></rect>
-                      <polygon points="16 8 20 8 23 11 23 16 16 16 8"></polygon>
-                      <circle cx="5.5" cy="18.5" r="2.5"></circle>
-                      <circle cx="18.5" cy="18.5" r="2.5"></circle>
-                    </svg>
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Interactive Google Map Live Tracking & Route Simulation -->
-            <div class="client-delivery-map-wrapper gmp-map-container">
-              <div class="map-fallback-banner" id="client-map-banner" style="display: none;">
-                <span id="client-map-banner-text">Operating with offline route projection simulation.</span>
-                <button type="button" class="btn btn-xs btn-outline" onclick="promptClientApiKey()">Configure API Key</button>
-              </div>
-              <!-- CF2: Explicit height 290px -->
-              <div id="client-google-map" class="gmp-map-canvas-sm" style="width: 100%; height: 290px; min-height: 290px;"></div>
-            </div>
-          </div>
+          <button type="button" class="tracking-icon-btn" onclick="pollLiveOrderTracking()" title="Refresh tracking">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="23 4 23 10 17 10"></polyline>
+              <polyline points="1 20 1 14 7 14"></polyline>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+          </button>
         </div>
       </div>
-    </section>
 
-    <!-- ==================================================================== -->
-    <!-- VIEW 3: ACCOUNT & ADDRESSES                                          -->
-    <!-- ==================================================================== -->
-    <section id="view-account" class="view-panel" style="display: none;">
-      <!-- Active Customer Profile Card -->
-      <div class="card account-profile-card">
-        <div class="card-header-split">
-          <div class="card-title-group">
-            <div class="card-icon card-icon-orange">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <!-- Fallback banner (hidden by default) -->
+      <div class="client-map-banner" id="client-map-banner" style="display: none;">
+        <span class="banner-dot"></span>
+        <span id="client-map-banner-text">Map initialized.</span>
+      </div>
+
+      <!-- Hidden compatibility elements for safe legacy bindings -->
+      <span id="track-order-id" style="display: none;">—</span>
+
+      <!-- Empty State Floating Overlay (when No Active Orders) -->
+      <div id="tracking-empty-placeholder" class="tracking-empty-card" style="display: none;">
+        <button type="button" class="btn-placeholder-close" onclick="document.getElementById('tracking-empty-placeholder').style.display='none'" aria-label="Close message">&times;</button>
+        <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.8" style="margin-bottom: 8px; color: var(--text-muted);">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <h3>Interactive Restaurant Map</h3>
+        <p>Explore Windhoek kitchens on the map below. Click any restaurant marker to view details and open its menu.</p>
+        <div style="display: flex; gap: 8px; justify-content: center; margin-top: 10px;">
+          <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('tracking-empty-placeholder').style.display='none'">Explore Map</button>
+          <button type="button" class="btn btn-primary btn-sm" onclick="switchMainTab('menu')">Browse Menu</button>
+        </div>
+      </div>
+
+      <!-- Bottom Floating HUD: Driver Telemetry, Route, Distance & ETA ("with nothing else") -->
+      <div id="tracking-active-content" class="tracking-hud-card">
+        <!-- State A: Awaiting Driver Assignment -->
+        <div id="tracking-finding-driver" class="tracking-hud-searching" style="display: none;">
+          <div class="tracking-radar-spin">
+            <div class="radar-dot"></div>
+          </div>
+          <div class="tracking-status-text">
+            <span class="tracking-status-title" id="track-order-status-pill">Preparing Order</span>
+            <span class="tracking-status-sub" id="tracking-finding-sub">Assigning courier &amp; preparing in kitchen...</span>
+          </div>
+        </div>
+
+        <!-- State B: Driver Assigned (Shows Driver, Vehicle, ETA & Distance) -->
+        <div id="tracking-driver-assigned" class="tracking-hud-driver" style="display: none;">
+          <div class="tracking-driver-row">
+            <div class="tracking-driver-avatar">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                 <circle cx="12" cy="7" r="4"></circle>
               </svg>
             </div>
-            <div>
-              <h2 id="account-name">No Customer Selected</h2>
-              <p class="profile-meta-text" id="account-meta">Select or register a customer account</p>
+            <div class="tracking-driver-info">
+              <div class="tracking-driver-name" id="track-driver-name">Tomas Nekundi</div>
+              <div class="tracking-driver-vehicle" id="track-driver-vehicle">Motorcycle</div>
+            </div>
+            <a href="tel:+264812345601" class="btn btn-xs btn-outline tracking-call-btn" id="track-driver-phone-link" title="Call Courier">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+              </svg>
+              <span>Call</span>
+            </a>
+          </div>
+
+          <div class="tracking-metrics-strip">
+            <div class="tracking-metric-block">
+              <span class="tracking-metric-label">Estimated Arrival</span>
+              <div class="tracking-metric-value text-mono">
+                <span id="track-eta-mins">~15</span>
+              </div>
+            </div>
+            <div class="tracking-metric-divider"></div>
+            <div class="tracking-metric-block">
+              <span class="tracking-metric-label">Distance</span>
+              <div class="tracking-metric-value text-mono">
+                <span id="track-distance-km">2.4</span> <span class="metric-unit">km</span>
+              </div>
             </div>
           </div>
 
-          <div class="account-actions-row">
-            <button type="button" class="btn btn-sm btn-outline" onclick="openRegisterModal()">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
-                <circle cx="9" cy="7" r="4"></circle>
-                <line x1="19" y1="8" x2="19" y2="14"></line>
-                <line x1="22" y1="11" x2="16" y2="11"></line>
-              </svg>
-              <span>Register New Customer</span>
+          <!-- Handover Confirmation Box (when Delivered) -->
+          <div id="delivery-confirmation-box" style="display: none; padding-top: 10px;">
+            <button type="button" class="btn btn-primary btn-block btn-sm" onclick="confirmCustomerOrderReceipt()">
+              Confirm Meal Received
             </button>
           </div>
-        </div>
-
-        <!-- Account Customer Selector Dropdown with Custom Chevron -->
-        <div class="account-select-strip">
-          <label for="account-view-customer-select" class="input-label">Switch Active Customer Account:</label>
-          <div class="custom-select-wrapper account-select-wrapper">
-            <select id="account-view-customer-select" class="form-select account-view-select" onchange="handleCustomerChange(this.value)">
-              <option value="" disabled selected>Select Customer</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      <!-- Address Verification & 10km Radius Card -->
-      <div class="card address-verification-card">
-        <div class="card-header-split">
-          <div>
-            <h3>Delivery Address &amp; Zone Verification</h3>
-            <p class="section-desc">Windhoek 10 km Delivery Zone validation directly via Customer Service (:9093)</p>
-          </div>
-          <button type="button" class="btn btn-primary" id="btn-verify-address" onclick="verifyActiveAddress()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-              <polyline points="22 4 12 14.01 9 11.01"></polyline>
-            </svg>
-            <span>Verify Address with Backend</span>
-          </button>
-        </div>
-
-        <!-- Active Address Readout Grid -->
-        <div class="address-fields-grid">
-          <div class="address-tile">
-            <span class="tile-label">Street Address</span>
-            <strong class="tile-val" id="profile-street">—</strong>
-          </div>
-          <div class="address-tile">
-            <span class="tile-label">City &amp; Region</span>
-            <strong class="tile-val" id="profile-city">—</strong>
-          </div>
-          <div class="address-tile">
-            <span class="tile-label">Postal Code</span>
-            <strong class="tile-val text-mono" id="profile-postal">—</strong>
-          </div>
-          <div class="address-tile">
-            <span class="tile-label">Coordinates [Lon, Lat]</span>
-            <strong class="tile-val text-mono" id="profile-coords">—</strong>
-          </div>
-        </div>
-
-        <!-- Verification Results Box -->
-        <div id="verification-result-box" class="verification-callout" style="display: none;">
-          <div class="callout-header-row">
-            <span class="status-pill" id="verification-pill">Valid</span>
-            <span class="radius-badge" id="verification-radius-badge">Windhoek 10km Radius</span>
-            <span class="verification-distance-val text-mono" id="verification-distance">0.0 km</span>
-          </div>
-          <p class="callout-message-text" id="verification-message">—</p>
-        </div>
-      </div>
-
-      <!-- Address Book / Saved Addresses Card -->
-      <div class="card address-book-card">
-        <div class="card-header-split">
-          <div>
-            <h3>Customer Address Book</h3>
-            <p class="section-desc">Addresses registered under the selected account in MongoDB</p>
-          </div>
-        </div>
-        <div class="address-book-list" id="address-book-container">
-          <div class="empty-state-card">
-            <p>Select a customer account to display saved addresses.</p>
-          </div>
-      </div>
-
-      <!-- Customer Order History with Custom Date Range Filter -->
-      <div class="card order-history-card">
-        <div class="card-header-split">
-          <div class="card-title-group">
-            <div class="card-icon card-icon-orange">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"></circle>
-                <polyline points="12 6 12 12 16 14"></polyline>
-              </svg>
-            </div>
-            <div>
-              <h3>Order History &amp; Receipts</h3>
-              <p class="section-desc">View past orders and filter by delivery date</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Customer Order History with Custom Date Selector AND Time Selector -->
-        <div class="order-history-filter-strip">
-          <div class="quick-presets-row">
-            <span class="presets-label">Date Filter:</span>
-            <button type="button" class="btn-preset active" id="history-preset-all" onclick="filterOrderHistory('ALL')">All Time</button>
-            <button type="button" class="btn-preset" id="history-preset-today" onclick="filterOrderHistory('TODAY')">Today</button>
-            <button type="button" class="btn-preset" id="history-preset-7d" onclick="filterOrderHistory('7D')">Past 7 Days</button>
-            <button type="button" class="btn-preset" id="history-preset-month" onclick="filterOrderHistory('MONTH')">This Month</button>
-          </div>
-          <div class="history-datetime-inputs">
-            <div class="history-datetime-field">
-              <label for="history-filter-date" class="input-label">Filter Date</label>
-              <input type="date" id="history-filter-date" class="form-input" onchange="handleHistoryCustomDateFilter(this.value)" />
-            </div>
-            <div class="history-datetime-field">
-              <label for="history-filter-time" class="input-label">Filter Time</label>
-              <input type="time" id="history-filter-time" class="form-input" onchange="handleHistoryCustomTimeFilter(this.value)" />
-            </div>
-            <button type="button" class="btn btn-sm btn-outline history-clear-filter-btn" onclick="clearHistoryDateTimeFilter()" title="Clear date & time filter">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-              </svg>
-              <span>Clear Filter</span>
-            </button>
-          </div>
-        </div>
-
-        <div class="table-wrapper">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Order ID</th>
-                <th>Date &amp; Time</th>
-                <th>Restaurant</th>
-                <th>Total</th>
-                <th>Status</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody id="customer-order-history-tbody">
-              <tr>
-                <td colspan="6" class="empty-table-cell">No order history found for this account.</td>
-              </tr>
-            </tbody>
-          </table>
         </div>
       </div>
     </section>
 
-    <!-- ==================================================================== -->
-    <!-- VIEW 4: NOTIFICATIONS INBOX                                          -->
-    <!-- ==================================================================== -->
-    <section id="view-notifs" class="view-panel" style="display: none;">
-      <div class="card notifs-main-card">
-        <div class="card-header-split">
-          <div class="card-title-group">
-            <div class="card-icon card-icon-orange">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"></path>
-              </svg>
-            </div>
-            <div>
-              <h2>Customer Notification Inbox</h2>
-              <p class="section-desc">SMS and Email audit log queried directly from Notification Service (:9097)</p>
-            </div>
-          </div>
-          <button type="button" class="btn btn-sm btn-outline" onclick="loadCustomerNotifications()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
-            </svg>
-            <span>Refresh Inbox</span>
-          </button>
-        </div>
 
-        <div class="table-container">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Sent At</th>
-                <th>Recipient ID</th>
-                <th>Channel</th>
-                <th>Status</th>
-                <th>Notification ID</th>
-                <th>Event Summary</th>
-              </tr>
-            </thead>
-            <tbody id="notifs-table-body">
-              <tr>
-                <td colspan="6" class="empty-table-cell">Select a customer or click refresh to load notifications.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
+
   </main>
 
   <!-- ==================================================================== -->
-  <!-- MODAL 1: CART & CHECKOUT DRAWER                                      -->
+  <!-- SIDEBAR 1: NOTIFICATIONS DRAWER                                      -->
+  <!-- ==================================================================== -->
+  <aside class="notifs-drawer" id="notifs-drawer">
+    <div class="notifs-drawer-header">
+      <div class="notifs-title-row">
+        <div class="notifs-drawer-icon-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"></path>
+          </svg>
+        </div>
+        <div>
+          <h3>Notifications</h3>
+          <span class="notifs-subtitle" id="notifs-drawer-subtitle">Dynamic Telemetry Alerts</span>
+        </div>
+      </div>
+      <div class="notifs-header-actions">
+        <button type="button" class="btn-text-link" id="btn-clear-all-notifs" onclick="dismissAllNotifications()" title="Dismiss all notifications">Dismiss All</button>
+        <button type="button" class="btn-close" onclick="toggleNotificationsDrawer()" title="Close Notifications">&times;</button>
+      </div>
+    </div>
+
+    <!-- Notification Cards List Container -->
+    <div class="notifs-items-scroll" id="notifs-items-container">
+      <div class="empty-notifs-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"></path>
+          <line x1="1" y1="1" x2="23" y2="23"></line>
+        </svg>
+        <h4>All Caught Up</h4>
+        <p>No active notifications for this account.</p>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ==================================================================== -->
+  <!-- SIDEBAR 2: CART & CHECKOUT DRAWER                                    -->
   <!-- ==================================================================== -->
   <aside class="cart-drawer" id="cart-drawer">
     <div class="cart-drawer-header">
@@ -798,156 +439,578 @@
       </div>
     </div>
 
-    <!-- Cart Footer & Checkout -->
-    <div class="cart-drawer-footer">
-      <!-- Order Pricing Breakdown -->
-      <div class="cart-summary-block">
-        <div class="summary-line">
-          <span>Items Subtotal:</span>
-          <strong class="text-mono" id="cart-subtotal">N$ 0.00</strong>
+    <!-- Cart Footer: STAGE 1 Flow -->
+    <div class="cart-drawer-footer" id="cart-drawer-footer">
+      <!-- STAGE 1: Confirm Cart -->
+      <div id="cart-stage-confirm">
+        <div class="cart-summary-block">
+          <div class="summary-line">
+            <span>Items Subtotal:</span>
+            <strong class="text-mono" id="cart-stage1-subtotal">N$ 0.00</strong>
+          </div>
+          <div class="summary-line">
+            <span>Platform Delivery Fee:</span>
+            <strong class="text-mono" id="cart-stage1-delivery-fee">N$ 15.00</strong>
+          </div>
+          <div class="summary-line">
+            <span>Surge Multiplier:</span>
+            <span class="text-mono badge-subtle" id="cart-stage1-surge">1.0x Normal</span>
+          </div>
+          <div class="summary-line text-muted-sub">
+            <span>15% VAT (Included):</span>
+            <span class="text-mono" id="cart-stage1-tax">N$ 0.00</span>
+          </div>
+          <div class="summary-line total-highlight">
+            <span>Estimated Total (NAD):</span>
+            <strong class="text-mono" id="cart-stage1-total">N$ 0.00</strong>
+          </div>
         </div>
-        <div class="summary-line">
-          <span>Platform Delivery Fee:</span>
-          <strong class="text-mono" id="cart-delivery-fee">N$ 15.00</strong>
-        </div>
-        <div class="summary-line">
-          <span>Surge Multiplier:</span>
-          <span class="text-mono badge-subtle" id="cart-surge-multiplier">1.0x Normal</span>
-        </div>
-        <div class="summary-line text-muted-sub">
-          <span>15% VAT (Included):</span>
-          <span class="text-mono" id="cart-tax-amount">N$ 0.00</span>
-        </div>
-        <div class="summary-line total-highlight">
-          <span>Grand Total (NAD):</span>
-          <strong class="text-mono" id="cart-total-amount">N$ 0.00</strong>
-        </div>
+
+        <button type="button" class="btn btn-primary btn-checkout" id="btn-confirm-cart" onclick="proceedToCheckoutStage()" disabled>
+          <span class="checkout-btn-content">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+            <span>Confirm Cart &amp; Proceed</span>
+          </span>
+        </button>
+      </div>
+    </div>
+
+    <!-- STAGE 2: Full-Sidebar Checkout Flow (Occupies full drawer below header with scroll body and pinned footer) -->
+    <div id="cart-stage-checkout" class="cart-stage-checkout" style="display: none;">
+      <div class="stage-nav-header">
+        <button type="button" class="btn btn-xs btn-outline stage-back-btn" onclick="backToCartStage()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 13px; height: 13px;">
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
+          <span>Back to Cart</span>
+        </button>
+        <span class="stage-step-badge">
+          <span class="badge-dot"></span>
+          Step 2: Review &amp; Pay
+        </span>
       </div>
 
-      <!-- Delivery Instructions Textarea with Character Counter -->
-      <div class="form-group mb-3">
-        <div class="instructions-header-row">
-          <label for="cart-instructions" class="input-label">Delivery Instructions</label>
-          <span id="instructions-char-count" class="char-counter text-mono">0 / 150</span>
+      <!-- Internal Scrollable Body -->
+      <div class="checkout-scroll-body">
+        <!-- Delivery Address Selection & Add Option -->
+        <div class="form-group mb-3">
+          <div class="instructions-header-row">
+            <label for="checkout-address-select" class="input-label">Delivery Address</label>
+            <button type="button" class="btn-pill-action" onclick="openAddAddressModal()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width: 12px; height: 12px;">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              <span>New</span>
+            </button>
+          </div>
+          <div class="custom-select-wrapper address-select-wrapper">
+            <svg class="select-leading-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+              <circle cx="12" cy="10" r="3"></circle>
+            </svg>
+            <select id="checkout-address-select" class="form-select address-select-input" onchange="handleCheckoutAddressChange(this.value)">
+              <option value="" disabled selected>Select delivery address</option>
+            </select>
+          </div>
         </div>
-        <textarea
-          id="cart-instructions"
-          class="form-textarea"
-          rows="2"
-          maxlength="150"
-          placeholder="e.g. Ring flat 3B, gate code #4120, or leave with reception..."
-          oninput="handleInstructionsInput(this.value)"
-        ></textarea>
-      </div>
 
-      <!-- Custom Delivery Schedule Date & Time Selector -->
-      <div class="form-group mb-3 delivery-schedule-group">
-        <label class="input-label">Delivery Schedule</label>
-        <div class="schedule-presets-row">
-          <button type="button" class="btn-preset active" id="preset-delivery-asap" onclick="setDeliverySchedulePreset('ASAP')">ASAP / Now</button>
-          <button type="button" class="btn-preset" id="preset-delivery-today" onclick="setDeliverySchedulePreset('TODAY')">Today (+45m)</button>
-          <button type="button" class="btn-preset" id="preset-delivery-custom" onclick="setDeliverySchedulePreset('CUSTOM')">Scheduled Time</button>
+        <!-- Delivery Instructions Textarea with Quick-Tap Chips & Counter -->
+        <div class="form-group mb-3">
+          <div class="instructions-header-row">
+            <label for="cart-instructions" class="input-label">Delivery Instructions</label>
+            <span id="instructions-char-count" class="char-counter text-mono">0 / 150</span>
+          </div>
+          <textarea
+            id="cart-instructions"
+            class="form-textarea instructions-textarea"
+            rows="2"
+            maxlength="150"
+            placeholder="e.g. Ring flat 3B, gate code #4120, or leave with reception..."
+            oninput="handleInstructionsInput(this.value)"
+          ></textarea>
+          <div class="quick-instruction-chips">
+            <button type="button" class="chip-preset" onclick="appendQuickInstruction('Leave at door')">
+              <svg viewBox="0 0 24 24" style="width: 12px; height: 12px;"><path d="M3 21h18M6 21V3h12v18M14 11h2"/></svg>
+              <span>Leave at door</span>
+            </button>
+            <button type="button" class="chip-preset" onclick="appendQuickInstruction('Ring bell')">
+              <svg viewBox="0 0 24 24" style="width: 12px; height: 12px;"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+              <span>Ring bell</span>
+            </button>
+            <button type="button" class="chip-preset" onclick="appendQuickInstruction('Call on arrival')">
+              <svg viewBox="0 0 24 24" style="width: 12px; height: 12px;"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+              <span>Call on arrival</span>
+            </button>
+          </div>
         </div>
 
-        <!-- Custom Floating Date & Time Picker Box -->
-        <div id="custom-schedule-box" class="custom-schedule-box" style="display: none;">
-          <div class="schedule-inputs-grid">
-            <div class="form-group schedule-input-group">
-              <label for="delivery-schedule-date" class="input-label">Delivery Date</label>
-              <input type="date" id="delivery-schedule-date" class="form-input" onchange="handleCustomDeliveryDateChange(this.value)" />
-            </div>
-            <div class="form-group schedule-input-group">
-              <label for="delivery-schedule-time" class="input-label">Delivery Time</label>
-              <input type="time" id="delivery-schedule-time" class="form-input" value="12:00" onchange="handleCustomDeliveryTimeChange(this.value)" />
-            </div>
+        <!-- Sleek Segmented Delivery Mode & Inline Schedule Card -->
+        <div class="form-group mb-3 delivery-schedule-group">
+          <div class="schedule-header-row">
+            <label class="input-label">Delivery Option</label>
+            <span class="delivery-eta-badge" id="delivery-eta-badge">
+              <svg viewBox="0 0 24 24" class="mode-icon" style="width: 12px; height: 12px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+              <span>~25–35 min</span>
+            </span>
           </div>
 
-          <div class="custom-schedule-trigger-row" onclick="toggleCustomDatePicker()">
-            <div class="schedule-display-val">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <!-- Segmented Pill Control (iOS / DoorDash style) -->
+          <div class="delivery-segmented-control" role="tablist">
+            <button
+              type="button"
+              class="segmented-btn active"
+              id="delivery-mode-now"
+              role="tab"
+              aria-selected="true"
+              onclick="setDeliveryMode('NOW')"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="mode-icon">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+              </svg>
+              <span>Deliver Now</span>
+            </button>
+            <button
+              type="button"
+              class="segmented-btn"
+              id="delivery-mode-schedule"
+              role="tab"
+              aria-selected="false"
+              onclick="setDeliveryMode('SCHEDULE')"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="mode-icon">
                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
                 <line x1="16" y1="2" x2="16" y2="6"></line>
                 <line x1="8" y1="2" x2="8" y2="6"></line>
                 <line x1="3" y1="10" x2="21" y2="10"></line>
               </svg>
-              <span id="scheduled-datetime-display">Select Delivery Date &amp; Time...</span>
-            </div>
-            <button type="button" class="btn-schedule-toggle" aria-label="Toggle quick slots">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="6 9 12 15 18 9"></polyline>
-              </svg>
+              <span>Schedule Ahead</span>
             </button>
           </div>
 
-          <!-- Floating Calendar & Time Slot Picker -->
-          <div id="custom-datetime-picker-popup" class="custom-datetime-popup" style="display: none;">
-            <div class="calendar-header">
-              <button type="button" class="cal-nav-btn" onclick="prevCalendarMonth()">&larr;</button>
-              <span class="cal-month-title" id="cal-month-title">October 2026</span>
-              <button type="button" class="cal-nav-btn" onclick="nextCalendarMonth()">&rarr;</button>
+          <!-- Inline Schedule Selection Card (Zero popover covering cart summary!) -->
+          <div class="inline-schedule-card" id="inline-schedule-card" style="display: none;">
+            <!-- Horizontal Day Chips (4 Rolling Days) -->
+            <div class="schedule-field-group">
+              <label class="schedule-sublabel">Select Day</label>
+              <div class="horizontal-day-chips" id="schedule-day-chips"></div>
             </div>
-            <div class="calendar-weekdays">
-              <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
-            </div>
-            <div class="calendar-days-grid" id="calendar-days-grid">
-              <!-- Rendered dynamically -->
-            </div>
-            <div class="time-picker-section">
-              <div class="time-picker-title">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <polyline points="12 6 12 12 16 14"></polyline>
-                </svg>
-                <span>Delivery Time Slot:</span>
-              </div>
-              <div class="time-slots-grid" id="time-slots-grid">
-                <button type="button" class="time-slot-btn" onclick="selectDeliveryTimeSlot('11:30')">11:30</button>
-                <button type="button" class="time-slot-btn" onclick="selectDeliveryTimeSlot('12:00')">12:00</button>
-                <button type="button" class="time-slot-btn" onclick="selectDeliveryTimeSlot('12:30')">12:30</button>
-                <button type="button" class="time-slot-btn" onclick="selectDeliveryTimeSlot('13:00')">13:00</button>
-                <button type="button" class="time-slot-btn" onclick="selectDeliveryTimeSlot('18:00')">18:00</button>
-                <button type="button" class="time-slot-btn" onclick="selectDeliveryTimeSlot('18:30')">18:30</button>
-                <button type="button" class="time-slot-btn" onclick="selectDeliveryTimeSlot('19:00')">19:00</button>
-                <button type="button" class="time-slot-btn" onclick="selectDeliveryTimeSlot('20:00')">20:00</button>
+
+            <!-- Time Window Selector Dropdown -->
+            <div class="schedule-field-group">
+              <label class="schedule-sublabel" for="schedule-time-window-select">Delivery Window</label>
+              <div class="custom-select-wrapper">
+                <select id="schedule-time-window-select" class="form-select" onchange="handleScheduleTimeWindowChange(this.value)">
+                  <!-- Dynamically populated and filtered -->
+                </select>
               </div>
             </div>
-            <div class="cal-actions-row">
-              <button type="button" class="btn btn-sm btn-outline" onclick="closeCustomDatePicker()">Close</button>
-              <button type="button" class="btn btn-sm btn-primary" onclick="confirmCustomDateTime()">Confirm Slot</button>
+
+            <!-- Live Schedule Summary Pill -->
+            <div class="schedule-summary-pill" id="schedule-summary-pill">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="summary-check-icon">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              <span id="schedule-summary-text">Scheduled for Today, 12:00 – 12:30 PM</span>
             </div>
+          </div>
+        </div>
+
+        <!-- Payment Method Dropdown with Custom Chevron -->
+        <div class="form-group mb-3">
+          <label for="payment-method-select" class="input-label">Payment Method</label>
+          <div class="custom-select-wrapper">
+            <select id="payment-method-select" class="form-select">
+              <option value="CREDIT_CARD">Credit Card</option>
+              <option value="DEBIT_CARD">Debit Card</option>
+              <option value="MOBILE_WALLET">Mobile Wallet</option>
+            </select>
           </div>
         </div>
       </div>
 
-      <!-- Payment Method Dropdown with Custom Chevron -->
-      <div class="form-group mb-3">
-        <label for="payment-method-select" class="input-label">Payment Method</label>
-        <div class="custom-select-wrapper">
-          <select id="payment-method-select" class="form-select">
-            <option value="CREDIT_CARD">Credit Card (Instant Clearance)</option>
-            <option value="DEBIT_CARD">Debit Card</option>
-            <option value="MOBILE_WALLET">Mobile Wallet</option>
-          </select>
+      <!-- Pinned Checkout Footer (Grand Total Breakdown + Place Order Button) -->
+      <div class="checkout-pinned-footer">
+        <div class="cart-summary-block checkout-final-summary">
+          <div class="summary-line">
+            <span>Items Subtotal:</span>
+            <strong class="text-mono" id="cart-subtotal">N$ 0.00</strong>
+          </div>
+          <div class="summary-line">
+            <span>Platform Delivery Fee:</span>
+            <strong class="text-mono" id="cart-delivery-fee">N$ 15.00</strong>
+          </div>
+          <div class="summary-line">
+            <span>Surge Multiplier:</span>
+            <span class="text-mono badge-subtle" id="cart-surge-multiplier">1.0x Normal</span>
+          </div>
+          <div class="summary-line text-muted-sub">
+            <span>15% VAT (Included):</span>
+            <span class="text-mono" id="cart-tax-amount">N$ 0.00</span>
+          </div>
+          <div class="summary-line total-highlight">
+            <span>Grand Total (NAD):</span>
+            <strong class="text-mono" id="cart-total-amount">N$ 0.00</strong>
+          </div>
         </div>
-      </div>
 
-      <!-- Place Order Button with Loading State -->
-      <button type="button" class="btn btn-primary btn-checkout" id="btn-place-order" onclick="placeOrderAndCheckout()" disabled>
-        <span class="checkout-btn-content" id="checkout-btn-content">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="20 6 9 17 4 12"></polyline>
-          </svg>
-          <span>Place Order &amp; Pay</span>
-        </span>
-      </button>
+        <!-- Place Order Button with Loading State -->
+        <button type="button" class="btn btn-primary btn-checkout" id="btn-place-order" onclick="placeOrderAndCheckout()" disabled>
+          <span class="checkout-btn-content" id="checkout-btn-content">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span>Place Order &amp; Pay</span>
+          </span>
+        </button>
+      </div>
     </div>
   </aside>
 
   <!-- ==================================================================== -->
-  <!-- MODAL 2: REGISTER CUSTOMER ACCOUNT                                   -->
+  <!-- SIDEBAR 3: CUSTOMER ACCOUNT & NAVIGATION MENU DRAWER                  -->
+  <!-- ==================================================================== -->
+  <aside class="menu-drawer" id="menu-drawer">
+    <div class="menu-drawer-header">
+      <button type="button" class="btn-icon-square" id="menu-drawer-nav-btn" onclick="handleMenuNavAction()" title="Close or back">
+        <svg viewBox="0 0 24 24" id="menu-drawer-nav-icon" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+      <h3 id="menu-drawer-title">Account &amp; Menu</h3>
+      <div style="width: 32px;"></div> <!-- Spacer to center title -->
+    </div>
+
+    <!-- ROOT PANEL -->
+    <div class="menu-panel active" id="menu-panel-root">
+      <div class="menu-scroll-content">
+        <!-- Profile Card -->
+        <div class="menu-profile-card">
+          <div class="menu-profile-avatar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+          </div>
+          <div class="menu-profile-details">
+            <strong class="menu-profile-name" id="menu-profile-name">Customer Account</strong>
+            <span class="menu-profile-email" id="menu-profile-email">customer@example.com</span>
+            <span class="menu-profile-phone text-mono" id="menu-profile-phone">+264 81 000 0000</span>
+            <span class="menu-profile-address" id="menu-profile-address">12 Independence Ave, Windhoek</span>
+            <div style="margin-top: 8px;">
+              <button type="button" class="btn btn-xs btn-outline btn-edit-profile" onclick="openMenuSubpanel('profile')">Edit Profile</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Menu Action Navigation Buttons -->
+        <div class="menu-nav-list">
+          <button type="button" class="menu-item-btn" id="menu-btn-addresses" onclick="openMenuSubpanel('addresses')">
+            <div class="menu-item-left">
+              <div class="menu-item-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                  <circle cx="12" cy="10" r="3"></circle>
+                </svg>
+              </div>
+              <div class="menu-item-text">
+                <span class="menu-item-title">Customer Address Book</span>
+                <span class="menu-item-desc">Saved locations &amp; zone verification</span>
+              </div>
+            </div>
+            <div class="menu-item-right">
+              <span class="status-pill pill-valid menu-address-badge" id="menu-address-badge">OK (Inside 10km)</span>
+              <svg viewBox="0 0 24 24" class="menu-chevron"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            </div>
+          </button>
+
+          <button type="button" class="menu-item-btn" id="menu-btn-history" onclick="openMenuSubpanel('history')">
+            <div class="menu-item-left">
+              <div class="menu-item-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+              </div>
+              <div class="menu-item-text">
+                <span class="menu-item-title">Order History &amp; Receipts</span>
+                <span class="menu-item-desc">Past orders, receipts &amp; date filters</span>
+              </div>
+            </div>
+            <div class="menu-item-right">
+              <svg viewBox="0 0 24 24" class="menu-chevron"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            </div>
+          </button>
+
+          <button type="button" class="menu-item-btn" id="menu-btn-explore-map" onclick="toggleMenuDrawer(); switchMainTab('tracking');">
+            <div class="menu-item-left">
+              <div class="menu-item-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon>
+                  <line x1="8" y1="2" x2="8" y2="18"></line>
+                  <line x1="16" y1="6" x2="16" y2="22"></line>
+                </svg>
+              </div>
+              <div class="menu-item-text">
+                <span class="menu-item-title">Explore Restaurant Map</span>
+                <span class="menu-item-desc">Interactive pins &amp; live kitchen locations</span>
+              </div>
+            </div>
+            <div class="menu-item-right">
+              <svg viewBox="0 0 24 24" class="menu-chevron"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            </div>
+          </button>
+
+          <a href="../index.html" class="menu-item-btn" id="menu-link-hub" title="Return to Platform Hub">
+            <div class="menu-item-left">
+              <div class="menu-item-icon">
+                <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
+              </div>
+              <div class="menu-item-text">
+                <span class="menu-item-title">Return to Hub</span>
+                <span class="menu-item-desc">Platform home dashboard</span>
+              </div>
+            </div>
+            <div class="menu-item-right">
+              <svg viewBox="0 0 24 24" class="menu-chevron"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            </div>
+          </a>
+        </div>
+      </div>
+
+      <div class="menu-drawer-footer">
+        <button type="button" class="btn btn-outline btn-danger btn-logout" id="menu-btn-logout" onclick="logoutCustomer()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+          <span>Log Out</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- SUBPANEL 1: ADDRESS BOOK -->
+    <div class="menu-subpanel" id="menu-subpanel-addresses" style="display: none;">
+      <div class="menu-scroll-content">
+        <div class="menu-subpanel-section-header">
+          <div>
+            <strong>Saved Addresses</strong>
+            <p class="section-desc">Manage verified Windhoek delivery locations</p>
+          </div>
+          <button type="button" class="btn btn-sm btn-primary" onclick="openAddAddressModal()">+ Add Address</button>
+        </div>
+
+        <div class="address-verification-inline-box" style="margin-bottom: 16px;">
+          <button type="button" class="btn btn-sm btn-outline" style="width: 100%; justify-content: center;" onclick="verifyActiveAddress()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+              <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
+            <span>Verify Address with Backend</span>
+          </button>
+        </div>
+
+        <div class="address-book-list" id="menu-address-book-list">
+          <div class="empty-state-card">
+            <p>Loading address book...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SUBPANEL 2: ORDER HISTORY -->
+    <div class="menu-subpanel" id="menu-subpanel-history" style="display: none;">
+      <div class="menu-scroll-content">
+        <div class="menu-subpanel-section-header">
+          <div>
+            <strong>Order History &amp; Receipts</strong>
+            <p class="section-desc">Filter past deliveries and invoices</p>
+          </div>
+        </div>
+
+        <!-- Filter Presets Strip -->
+        <div class="quick-presets-row" style="margin-bottom: 12px; flex-wrap: wrap;">
+          <button type="button" class="btn-preset active" onclick="filterOrderHistory('ALL')">All</button>
+          <button type="button" class="btn-preset" onclick="filterOrderHistory('TODAY')">Today</button>
+          <button type="button" class="btn-preset" onclick="filterOrderHistory('7D')">7 Days</button>
+          <button type="button" class="btn-preset" onclick="filterOrderHistory('MONTH')">This Month</button>
+        </div>
+
+        <div class="menu-order-history-list" id="menu-order-history-list">
+          <div class="empty-state-card">
+            <p>Loading order history...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SUBPANEL 3: PROFILE (EDIT DETAILS) -->
+    <div class="menu-subpanel" id="menu-subpanel-profile" style="display: none;">
+      <div class="menu-scroll-content">
+        <div class="menu-subpanel-section-header">
+          <div>
+            <strong>Edit Customer Profile</strong>
+            <p class="section-desc">Update contact information in Customer Service (:9093)</p>
+          </div>
+        </div>
+
+        <form id="edit-profile-form" onsubmit="event.preventDefault(); saveCustomerProfile();" style="display: flex; flex-direction: column; gap: 14px; margin-top: 10px;">
+          <div class="form-group">
+            <label for="edit-profile-name" class="input-label">Full Name</label>
+            <input type="text" id="edit-profile-name" class="form-input" required placeholder="Full Name" />
+          </div>
+
+          <div class="form-group">
+            <label for="edit-profile-email" class="input-label">Email Address (Read-only)</label>
+            <input type="email" id="edit-profile-email" class="form-input" readonly disabled />
+          </div>
+
+          <div class="form-group">
+            <label for="edit-profile-phone" class="input-label">Phone Number</label>
+            <input type="tel" id="edit-profile-phone" class="form-input text-mono" required placeholder="+264 81 123 4567" />
+          </div>
+
+          <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 10px;">
+            <button type="button" class="btn btn-sm btn-outline" onclick="backToMenuRoot()">Cancel</button>
+            <button type="submit" class="btn btn-sm btn-primary" id="btn-save-profile">Save Details</button>
+          </div>
+        </form>
+
+        <!-- Settings & Danger Zone -->
+        <div class="drawer-section" style="margin-top: 20px; border-top: 1px solid var(--border); padding-top: 16px;">
+          <h4 style="color: var(--danger, #dc2626); margin-bottom: 8px;">Danger Zone</h4>
+          <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px;">Permanently delete your account, saved delivery addresses, active cart, and order history.</p>
+          <button type="button" class="btn btn-outline-danger btn-sm btn-block" onclick="openDeleteCustomerModal()">
+            Permanently Delete Account
+          </button>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ==================================================================== -->
+  <!-- MODAL: ADD CUSTOMER ADDRESS                                          -->
+  <!-- ==================================================================== -->
+  <div class="modal-backdrop" id="add-address-modal" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-row">
+          <div class="card-icon card-icon-orange">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+              <circle cx="12" cy="10" r="3"></circle>
+            </svg>
+          </div>
+          <div>
+            <h3 id="address-modal-title">Add New Delivery Address</h3>
+            <p class="modal-subtitle" id="address-modal-subtitle">Directly registers address under your account in Customer Service (:9093)</p>
+          </div>
+        </div>
+        <button type="button" class="btn-close" onclick="closeAddAddressModal()">&times;</button>
+      </div>
+
+      <form id="add-address-form" onsubmit="event.preventDefault(); submitCustomerAddressForm();">
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="new-addr-tag" class="input-label">Address Tag / Label</label>
+            <input type="text" id="new-addr-tag" class="form-input" required placeholder="e.g. Home, Office, Gym" value="Home" />
+          </div>
+          <div class="form-group">
+            <label for="new-addr-preset" class="input-label">Windhoek Location Preset</label>
+            <div class="custom-select-wrapper">
+              <select id="new-addr-preset" class="form-select" onchange="applyAddAddressPreset(this.value)">
+                <option value="central" selected>Central Windhoek (17.0658, -22.5609)</option>
+                <option value="katutura">Katutura (17.0450, -22.5200)</option>
+                <option value="klein">Klein Windhoek (17.0980, -22.5710)</option>
+                <option value="eros">Eros (17.0850, -22.5450)</option>
+                <option value="custom">Custom Coordinates</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group full-width">
+            <label for="new-addr-street" class="input-label">Street Address</label>
+            <input type="text" id="new-addr-street" class="form-input" required placeholder="e.g. 14 Sam Nujoma Drive" />
+          </div>
+          <div class="form-group">
+            <label for="new-addr-city" class="input-label">City</label>
+            <input type="text" id="new-addr-city" class="form-input" required value="Windhoek" />
+          </div>
+          <div class="form-group">
+            <label for="new-addr-state" class="input-label">State / Region</label>
+            <input type="text" id="new-addr-state" class="form-input" required value="Khomas" />
+          </div>
+          <div class="form-group">
+            <label for="new-addr-postal" class="input-label">Postal Code</label>
+            <input type="text" id="new-addr-postal" class="form-input text-mono" required value="9000" />
+          </div>
+          <div class="form-group">
+            <label for="new-addr-lon" class="input-label">Longitude (11.7 to 25.3)</label>
+            <input type="number" step="0.0001" id="new-addr-lon" class="form-input text-mono" required value="17.0658" />
+          </div>
+          <div class="form-group">
+            <label for="new-addr-lat" class="input-label">Latitude (-28.97 to -16.96)</label>
+            <input type="number" step="0.0001" id="new-addr-lat" class="form-input text-mono" required value="-22.5609" />
+          </div>
+          <div class="form-group full-width">
+            <label for="new-addr-instructions" class="input-label">Delivery Note (Optional)</label>
+            <input type="text" id="new-addr-instructions" class="form-input" placeholder="e.g. Ring flat 203 or call upon arrival" />
+          </div>
+        </div>
+
+        <div class="modal-actions-bar">
+          <button type="button" class="btn btn-outline" onclick="closeAddAddressModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="btn-submit-new-addr">Save Address</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================================================================== -->
+  <!-- MODAL 1: CUSTOMER SIGN IN                                            -->
+  <!-- ==================================================================== -->
+  <div class="modal-backdrop" id="customer-login-modal" style="display: none;">
+    <div class="modal-card" style="max-width: 420px;">
+      <div class="modal-header">
+        <div class="modal-title-row">
+          <div class="modal-icon-badge">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+          </div>
+          <div>
+            <h3>Customer Sign In</h3>
+            <p class="modal-desc">Access your food delivery account and saved addresses</p>
+          </div>
+        </div>
+        <button type="button" class="btn-close btn-modal-close" onclick="closeCustomerLoginModal()">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 16px 20px;">
+        <div id="login-error-alert" class="alert-box alert-danger" style="display: none; margin-bottom: 12px; font-size: 12px; padding: 8px 12px; border-radius: 6px; background: #fee2e2; color: #dc2626;"></div>
+        <form onsubmit="handleCustomerLoginSubmit(event)" style="display: flex; flex-direction: column; gap: 12px;">
+          <div class="form-group">
+            <label class="input-label form-label">Email or Customer ID</label>
+            <input type="text" id="login-customer-identifier" class="form-input" placeholder="e.g. johan@example.na or CUST-001" required />
+          </div>
+          <div class="form-group">
+            <label class="input-label form-label">Password</label>
+            <input type="password" id="login-customer-password" class="form-input" placeholder="Enter account password..." required />
+          </div>
+          <button type="submit" class="btn btn-primary btn-block" style="margin-top: 6px; width: 100%; justify-content: center;">Sign In to Account</button>
+          <div style="text-align: center; margin-top: 10px; font-size: 12px; color: var(--text-muted);">
+            Don't have an account? <a href="javascript:void(0)" onclick="closeCustomerLoginModal(); openCustomerRegisterWizard();" style="color: var(--primary, #eb4d28); font-weight: 600;">Create Account &rarr;</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================================================================== -->
+  <!-- MODAL 2: REGISTER CUSTOMER ACCOUNT (3-STEP ONBOARDING WIZARD)         -->
   <!-- ==================================================================== -->
   <div class="modal-backdrop" id="register-modal" style="display: none;">
-    <div class="modal-card">
+    <div class="modal-card" style="max-width: 560px;">
       <div class="modal-header">
         <div class="modal-title-row">
           <div class="card-icon card-icon-orange">
@@ -959,89 +1022,420 @@
             </svg>
           </div>
           <div>
-            <h3>Register Customer Account</h3>
-            <p class="modal-subtitle">Directly registers customer in Customer Service (:9093) &amp; MongoDB</p>
+            <h3 id="register-wizard-title">Customer Onboarding Wizard</h3>
+            <p class="modal-subtitle" id="register-wizard-subtitle">Set up your account, delivery address &amp; culinary preferences</p>
           </div>
         </div>
         <button type="button" class="btn-close" onclick="closeRegisterModal()">&times;</button>
       </div>
 
-      <form id="register-customer-form" onsubmit="event.preventDefault(); submitCustomerRegistration();">
-        <div class="form-grid">
-          <div class="form-group">
-            <label for="reg-id" class="input-label">Customer ID</label>
-            <input type="text" id="reg-id" class="form-input text-mono" required placeholder="e.g. CUST-002" />
+      <!-- Stepper Progress Bar -->
+      <div class="wizard-stepper-container" style="padding: 16px 24px 8px 24px;">
+        <div class="wizard-stepper" id="register-wizard-stepper" style="display: flex; align-items: center; justify-content: space-between; position: relative;">
+          <!-- Step 1 Indicator -->
+          <div class="stepper-step active" id="wizard-step-indicator-1" onclick="goToWizardStep(1)" style="display: flex; flex-direction: column; align-items: center; gap: 4px; z-index: 2; cursor: pointer; flex: 1;">
+            <div class="step-badge" id="step-badge-1" style="width: 28px; height: 28px; border-radius: 50%; background: #eb4d28; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; transition: all 0.2s;">1</div>
+            <span class="step-label" id="step-label-1" style="font-size: 11px; font-weight: 600; color: #eb4d28;">Account</span>
           </div>
-          <div class="form-group">
-            <label for="reg-name" class="input-label">Full Name</label>
-            <input type="text" id="reg-name" class="form-input" required placeholder="e.g. Johannes Shikongo" />
+
+          <div class="stepper-track-line" style="flex: 1; height: 2px; background: var(--border, #e5e7eb); margin: 0 4px; margin-top: -16px; z-index: 1;"></div>
+
+          <!-- Step 2 Indicator -->
+          <div class="stepper-step" id="wizard-step-indicator-2" onclick="goToWizardStep(2)" style="display: flex; flex-direction: column; align-items: center; gap: 4px; z-index: 2; cursor: pointer; flex: 1;">
+            <div class="step-badge" id="step-badge-2" style="width: 28px; height: 28px; border-radius: 50%; background: var(--bg-muted, #f3f4f6); color: var(--text-muted, #6b7280); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; transition: all 0.2s;">2</div>
+            <span class="step-label" id="step-label-2" style="font-size: 11px; font-weight: 500; color: var(--text-muted, #6b7280);">Address</span>
           </div>
-          <div class="form-group">
-            <label for="reg-email" class="input-label">Email Address</label>
-            <input type="email" id="reg-email" class="form-input" required placeholder="e.g. johannes@example.com" />
+
+          <div class="stepper-track-line" style="flex: 1; height: 2px; background: var(--border, #e5e7eb); margin: 0 4px; margin-top: -16px; z-index: 1;"></div>
+
+          <!-- Step 3 Indicator -->
+          <div class="stepper-step" id="wizard-step-indicator-3" onclick="goToWizardStep(3)" style="display: flex; flex-direction: column; align-items: center; gap: 4px; z-index: 2; cursor: pointer; flex: 1;">
+            <div class="step-badge" id="step-badge-3" style="width: 28px; height: 28px; border-radius: 50%; background: var(--bg-muted, #f3f4f6); color: var(--text-muted, #6b7280); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; transition: all 0.2s;">3</div>
+            <span class="step-label" id="step-label-3" style="font-size: 11px; font-weight: 500; color: var(--text-muted, #6b7280);">Preferences</span>
           </div>
-          <div class="form-group">
-            <label for="reg-phone" class="input-label">Phone Number</label>
-            <input type="tel" id="reg-phone" class="form-input text-mono" required placeholder="e.g. +264812345678" />
+        </div>
+      </div>
+
+      <form id="register-customer-form" onsubmit="event.preventDefault(); submitCustomerRegistration();" style="padding: 16px 24px 20px 24px;">
+        <div id="register-error-alert" class="alert-box alert-danger" style="display: none; margin-bottom: 12px; font-size: 12px; padding: 8px 12px; border-radius: 6px; background: #fee2e2; color: #dc2626;"></div>
+
+        <!-- =================== STEP 1: ACCOUNT DETAILS =================== -->
+        <div class="wizard-panel" id="register-panel-step-1">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="reg-id" class="input-label">Account Handle / ID (Optional)</label>
+              <input type="text" id="reg-id" class="form-input text-mono" placeholder="Auto-generated if empty" />
+            </div>
+            <div class="form-group">
+              <label for="reg-name" class="input-label">Full Name</label>
+              <input type="text" id="reg-name" class="form-input" required placeholder="e.g. Johannes Shikongo" />
+            </div>
+            <div class="form-group">
+              <label for="reg-email" class="input-label">Email Address</label>
+              <input type="email" id="reg-email" class="form-input" required placeholder="e.g. johannes@example.com" />
+            </div>
+            <div class="form-group">
+              <label for="reg-phone" class="input-label">Phone Number</label>
+              <input type="tel" id="reg-phone" class="form-input text-mono" required placeholder="e.g. +264812345678" />
+            </div>
+            <div class="form-group full-width">
+              <label for="reg-password" class="input-label">Account Password</label>
+              <input type="password" id="reg-password" class="form-input" placeholder="Create a secure password (min 6 characters)..." oninput="handlePasswordStrengthChange(this.value)" />
+              <div class="password-strength-wrapper" style="margin-top: 6px;">
+                <div style="background: var(--border, #e5e7eb); height: 5px; border-radius: 3px; overflow: hidden;">
+                  <div id="reg-password-strength-meter" style="width: 0%; height: 100%; transition: width 0.3s, background-color 0.3s; background-color: #ef4444;"></div>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px; font-size: 11px; color: var(--text-muted);">
+                  <span>Strength: <strong id="reg-password-strength-label">Enter password</strong></span>
+                  <span id="reg-password-strength-hint" style="font-size: 10px;">Min 8 chars, uppercase &amp; numbers</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-actions-bar" style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center;">
+            <button type="button" class="btn btn-outline" onclick="closeRegisterModal()">Cancel</button>
+            <button type="button" class="btn btn-primary" onclick="goToWizardStep(2)">
+              <span>Next: Delivery Address &rarr;</span>
+            </button>
           </div>
         </div>
 
-        <h4 class="form-section-title">Delivery Address (Windhoek, Namibia)</h4>
+        <!-- =================== STEP 2: WINDHOEK GEOFENCED ADDRESS =================== -->
+        <div class="wizard-panel" id="register-panel-step-2" style="display: none;">
+          <h4 class="form-section-title" style="margin-top: 0;">Delivery Address (Windhoek 10km Geofenced)</h4>
 
-        <!-- Windhoek Location Preset Selector with Custom Chevron -->
-        <div class="form-group full-width">
-          <label for="reg-preset-select" class="input-label">Windhoek Location Preset</label>
-          <div class="custom-select-wrapper">
-            <select id="reg-preset-select" class="form-select" onchange="applyLocationPreset(this.value)">
-              <option value="central" selected>Central Windhoek (Lon: 17.0658, Lat: -22.5609)</option>
-              <option value="katutura">Katutura (Lon: 17.0450, Lat: -22.5200)</option>
-              <option value="klein">Klein Windhoek (Lon: 17.0980, Lat: -22.5710)</option>
-              <option value="eros">Eros (Lon: 17.0850, Lat: -22.5450)</option>
-              <option value="custom">Custom Coordinates</option>
-            </select>
+          <!-- Windhoek Location Preset Selector -->
+          <div class="form-group full-width" style="margin-bottom: 12px;">
+            <label for="reg-preset-select" class="input-label">Windhoek Location Preset</label>
+            <div class="custom-select-wrapper">
+              <select id="reg-preset-select" class="form-select" onchange="applyLocationPreset(this.value)">
+                <option value="central" selected>Central Windhoek (Lon: 17.0658, Lat: -22.5609)</option>
+                <option value="katutura">Katutura (Lon: 17.0450, Lat: -22.5200)</option>
+                <option value="klein">Klein Windhoek (Lon: 17.0980, Lat: -22.5710)</option>
+                <option value="eros">Eros (Lon: 17.0850, Lat: -22.5450)</option>
+                <option value="custom">Custom Coordinates</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-group full-width">
+              <label for="reg-street" class="input-label">Street Address</label>
+              <input type="text" id="reg-street" class="form-input" required value="12 Independence Avenue" placeholder="e.g. 14 Sam Nujoma Drive" />
+            </div>
+            <div class="form-group">
+              <label for="reg-city" class="input-label">City</label>
+              <input type="text" id="reg-city" class="form-input" required value="Windhoek" />
+            </div>
+            <div class="form-group">
+              <label for="reg-state" class="input-label">State / Region</label>
+              <input type="text" id="reg-state" class="form-input" required value="Khomas" />
+            </div>
+            <div class="form-group">
+              <label for="reg-postal" class="input-label">Postal Code</label>
+              <input type="text" id="reg-postal" class="form-input text-mono" required value="9000" />
+            </div>
+            <div class="form-group">
+              <label for="reg-lon" class="input-label">Longitude (11.7 to 25.3)</label>
+              <input type="number" step="0.0001" id="reg-lon" class="form-input text-mono" required value="17.0658" oninput="checkRegisterGeofence()" />
+            </div>
+            <div class="form-group">
+              <label for="reg-lat" class="input-label">Latitude (-28.97 to -16.96)</label>
+              <input type="number" step="0.0001" id="reg-lat" class="form-input text-mono" required value="-22.5609" oninput="checkRegisterGeofence()" />
+            </div>
+          </div>
+
+          <!-- Geofence 10km check feedback banner -->
+          <div id="reg-geofence-alert" class="geofence-status-box" style="margin-top: 10px; padding: 10px 14px; border-radius: 8px; font-size: 12px; display: flex; align-items: center; gap: 10px; background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0;">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink: 0;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+            <div>
+              <strong id="reg-geofence-badge">Within 10km Windhoek Delivery Radius</strong>
+              <span id="reg-geofence-desc" style="display: block; font-size: 11px; opacity: 0.9;">Address qualifies for fast local motorcycle / bicycle courier dispatch.</span>
+            </div>
+          </div>
+
+          <div class="form-group full-width" style="margin-top: 12px;">
+            <label for="reg-instructions" class="input-label">Delivery Instructions (Optional)</label>
+            <input type="text" id="reg-instructions" class="form-input" placeholder="e.g. Ring apartment 4B or leave with security" />
+          </div>
+
+          <div class="modal-actions-bar" style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center;">
+            <button type="button" class="btn btn-outline" onclick="goToWizardStep(1)">&larr; Back to Account</button>
+            <button type="button" class="btn btn-primary" onclick="goToWizardStep(3)">
+              <span>Next: Dietary Preferences &rarr;</span>
+            </button>
           </div>
         </div>
 
-        <div class="form-grid">
-          <div class="form-group full-width">
-            <label for="reg-street" class="input-label">Street Address</label>
-            <input type="text" id="reg-street" class="form-input" required value="12 Independence Avenue" placeholder="e.g. 14 Sam Nujoma Drive" />
-          </div>
-          <div class="form-group">
-            <label for="reg-city" class="input-label">City</label>
-            <input type="text" id="reg-city" class="form-input" required value="Windhoek" />
-          </div>
-          <div class="form-group">
-            <label for="reg-state" class="input-label">State / Region</label>
-            <input type="text" id="reg-state" class="form-input" required value="Khomas" />
-          </div>
-          <div class="form-group">
-            <label for="reg-postal" class="input-label">Postal Code</label>
-            <input type="text" id="reg-postal" class="form-input text-mono" required value="9000" />
-          </div>
-          <div class="form-group">
-            <label for="reg-lon" class="input-label">Longitude (11.7 to 25.3)</label>
-            <input type="number" step="0.0001" id="reg-lon" class="form-input text-mono" required value="17.0658" />
-          </div>
-          <div class="form-group">
-            <label for="reg-lat" class="input-label">Latitude (-28.97 to -16.96)</label>
-            <input type="number" step="0.0001" id="reg-lat" class="form-input text-mono" required value="-22.5609" />
-          </div>
-        </div>
+        <!-- =================== STEP 3: DIETARY PREFERENCES =================== -->
+        <div class="wizard-panel" id="register-panel-step-3" style="display: none;">
+          <h4 class="form-section-title" style="margin-top: 0;">Dietary Preferences &amp; Food Profile</h4>
+          <p class="section-desc" style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">Help us customize your menu recommendations and filter allergen warnings.</p>
 
-        <div class="form-group full-width">
-          <label for="reg-instructions" class="input-label">Delivery Instructions</label>
-          <input type="text" id="reg-instructions" class="form-input" placeholder="e.g. Ring apartment 4B or leave with security" />
-        </div>
+          <div class="dietary-preferences-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 14px;">
+            <label class="preference-item" style="display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid var(--border, #e5e7eb); border-radius: 8px; cursor: pointer; font-size: 12px; background: var(--bg-card, #fff);">
+              <input type="checkbox" name="dietary-pref" value="halal" id="pref-halal" />
+              <span>☪️ Halal Certified</span>
+            </label>
+            <label class="preference-item" style="display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid var(--border, #e5e7eb); border-radius: 8px; cursor: pointer; font-size: 12px; background: var(--bg-card, #fff);">
+              <input type="checkbox" name="dietary-pref" value="vegetarian" id="pref-vegetarian" />
+              <span>🥗 Vegetarian</span>
+            </label>
+            <label class="preference-item" style="display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid var(--border, #e5e7eb); border-radius: 8px; cursor: pointer; font-size: 12px; background: var(--bg-card, #fff);">
+              <input type="checkbox" name="dietary-pref" value="vegan" id="pref-vegan" />
+              <span>🌱 100% Plant-Based / Vegan</span>
+            </label>
+            <label class="preference-item" style="display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid var(--border, #e5e7eb); border-radius: 8px; cursor: pointer; font-size: 12px; background: var(--bg-card, #fff);">
+              <input type="checkbox" name="dietary-pref" value="gluten-free" id="pref-gluten-free" />
+              <span>🌾 Gluten-Free</span>
+            </label>
+            <label class="preference-item" style="display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid var(--border, #e5e7eb); border-radius: 8px; cursor: pointer; font-size: 12px; background: var(--bg-card, #fff);">
+              <input type="checkbox" name="dietary-pref" value="nut-free" id="pref-nut-free" />
+              <span>🥜 Nut Allergy Safe</span>
+            </label>
+            <label class="preference-item" style="display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid var(--border, #e5e7eb); border-radius: 8px; cursor: pointer; font-size: 12px; background: var(--bg-card, #fff);">
+              <input type="checkbox" name="dietary-pref" value="kapana" id="pref-kapana" checked />
+              <span>🥩 Kapana / Meat Lover</span>
+            </label>
+          </div>
 
-        <div class="modal-actions-bar">
-          <button type="button" class="btn btn-outline" onclick="closeRegisterModal()">Cancel</button>
-          <button type="submit" class="btn btn-primary" id="btn-submit-reg">Create Account &amp; Log In</button>
+          <div class="form-group full-width" style="margin-bottom: 12px;">
+            <label for="reg-dietary-notes" class="input-label">Allergy / Custom Notes (Optional)</label>
+            <input type="text" id="reg-dietary-notes" class="form-input" placeholder="e.g. No raw onion, mild chili only" />
+          </div>
+
+          <div class="modal-actions-bar" style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center;">
+            <button type="button" class="btn btn-outline" onclick="goToWizardStep(2)">&larr; Back to Address</button>
+            <button type="submit" class="btn btn-primary" id="btn-submit-reg">
+              <span>Complete Registration &amp; Log In</span>
+            </button>
+          </div>
         </div>
       </form>
     </div>
   </div>
 
+  <!-- ==================================================================== -->
+  <!-- MODAL 3: DELETE CUSTOMER ACCOUNT CONFIRMATION                         -->
+  <!-- ==================================================================== -->
+  <div class="modal-backdrop" id="modal-delete-customer-account" style="display: none;">
+    <div class="modal-card" style="max-width: 440px;">
+      <div class="modal-header">
+        <div class="modal-title-row">
+          <div class="card-icon" style="background: rgba(220, 38, 38, 0.1); color: #dc2626;">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+              <line x1="12" y1="9" x2="12" y2="13"></line>
+              <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
+          </div>
+          <div>
+            <h3 style="color: #dc2626;">Delete Customer Account</h3>
+            <p class="modal-subtitle">This action is permanent and cannot be undone</p>
+          </div>
+        </div>
+        <button type="button" class="btn-close" onclick="closeDeleteCustomerModal()">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 16px 20px;">
+        <p style="font-size: 13px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5;">
+          All your saved Windhoek delivery addresses, active cart items, and order history will be permanently deleted from Customer Service (:9093) and MongoDB.
+        </p>
+        <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">
+          To confirm deletion, please type <strong style="color: #dc2626; user-select: none;">DELETE</strong> below:
+        </p>
+        <div class="form-group" style="margin-bottom: 16px;">
+          <input type="text" id="delete-account-confirm-input" class="form-input text-mono" placeholder="Type DELETE to confirm" oninput="if(typeof handleDeleteAccountInput === 'function') handleDeleteAccountInput(this.value); const b = document.getElementById('btn-confirm-delete-account'); if(b) b.disabled = (this.value.trim() !== 'DELETE');" autocomplete="off" />
+        </div>
+        <div class="modal-actions-bar" style="margin-top: 16px; display: flex; justify-content: flex-end; gap: 8px;">
+          <button type="button" class="btn btn-outline" onclick="closeDeleteCustomerModal()">Cancel</button>
+          <button type="button" class="btn btn-outline-danger" id="btn-confirm-delete-account" onclick="confirmDeleteCustomerAccount()" disabled>
+            Permanently Delete Account
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================================================================== -->
+  <!-- ORDER RECEIPT MODAL                                                  -->
+  <!-- ==================================================================== -->
+  <div class="modal-backdrop" id="order-receipt-modal" style="display: none;">
+    <div class="modal-card receipt-modal-card" style="max-width: 480px; width: 92%;">
+      <div class="modal-header">
+        <div class="modal-title-row">
+          <div class="modal-icon-badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+              <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
+          </div>
+          <div>
+            <h3 class="modal-title" id="receipt-modal-title">Official Order Receipt</h3>
+            <p class="modal-subtitle" id="receipt-modal-order-ref">Order #ORD-000</p>
+          </div>
+        </div>
+        <button type="button" class="modal-close-btn" onclick="closeOrderReceiptModal()" aria-label="Close">&times;</button>
+      </div>
+
+      <div class="modal-body" id="receipt-modal-body" style="padding: 18px 20px;">
+        <!-- Injected dynamically via renderOrderReceipt() -->
+      </div>
+
+      <div class="modal-actions-bar" style="padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border);">
+        <button type="button" class="btn btn-outline" onclick="window.print()">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;">
+            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+            <rect x="6" y="14" width="12" height="8"></rect>
+          </svg>
+          Print Receipt
+        </button>
+        <button type="button" class="btn btn-primary" onclick="closeOrderReceiptModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Inline modal & wizard helpers
+    window.openCustomerLoginModal = window.openCustomerLoginModal || function() {
+      const m = document.getElementById('customer-login-modal');
+      if (m) m.style.display = 'flex';
+    };
+    window.closeCustomerLoginModal = window.closeCustomerLoginModal || function() {
+      const m = document.getElementById('customer-login-modal');
+      if (m) m.style.display = 'none';
+    };
+    window.openCustomerRegisterWizard = window.openCustomerRegisterWizard || function() {
+      if (window.closeCustomerLoginModal) window.closeCustomerLoginModal();
+      const m = document.getElementById('register-modal');
+      if (m) {
+        m.style.display = 'flex';
+        if (window.goToWizardStep) window.goToWizardStep(1);
+      }
+    };
+    window.closeRegisterModal = window.closeRegisterModal || function() {
+      const m = document.getElementById('register-modal');
+      if (m) m.style.display = 'none';
+    };
+    window.goToWizardStep = window.goToWizardStep || function(step) {
+      [1, 2, 3].forEach(function(s) {
+        const p = document.getElementById('register-panel-step-' + s);
+        if (p) p.style.display = (s === step ? 'block' : 'none');
+        const badge = document.getElementById('step-badge-' + s);
+        const label = document.getElementById('step-label-' + s);
+        if (badge) {
+          if (s === step) {
+            badge.style.background = '#eb4d28';
+            badge.style.color = '#fff';
+          } else if (s < step) {
+            badge.style.background = '#10b981';
+            badge.style.color = '#fff';
+          } else {
+            badge.style.background = 'var(--bg-muted, #f3f4f6)';
+            badge.style.color = 'var(--text-muted, #6b7280)';
+          }
+        }
+        if (label) {
+          label.style.color = (s === step ? '#eb4d28' : (s < step ? '#10b981' : 'var(--text-muted, #6b7280)'));
+        }
+      });
+    };
+    window.handlePasswordStrengthChange = window.handlePasswordStrengthChange || function(pw) {
+      const meter = document.getElementById('reg-password-strength-meter');
+      const label = document.getElementById('reg-password-strength-label');
+      if (!meter || !label) return;
+      if (!pw || pw.length === 0) {
+        meter.style.width = '0%';
+        meter.style.backgroundColor = '#ef4444';
+        label.innerText = 'Enter password';
+        label.style.color = 'var(--text-muted)';
+        return;
+      }
+      let score = 0;
+      if (pw.length >= 6) score++;
+      if (pw.length >= 8) score++;
+      if (/[0-9]/.test(pw)) score++;
+      if (/[A-Z]/.test(pw)) score++;
+      if (/[^A-Za-z0-9]/.test(pw)) score++;
+      if (score <= 2) {
+        meter.style.width = '33%';
+        meter.style.backgroundColor = '#ef4444';
+        label.innerText = 'Weak';
+        label.style.color = '#ef4444';
+      } else if (score <= 4) {
+        meter.style.width = '66%';
+        meter.style.backgroundColor = '#f59e0b';
+        label.innerText = 'Medium';
+        label.style.color = '#f59e0b';
+      } else {
+        meter.style.width = '100%';
+        meter.style.backgroundColor = '#10b981';
+        label.innerText = 'Strong';
+        label.style.color = '#10b981';
+      }
+    };
+    window.checkRegisterGeofence = window.checkRegisterGeofence || function() {
+      const lonInput = document.getElementById('reg-lon');
+      const latInput = document.getElementById('reg-lat');
+      const badge = document.getElementById('reg-geofence-badge');
+      const alertBox = document.getElementById('reg-geofence-alert');
+      if (!lonInput || !latInput || !badge) return;
+      const lon = parseFloat(lonInput.value);
+      const lat = parseFloat(latInput.value);
+      if (isNaN(lon) || isNaN(lat)) return;
+      const cLon = 17.0658, cLat = -22.5609;
+      const dLat = (lat - cLat) * Math.PI / 180;
+      const dLon = (lon - cLon) * Math.PI / 180;
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(cLat * Math.PI / 180) * Math.cos(lat * Math.PI / 180) *
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      const dist = 6371 * c;
+      if (dist <= 10.0) {
+        badge.innerText = 'Within 10km Windhoek Delivery Radius (' + dist.toFixed(1) + ' km from hub)';
+        if (alertBox) {
+          alertBox.style.background = '#ecfdf5';
+          alertBox.style.color = '#065f46';
+          alertBox.style.borderColor = '#a7f3d0';
+        }
+      } else {
+        badge.innerText = 'Outside 10km Radius (' + dist.toFixed(1) + ' km from hub) - Out of delivery zone';
+        if (alertBox) {
+          alertBox.style.background = '#fee2e2';
+          alertBox.style.color = '#dc2626';
+          alertBox.style.borderColor = '#fca5a5';
+        }
+      }
+    };
+    window.openDeleteCustomerModal = window.openDeleteCustomerModal || function() {
+      const m = document.getElementById('modal-delete-customer-account');
+      if (m) {
+        m.style.display = 'flex';
+        const inp = document.getElementById('delete-account-confirm-input');
+        if (inp) inp.value = '';
+        const btn = document.getElementById('btn-confirm-delete-account');
+        if (btn) btn.disabled = true;
+      }
+    };
+    window.closeDeleteCustomerModal = window.closeDeleteCustomerModal || function() {
+      const m = document.getElementById('modal-delete-customer-account');
+      if (m) m.style.display = 'none';
+    };
+    window.handleDeleteAccountInput = window.handleDeleteAccountInput || function(val) {
+      const btn = document.getElementById('btn-confirm-delete-account');
+      if (btn) btn.disabled = (val.trim() !== 'DELETE');
+    };
+    window.openProfileDrawer = window.openProfileDrawer || function() {
+      if (typeof toggleMenuDrawer === 'function') toggleMenuDrawer();
+      if (typeof openMenuSubpanel === 'function') openMenuSubpanel('profile');
+    };
+  </script>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="../shared.js"></script>
   <script src="app.js"></script>
 </body>

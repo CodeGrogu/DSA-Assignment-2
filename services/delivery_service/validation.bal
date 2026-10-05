@@ -1,13 +1,9 @@
-public function isValidCoordinates(LocationCoordinates location) returns boolean {
-    return location.latitude >= -90.0d &&
-        location.latitude <= 90.0d &&
-        location.longitude >= -180.0d &&
-        location.longitude <= 180.0d;
+import peerpressure/delivery_domain as domain;
+
+public isolated function isValidCoordinates(LocationCoordinates location) returns boolean {
+    return domain:isValidCoordinates(location);
 }
 
-public function isValidDriver(Driver driver) returns boolean {
-    return driver.id != "" &&
-        driver.name != "" &&
-        driver.phone != "" &&
-        isValidCoordinates(driver.location);
+public isolated function isValidDriver(Driver driver) returns boolean {
+    return domain:isValidDriver(driver);
 }

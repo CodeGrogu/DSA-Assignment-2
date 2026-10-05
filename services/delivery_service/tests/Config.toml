@@ -1,0 +1,4 @@
+port = 9096
+enableMongo = false
+enableKafka = false
+startKafkaConsumers = false

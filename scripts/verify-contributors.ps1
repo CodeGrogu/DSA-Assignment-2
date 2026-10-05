@@ -5,22 +5,22 @@ $ErrorActionPreference = 'Stop'
 
 # Ensure running inside a valid Git repository
 $root = git rev-parse --show-toplevel 2>$null
-if (-not $root) { 
+if (-not $root) {
     Write-Host "[ERROR] Not inside a Git repository." -ForegroundColor Red
-    exit 2 
+    exit 2
 }
 Set-Location $root
 
 # Team members and their corresponding author search patterns (Name, Email, or Username)
 $members = @(
-    @{ Name = 'Jaden Awaseb'; Pattern = 'Jaden|acehood3556|73761054' },
-    @{ Name = 'Florinda';     Pattern = 'Florriinnddaa|florinda.funya' },
-    @{ Name = 'Nangu Tjizoo'; Pattern = 'Nangu.Tjizoo|knangukuii' },
-    @{ Name = 'Jerganov';     Pattern = 'Jerganov|klvntapiwa3' },
-    @{ Name = 'Kataliina';    Pattern = 'Kataliina|kataliinamassipa' },
-    @{ Name = 'Henchoz';      Pattern = 'Henchoz|henryheita0' },
-    @{ Name = 'Kondwani';     Pattern = 'kondwani11220|kondwanikunkwenzu' },
-    @{ Name = 'MEMBER 8';     Pattern = 'REPLACE_WITH_AUTHOR_NAME_OR_EMAIL' }
+    @{ Name = 'Jaden Awaseb';    Pattern = 'Jaden|acehood3556|73761054' },
+    @{ Name = 'Florinda';        Pattern = 'Florriinnddaa|florinda.funya' },
+    @{ Name = 'Nangu Tjizoo';    Pattern = 'Nangu.Tjizoo|knangukuii' },
+    @{ Name = 'Jerganov';        Pattern = 'Jerganov|klvntapiwa3' },
+    @{ Name = 'Kataliina';       Pattern = 'Kataliina|kataliinamassipa' },
+    @{ Name = 'Henchoz';         Pattern = 'Henchoz|henryheita0' },
+    @{ Name = 'Kondwani';        Pattern = 'kondwani11220|kondwanikunkwenzu' },
+    @{ Name = 'May-Lee Mulundu'; Pattern = 'May-Lee Mulundu|Mayleendapewa|itsyagirlmay' }
 )
 
 $hasFailure = $false
@@ -51,6 +51,6 @@ if ($hasFailure) {
     Write-Host "[FAIL] One or more members have no verified non-merge commits." -ForegroundColor Red
     exit 1
 } else {
-    Write-Host "[SUCCESS] All team members have verified non-merge commits!" -ForegroundColor Green
+    Write-Host "[SUCCESS] All 8 team members have verified non-merge commits!" -ForegroundColor Green
     exit 0
 }

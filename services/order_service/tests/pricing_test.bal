@@ -348,10 +348,9 @@ function testOrderCreationDynamicPricingIntegration() returns error? {
     events:OrderCreated[] createdEvents = orderEventProducer.getRecordedCreatedEvents();
     test:assertEquals(createdEvents.length(), 1);
     test:assertEquals(createdEvents[0].orderId, orderId);
-    // Per judicial remedy: OrderCreated event conveys full order total including delivery fee line item
+    // OrderCreated event conveys the full order total (itemsTotal + deliveryFee)
     test:assertEquals(createdEvents[0].totalAmount, totalAmount, "OrderCreated event totalAmount must equal full order total");
-    test:assertEquals(createdEvents[0].items.length(), 2, "OrderCreated event items must contain food item plus delivery fee line item");
-    test:assertEquals(createdEvents[0].items[1].itemId, "DELIVERY_FEE");
+    test:assertEquals(createdEvents[0].items.length(), 1, "OrderCreated event items must contain the food items only");
 
     // Verify contract schema validation passes on the generated event
     events:OrderCreated validated = check events:validateOrderCreated(createdEvents[0].toJson());

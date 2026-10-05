@@ -286,7 +286,8 @@ const exitProcess = function (code) {
     const collection = customerDb.customers;
 
     // Unconditionally override prior data
-    collection.deleteMany({});
+    const deleteResult = collection.deleteMany({});
+    const updatedCount = deleteResult && typeof deleteResult.deletedCount === "number" ? deleteResult.deletedCount : 0;
     const insertResult = collection.insertMany(customerData);
     const insertedCount = Object.keys(insertResult.insertedIds || {}).length || customerData.length;
     customerData.forEach(function (customer) {

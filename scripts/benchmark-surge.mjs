@@ -176,7 +176,7 @@ async function executeInProcessPricingWorker(workerId, unfulfilled, drivers) {
       deliveryFee: fee,
       baseFee: BASE_DELIVERY_FEE,
       tier,
-      peakHourApplied: ENABLE_TIME_PEAK && isPeakHour(new Date().getUTCHours())
+      peakHourApplied: ENABLE_TIME_PEAK && isPeakHour((new Date().getUTCHours() + 2) % 24)
     }
   };
 }

@@ -1,6 +1,20 @@
 // JSON serialization and schema validation functions for shared event records
 
+const decimal MAX_ALLOWED_DELIVERY_FEE = 100.00d;
+
 public isolated function orderCreatedToJson(OrderCreated event) returns json {
+    return event.toJson();
+}
+
+public isolated function orderConfirmedToJson(OrderConfirmed event) returns json {
+    return event.toJson();
+}
+
+public isolated function orderPreparingToJson(OrderPreparing event) returns json {
+    return event.toJson();
+}
+
+public isolated function orderCancelledToJson(OrderCancelled event) returns json {
     return event.toJson();
 }
 
@@ -12,11 +26,23 @@ public isolated function paymentFailedToJson(PaymentFailedEvent event) returns j
     return event.toJson();
 }
 
+public isolated function paymentRefundedToJson(PaymentRefunded event) returns json {
+    return event.toJson();
+}
+
+public isolated function kitchenPreparingToJson(KitchenPreparing event) returns json {
+    return event.toJson();
+}
+
 public isolated function kitchenStatusToJson(KitchenStatusEvent event) returns json {
     return event.toJson();
 }
 
 public isolated function kitchenOrderReadyToJson(KitchenOrderReady event) returns json {
+    return event.toJson();
+}
+
+public isolated function kitchenRejectedToJson(KitchenRejected event) returns json {
     return event.toJson();
 }
 
@@ -50,6 +76,9 @@ public isolated function validateOrderCreated(json data) returns OrderCreated|er
     if event.restaurantId.trim().length() == 0 {
         return error("Validation failed: restaurantId must not be empty");
     }
+    if event.createdAt.trim().length() == 0 {
+        return error("Validation failed: createdAt must not be empty");
+    }
     if event.status != CREATED {
         return error("Validation failed: order creation status must be CREATED");
     }
@@ -75,8 +104,9 @@ public isolated function validateOrderCreated(json data) returns OrderCreated|er
         }
         calculatedTotal += item.subtotal;
     }
-    if event.totalAmount != calculatedTotal {
-        return error("Validation failed: totalAmount must equal the sum of item subtotals");
+    decimal maxAllowedTotal = calculatedTotal + (event.deliveryFee > 0d ? event.deliveryFee : MAX_ALLOWED_DELIVERY_FEE);
+    if event.totalAmount < calculatedTotal || event.totalAmount > maxAllowedTotal {
+        return error("Validation failed: totalAmount must match item subtotals plus bounded delivery fee");
     }
     GeoCoordinate? destination = event.deliveryAddress.coordinates;
     if destination is GeoCoordinate {
@@ -86,6 +116,37 @@ public isolated function validateOrderCreated(json data) returns OrderCreated|er
         if destination.longitude < -180d || destination.longitude > 180d {
             return error("Validation failed: longitude must be between -180 and 180 degrees");
         }
+    }
+    return event;
+}
+
+public isolated function validateOrderConfirmed(json data) returns OrderConfirmed|error {
+    OrderConfirmed event = check data.cloneWithType(OrderConfirmed);
+    if event.eventId.trim().length() == 0 || event.orderId.trim().length() == 0 ||
+            event.paymentId.trim().length() == 0 || event.confirmedAt.trim().length() == 0 {
+        return error("Validation failed: OrderConfirmed required fields must not be empty");
+    }
+    if event.estimatedDeliveryMinutes <= 0 {
+        return error("Validation failed: estimatedDeliveryMinutes must be positive");
+    }
+    return event;
+}
+
+public isolated function validateOrderPreparing(json data) returns OrderPreparing|error {
+    OrderPreparing event = check data.cloneWithType(OrderPreparing);
+    if event.eventId.trim().length() == 0 || event.orderId.trim().length() == 0 ||
+            event.restaurantId.trim().length() == 0 || event.preparingStartedAt.trim().length() == 0 {
+        return error("Validation failed: OrderPreparing required fields must not be empty");
+    }
+    return event;
+}
+
+public isolated function validateOrderCancelled(json data) returns OrderCancelled|error {
+    OrderCancelled event = check data.cloneWithType(OrderCancelled);
+    if event.eventId.trim().length() == 0 || event.orderId.trim().length() == 0 ||
+            event.reason.trim().length() == 0 || event.cancelledBy.trim().length() == 0 ||
+            event.cancelledAt.trim().length() == 0 {
+        return error("Validation failed: OrderCancelled required fields must not be empty");
     }
     return event;
 }
@@ -116,6 +177,9 @@ public isolated function validatePaymentCompleted(json data) returns PaymentComp
     if event.transactionReference.trim().length() == 0 {
         return error("Validation failed: transactionReference must not be empty");
     }
+    if event.completedAt.trim().length() == 0 {
+        return error("Validation failed: completedAt must not be empty");
+    }
     return event;
 }
 
@@ -131,6 +195,34 @@ public isolated function validatePaymentFailed(json data) returns PaymentFailedE
     if event.reason.trim().length() == 0 || event.errorCode.trim().length() == 0 ||
             event.failedAt.trim().length() == 0 {
         return error("Validation failed: payment failure details must not be empty");
+    }
+    return event;
+}
+
+public isolated function validatePaymentRefunded(json data) returns PaymentRefunded|error {
+    PaymentRefunded event = check data.cloneWithType(PaymentRefunded);
+    if event.eventId.trim().length() == 0 || event.paymentId.trim().length() == 0 ||
+            event.orderId.trim().length() == 0 || event.customerId.trim().length() == 0 {
+        return error("Validation failed: payment refund IDs must not be empty");
+    }
+    if event.amount < 0d {
+        return error("Validation failed: payment refund amount cannot be negative");
+    }
+    if event.currency.trim().length() == 0 || event.paymentMethod.trim().length() == 0 ||
+            event.refundedAt.trim().length() == 0 {
+        return error("Validation failed: payment refund details must not be empty");
+    }
+    return event;
+}
+
+public isolated function validateKitchenPreparing(json data) returns KitchenPreparing|error {
+    KitchenPreparing event = check data.cloneWithType(KitchenPreparing);
+    if event.eventId.trim().length() == 0 || event.orderId.trim().length() == 0 ||
+            event.restaurantId.trim().length() == 0 || event.startedAt.trim().length() == 0 {
+        return error("Validation failed: KitchenPreparing required fields must not be empty");
+    }
+    if event.estimatedPrepMinutes <= 0 {
+        return error("Validation failed: estimatedPrepMinutes must be positive");
     }
     return event;
 }
@@ -158,8 +250,20 @@ public isolated function validateKitchenOrderReady(json data) returns KitchenOrd
     if event.restaurantId.trim().length() == 0 {
         return error("Validation failed: restaurantId must not be empty");
     }
+    if event.pickupAddress.trim().length() == 0 {
+        return error("Validation failed: pickupAddress must not be empty");
+    }
     if event.pickupReadyAt.trim().length() == 0 {
         return error("Validation failed: pickupReadyAt must not be empty");
+    }
+    return event;
+}
+
+public isolated function validateKitchenRejected(json data) returns KitchenRejected|error {
+    KitchenRejected event = check data.cloneWithType(KitchenRejected);
+    if event.eventId.trim().length() == 0 || event.orderId.trim().length() == 0 ||
+            event.reason.trim().length() == 0 || event.rejectedAt.trim().length() == 0 {
+        return error("Validation failed: KitchenRejected required fields must not be empty");
     }
     return event;
 }
@@ -190,6 +294,9 @@ public isolated function validateDeliveryStatusUpdated(json data) returns Delive
     }
     if event.driverId.trim().length() == 0 {
         return error("Validation failed: driverId must not be empty");
+    }
+    if event.updatedAt.trim().length() == 0 {
+        return error("Validation failed: updatedAt must not be empty");
     }
     GeoCoordinate? coord = event.currentLocation;
     if coord is GeoCoordinate {

@@ -5,6 +5,7 @@ public type OrderCreated readonly & record {|
     string restaurantId;
     OrderItem[] items;
     decimal totalAmount;
+    decimal deliveryFee = 0d;
     Address deliveryAddress;
     OrderStatus status = CREATED;
     string createdAt;
@@ -15,6 +16,7 @@ public type OrderCreatedEvent OrderCreated;
 public type OrderConfirmed readonly & record {|
     string eventId;
     string orderId;
+    string customerId = "";
     string restaurantId = "";
     OrderItem[] items = [];
     string paymentId;
@@ -27,6 +29,7 @@ public type OrderConfirmedEvent OrderConfirmed;
 public type OrderPreparing readonly & record {|
     string eventId;
     string orderId;
+    string customerId = "";
     string restaurantId;
     string preparingStartedAt;
 |};
@@ -36,6 +39,7 @@ public type OrderPreparingEvent OrderPreparing;
 public type OrderCancelled readonly & record {|
     string eventId;
     string orderId;
+    string customerId = "";
     string reason;
     string cancelledBy;
     string cancelledAt;
@@ -69,6 +73,19 @@ public type PaymentFailed readonly & record {|
 
 public type PaymentFailedEvent PaymentFailed;
 
+public type PaymentRefunded readonly & record {|
+    string eventId;
+    string paymentId;
+    string orderId;
+    string customerId;
+    decimal amount;
+    string currency;
+    string paymentMethod;
+    string refundedAt;
+|};
+
+public type PaymentRefundedEvent PaymentRefunded;
+
 public type KitchenPreparing readonly & record {|
     string eventId;
     string orderId;
@@ -91,6 +108,8 @@ public type KitchenStatusEvent readonly & record {|
 public type KitchenOrderReady readonly & record {|
     string eventId;
     string orderId;
+    string customerId = "";
+    string driverId = "";
     string restaurantId;
     string pickupAddress;
     string pickupReadyAt;
@@ -100,10 +119,22 @@ public type KitchenReadyEvent KitchenOrderReady;
 
 public type KitchenOrderReadyEvent KitchenOrderReady;
 
+public type KitchenRejected readonly & record {|
+    string eventId;
+    string orderId;
+    string customerId = "";
+    string restaurantId = "";
+    string reason;
+    string rejectedAt;
+|};
+
+public type KitchenRejectedEvent KitchenRejected;
+
 public type DeliveryAssigned readonly & record {|
     string eventId;
     string deliveryId;
     string orderId;
+    string customerId = "";
     string driverId;
     string driverName;
     string driverPhone;
@@ -116,6 +147,7 @@ public type DeliveryStatusUpdated readonly & record {|
     string eventId;
     string deliveryId;
     string orderId;
+    string customerId = "";
     string driverId;
     DeliveryStatus status;
     GeoCoordinate? currentLocation = ();

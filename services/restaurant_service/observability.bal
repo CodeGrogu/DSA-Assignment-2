@@ -1,7 +1,10 @@
 import ballerina/log;
 import ballerina/observe;
 
-isolated function recordHttpRequest(string method, string path, int statusCode, decimal durationMs, string serviceName) {
+import peerpressure/metrics as metrics;
+
+function recordHttpRequest(string method, string path, int statusCode, decimal durationMs, string serviceName) {
+    metrics:recordHttpRequest(method, path, statusCode, durationMs, serviceName);
     map<string> tags = {
         method,
         path,
@@ -23,7 +26,8 @@ isolated function recordHttpRequest(string method, string path, int statusCode, 
     }
 }
 
-isolated function recordMessageLatency(string topic, decimal durationMs, string serviceName) {
+function recordMessageLatency(string topic, decimal durationMs, string serviceName) {
+    metrics:recordMessageLatency(topic, durationMs, serviceName);
     map<string> tags = {topic, "service": serviceName};
     observe:Gauge|error metricResult = getOrCreateGauge("message_latency_milliseconds", tags);
     if metricResult is observe:Gauge {
@@ -33,7 +37,8 @@ isolated function recordMessageLatency(string topic, decimal durationMs, string 
     }
 }
 
-isolated function setConsumerLagMetric(string groupId, string topic, int lag) {
+function setConsumerLagMetric(string groupId, string topic, int lag) {
+    metrics:setConsumerLagMetric(groupId, topic, lag);
     map<string> tags = {group: groupId, topic};
     observe:Gauge|error metricResult = getOrCreateGauge("kafka_consumer_lag", tags);
     if metricResult is observe:Gauge {

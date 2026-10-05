@@ -21,8 +21,16 @@ dependencies = [
 
 [[package]]
 org = "ballerina"
+name = "avro"
+version = "1.2.7"
+dependencies = [
+	{org = "ballerina", name = "jballerina.java"}
+]
+
+[[package]]
+org = "ballerina"
 name = "cache"
-version = "3.10.1"
+version = "3.10.2"
 dependencies = [
 	{org = "ballerina", name = "constraint"},
 	{org = "ballerina", name = "jballerina.java"},
@@ -33,7 +41,7 @@ dependencies = [
 [[package]]
 org = "ballerina"
 name = "constraint"
-version = "1.7.1"
+version = "1.7.2"
 dependencies = [
 	{org = "ballerina", name = "jballerina.java"}
 ]
@@ -50,7 +58,7 @@ dependencies = [
 [[package]]
 org = "ballerina"
 name = "data.jsondata"
-version = "1.1.5"
+version = "1.1.6"
 dependencies = [
 	{org = "ballerina", name = "jballerina.java"},
 	{org = "ballerina", name = "lang.object"}
@@ -70,7 +78,7 @@ dependencies = [
 [[package]]
 org = "ballerina"
 name = "http"
-version = "2.17.3"
+version = "2.17.4"
 dependencies = [
 	{org = "ballerina", name = "auth"},
 	{org = "ballerina", name = "cache"},
@@ -103,7 +111,7 @@ modules = [
 [[package]]
 org = "ballerina"
 name = "io"
-version = "1.8.2"
+version = "1.8.3"
 dependencies = [
 	{org = "ballerina", name = "jballerina.java"},
 	{org = "ballerina", name = "lang.value"}
@@ -166,6 +174,17 @@ dependencies = [
 
 [[package]]
 org = "ballerina"
+name = "lang.float"
+version = "0.0.0"
+dependencies = [
+	{org = "ballerina", name = "jballerina.java"}
+]
+modules = [
+	{org = "ballerina", packageName = "lang.float", moduleName = "lang.float"}
+]
+
+[[package]]
+org = "ballerina"
 name = "lang.int"
 version = "0.0.0"
 dependencies = [
@@ -194,6 +213,9 @@ version = "0.0.0"
 dependencies = [
 	{org = "ballerina", name = "jballerina.java"}
 ]
+modules = [
+	{org = "ballerina", packageName = "lang.runtime", moduleName = "lang.runtime"}
+]
 
 [[package]]
 org = "ballerina"
@@ -215,18 +237,21 @@ dependencies = [
 [[package]]
 org = "ballerina"
 name = "log"
-version = "2.17.1"
+version = "2.17.2"
 dependencies = [
 	{org = "ballerina", name = "io"},
 	{org = "ballerina", name = "jballerina.java"},
 	{org = "ballerina", name = "lang.value"},
 	{org = "ballerina", name = "observe"}
 ]
+modules = [
+	{org = "ballerina", packageName = "log", moduleName = "log"}
+]
 
 [[package]]
 org = "ballerina"
 name = "mime"
-version = "2.12.3"
+version = "2.12.4"
 dependencies = [
 	{org = "ballerina", name = "io"},
 	{org = "ballerina", name = "jballerina.java"},
@@ -258,10 +283,13 @@ dependencies = [
 [[package]]
 org = "ballerina"
 name = "os"
-version = "1.10.2"
+version = "1.10.3"
 dependencies = [
 	{org = "ballerina", name = "io"},
 	{org = "ballerina", name = "jballerina.java"}
+]
+modules = [
+	{org = "ballerina", packageName = "os", moduleName = "os"}
 ]
 
 [[package]]
@@ -290,7 +318,7 @@ modules = [
 [[package]]
 org = "ballerina"
 name = "time"
-version = "2.8.3"
+version = "2.8.4"
 dependencies = [
 	{org = "ballerina", name = "jballerina.java"}
 ]
@@ -301,9 +329,23 @@ modules = [
 [[package]]
 org = "ballerina"
 name = "url"
-version = "2.6.4"
+version = "2.6.5"
 dependencies = [
 	{org = "ballerina", name = "jballerina.java"}
+]
+
+[[package]]
+org = "ballerina"
+name = "uuid"
+version = "1.10.2"
+dependencies = [
+	{org = "ballerina", name = "crypto"},
+	{org = "ballerina", name = "jballerina.java"},
+	{org = "ballerina", name = "lang.int"},
+	{org = "ballerina", name = "time"}
+]
+modules = [
+	{org = "ballerina", packageName = "uuid", moduleName = "uuid"}
 ]
 
 [[package]]
@@ -319,18 +361,116 @@ modules = [
 ]
 
 [[package]]
+org = "ballerinax"
+name = "confluent.cavroserdes"
+version = "1.0.5"
+dependencies = [
+	{org = "ballerina", name = "avro"},
+	{org = "ballerina", name = "jballerina.java"},
+	{org = "ballerinai", name = "observe"},
+	{org = "ballerinax", name = "confluent.cregistry"}
+]
+
+[[package]]
+org = "ballerinax"
+name = "confluent.cregistry"
+version = "0.4.5"
+dependencies = [
+	{org = "ballerina", name = "jballerina.java"}
+]
+
+[[package]]
+org = "ballerinax"
+name = "kafka"
+version = "4.6.7"
+dependencies = [
+	{org = "ballerina", name = "crypto"},
+	{org = "ballerina", name = "jballerina.java"},
+	{org = "ballerina", name = "time"},
+	{org = "ballerina", name = "uuid"},
+	{org = "ballerinai", name = "observe"},
+	{org = "ballerinax", name = "confluent.cavroserdes"},
+	{org = "ballerinax", name = "confluent.cregistry"}
+]
+modules = [
+	{org = "ballerinax", packageName = "kafka", moduleName = "kafka"}
+]
+
+[[package]]
+org = "ballerinax"
+name = "mongodb"
+version = "5.2.4"
+dependencies = [
+	{org = "ballerina", name = "crypto"},
+	{org = "ballerina", name = "jballerina.java"},
+	{org = "ballerina", name = "log"},
+	{org = "ballerina", name = "time"}
+]
+modules = [
+	{org = "ballerinax", packageName = "mongodb", moduleName = "mongodb"}
+]
+
+[[package]]
+org = "peerpressure"
+name = "delivery_domain"
+version = "0.1.0"
+dependencies = [
+	{org = "ballerinai", name = "observe"}
+]
+modules = [
+	{org = "peerpressure", packageName = "delivery_domain", moduleName = "delivery_domain"}
+]
+
+[[package]]
 org = "peerpressure"
 name = "delivery_service"
 version = "0.1.0"
 dependencies = [
 	{org = "ballerina", name = "http"},
+	{org = "ballerina", name = "lang.float"},
+	{org = "ballerina", name = "lang.runtime"},
+	{org = "ballerina", name = "log"},
+	{org = "ballerina", name = "os"},
 	{org = "ballerina", name = "test"},
 	{org = "ballerina", name = "time"},
+	{org = "ballerina", name = "uuid"},
 	{org = "ballerinai", name = "observe"},
-	{org = "peerpressure", name = "metrics"}
+	{org = "ballerinax", name = "kafka"},
+	{org = "ballerinax", name = "mongodb"},
+	{org = "peerpressure", name = "delivery_domain"},
+	{org = "peerpressure", name = "events"},
+	{org = "peerpressure", name = "kafka_client"},
+	{org = "peerpressure", name = "metrics"},
+	{org = "peerpressure", name = "resilience"}
 ]
 modules = [
 	{org = "peerpressure", packageName = "delivery_service", moduleName = "delivery_service"}
+]
+
+[[package]]
+org = "peerpressure"
+name = "events"
+version = "0.1.0"
+dependencies = [
+	{org = "ballerinai", name = "observe"}
+]
+modules = [
+	{org = "peerpressure", packageName = "events", moduleName = "events"}
+]
+
+[[package]]
+org = "peerpressure"
+name = "kafka_client"
+version = "0.1.0"
+dependencies = [
+	{org = "ballerina", name = "lang.runtime"},
+	{org = "ballerina", name = "lang.string"},
+	{org = "ballerina", name = "log"},
+	{org = "ballerinai", name = "observe"},
+	{org = "ballerinax", name = "kafka"}
+]
+modules = [
+	{org = "peerpressure", packageName = "kafka_client", moduleName = "kafka_client"}
 ]
 
 [[package]]
@@ -343,5 +483,20 @@ dependencies = [
 ]
 modules = [
 	{org = "peerpressure", packageName = "metrics", moduleName = "metrics"}
+]
+
+[[package]]
+org = "peerpressure"
+name = "resilience"
+version = "0.1.0"
+dependencies = [
+	{org = "ballerina", name = "lang.runtime"},
+	{org = "ballerina", name = "lang.string"},
+	{org = "ballerina", name = "log"},
+	{org = "ballerinai", name = "observe"},
+	{org = "peerpressure", name = "kafka_client"}
+]
+modules = [
+	{org = "peerpressure", packageName = "resilience", moduleName = "resilience"}
 ]
 

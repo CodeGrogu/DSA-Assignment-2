@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 // End-to-end lifecycle test (PEE-181 / #115).
-// Stage 0 verifies everything that exists today against the real platform.
-// Stages 1-7 (order -> payment -> kitchen -> dispatch -> pickup -> delivery -> notification)
-// are probed: a stage whose endpoints are not implemented is reported SKIPPED, never faked as PASS.
+// Stage 0 verifies platform and catalog prerequisites against the live platform.
+// Stages 1-7 verify the full order -> payment -> kitchen -> dispatch -> pickup -> delivery -> notification lifecycle.
 // Exit: 0 ok | 1 a check failed | 3 an endpoint now exists and needs wiring | 4 STRICT=1 and stages skipped
 
 import { PORTS, call, createRestaurant, menuItem, findItem, pollUntil, orderPayload } from "../lib/common.mjs";
@@ -119,7 +118,6 @@ for (const s of stages) {
       state[s.id] = "FAIL";
       record(s.id, s.name, "FAIL", `${service} service not reachable`);
     } else {
-      // Endpoint is present: place real test order with contract-compliant payload
       const payload = orderPayload("cust-e2e-001", restaurantId || "R001", "e2e-item-1", 1, 50.0);
       const orderRes = await call("orders", "POST", "/orders", payload);
 
@@ -137,7 +135,6 @@ for (const s of stages) {
 
   if (s.id === "2") {
     if (state["1"] === "PASS" && orderId) {
-      // Poll asynchronously for payment completion and Order Service status CONFIRMED
       const payPolled = await pollUntil(async () => {
         const payRes = await call("payments", "GET", `/payments/order/${orderId}`);
         if (payRes.status === 200 && (payRes.json?.status === "COMPLETED" || payRes.json?.status === "SUCCESS")) {
@@ -148,7 +145,7 @@ for (const s of stages) {
 
       const orderConfirmed = await pollUntil(async () => {
         const ordRes = await call("orders", "GET", `/orders/${orderId}`);
-        if (ordRes.status === 200 && ordRes.json?.status === "CONFIRMED") {
+        if (ordRes.status === 200 && ["CONFIRMED", "PREPARING", "READY"].includes(ordRes.json?.status)) {
           return ordRes;
         }
         return null;
@@ -158,14 +155,8 @@ for (const s of stages) {
         state[s.id] = "PASS";
         record(s.id, s.name, "PASS", `payment verified and order confirmed via Kafka (orderId: ${orderId})`);
       } else {
-        const directPay = await call("payments", "GET", `/payments/order/${orderId}`);
-        if (directPay.status === 200) {
-          state[s.id] = "PASS";
-          record(s.id, s.name, "PASS", `payment record verified: ${directPay.json?.status ?? "SUCCESS"}`);
-        } else {
-          state[s.id] = "SKIPPED";
-          record(s.id, s.name, "SKIPPED", `async payment processing pending (${directPay.status})`);
-        }
+        state[s.id] = "SKIPPED";
+        record(s.id, s.name, "SKIPPED", "async payment processing pending");
       }
     } else {
       state[s.id] = "SKIPPED";
@@ -176,21 +167,20 @@ for (const s of stages) {
 
   if (s.id === "3") {
     if (state["2"] === "PASS" && orderId) {
-      // Poll for order transitioning to cooking/ready status via kitchen event consumer
       const kitchenPolled = await pollUntil(async () => {
         const ordRes = await call("orders", "GET", `/orders/${orderId}`);
-        if (ordRes.status === 200 && ["COOKING", "PREPARING", "READY_FOR_PICKUP"].includes(ordRes.json?.status)) {
+        if (ordRes.status === 200 && ["COOKING", "PREPARING", "READY", "READY_FOR_PICKUP"].includes(ordRes.json?.status)) {
           return ordRes;
         }
         return null;
-      }, { timeoutMs: 8000, intervalMs: 1000 });
+      }, { timeoutMs: 35000, intervalMs: 1000 });
 
       if (kitchenPolled) {
         state[s.id] = "PASS";
         record(s.id, s.name, "PASS", `kitchen prep active: order status is ${kitchenPolled.json?.status}`);
       } else {
         state[s.id] = "SKIPPED";
-        record(s.id, s.name, "SKIPPED", "kitchen async Kafka consumer processing (or service awaiting event)");
+        record(s.id, s.name, "SKIPPED", "kitchen async Kafka consumer processing");
       }
     } else {
       state[s.id] = "SKIPPED";
@@ -203,7 +193,7 @@ for (const s of stages) {
     if (orderId) {
       const payload = {
         orderId: orderId,
-        driverId: "drv-001",
+        driverId: "drv_001",
         status: "DRIVER_ASSIGNED",
         currentLocation: { latitude: -22.5609, longitude: 17.0658 }
       };
@@ -224,13 +214,47 @@ for (const s of stages) {
 
   if (s.id === "5") {
     if (state["4"] === "PASS" && orderId) {
+      await call("deliveries", "POST", "/deliveries", {
+        orderId: orderId,
+        driverId: "drv_001",
+        status: "AT_RESTAURANT",
+        currentLocation: { latitude: -22.5615, longitude: 17.0665 }
+      });
+      const pickupRes = await call("deliveries", "POST", "/deliveries", {
+        orderId: orderId,
+        driverId: "drv_001",
+        status: "OUT_FOR_DELIVERY",
+        currentLocation: { latitude: -22.5650, longitude: 17.0700 }
+      });
       const trackRes = await call("deliveries", "GET", `/delivery/track/${orderId}`);
-      if (trackRes.status === 200) {
+      if (pickupRes.status === 201 && trackRes.status === 200) {
         state[s.id] = "PASS";
-        record(s.id, s.name, "PASS", `delivery tracked: status=${trackRes.json?.status}`);
+        record(s.id, s.name, "PASS", `delivery picked up and tracked: status=${trackRes.json?.status}`);
       } else {
-        state[s.id] = "SKIPPED";
-        record(s.id, s.name, "SKIPPED", `GET /delivery/track/${orderId} -> ${trackRes.status}`);
+        state[s.id] = "FAIL";
+        record(s.id, s.name, "FAIL", `GET /delivery/track/${orderId} -> ${trackRes.status}`);
+      }
+    } else {
+      state[s.id] = "SKIPPED";
+      record(s.id, s.name, "SKIPPED", `depends on stage ${s.needs} (${state[s.needs] ?? "SKIPPED"})`);
+    }
+    continue;
+  }
+
+  if (s.id === "6") {
+    if (state["5"] === "PASS" && orderId) {
+      const delivRes = await call("deliveries", "POST", "/deliveries", {
+        orderId: orderId,
+        driverId: "drv_001",
+        status: "DELIVERED",
+        currentLocation: { latitude: -22.5700, longitude: 17.0750 }
+      });
+      if (delivRes.status === 201) {
+        state[s.id] = "PASS";
+        record(s.id, s.name, "PASS", `delivery completed via Delivery Service FSM for order: ${orderId}`);
+      } else {
+        state[s.id] = "FAIL";
+        record(s.id, s.name, "FAIL", `POST /deliveries (DELIVERED) -> ${delivRes.status}`);
       }
     } else {
       state[s.id] = "SKIPPED";
@@ -240,34 +264,22 @@ for (const s of stages) {
   }
 
   if (s.id === "7") {
-    // Check if notification service has captured notifications for the customer
-    const notifRes = await call("notifications", "GET", "/notifications/recipient/cust-e2e-001");
-    if (notifRes.status === 200 && Array.isArray(notifRes.json) && notifRes.json.length > 0) {
+    const notifPolled = await pollUntil(async () => {
+      const notifRes = await call("notifications", "GET", "/notifications/recipient/cust-e2e-001");
+      if (notifRes.status === 200 && Array.isArray(notifRes.json) && notifRes.json.length > 0) {
+        return notifRes;
+      }
+      return null;
+    }, { timeoutMs: 8000, intervalMs: 1000 });
+
+    if (notifPolled) {
       state[s.id] = "PASS";
-      record(s.id, s.name, "PASS", `${notifRes.json.length} notifications emitted for recipient cust-e2e-001`);
+      record(s.id, s.name, "PASS", `${notifPolled.json.length} notifications emitted for recipient cust-e2e-001`);
     } else {
       state[s.id] = "SKIPPED";
       record(s.id, s.name, "SKIPPED", `depends on stage ${s.needs} (${state[s.needs] ?? "SKIPPED"})`);
     }
     continue;
-  }
-
-  if (s.probe) {
-    const [service, method, path] = s.probe;
-    const p = await probe(service, method, path);
-    if (p === "missing") {
-      state[s.id] = "SKIPPED";
-      record(s.id, s.name, "SKIPPED", `no ${method} ${path} on the ${service} service yet`);
-    } else if (p === "present") {
-      state[s.id] = "FOUND";
-      record(s.id, s.name, "FOUND", `${method} ${path} now exists - add its request and assertions to this script`);
-    } else {
-      state[s.id] = "FAIL";
-      record(s.id, s.name, "FAIL", `${service} service not reachable`);
-    }
-  } else {
-    state[s.id] = "SKIPPED";
-    record(s.id, s.name, "SKIPPED", `depends on stage ${s.needs} (${state[s.needs]})`);
   }
 }
 
@@ -282,4 +294,3 @@ if (count("FAIL")) code = 1;
 else if (process.env.STRICT === "1" && (count("SKIPPED") || count("FOUND"))) code = 4;
 
 process.exit(code);
-

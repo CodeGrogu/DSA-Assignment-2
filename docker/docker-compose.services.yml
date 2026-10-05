@@ -12,6 +12,7 @@ services:
     environment:
       PORT: 9091
       KAFKA_BROKER: kafka:9092
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       BAL_CONFIG_VAR_KAFKABOOTSTRAPSERVERS: kafka:9092
       MONGO_URI: mongodb://order_user:order_password@mongodb:27017/order_db?authSource=order_db&replicaSet=rs0
       BAL_CONFIG_VAR_MONGOURI: mongodb://order_user:order_password@mongodb:27017/order_db?authSource=order_db&replicaSet=rs0
@@ -31,7 +32,14 @@ services:
     environment:
       PORT: 9093
       KAFKA_BROKER: kafka:9092
-      MONGO_URI: mongodb://${MONGO_ROOT_USER:-root}:${MONGO_ROOT_PASSWORD:-password}@mongodb:27017/customers_db?authSource=admin
+      MONGO_URI: mongodb://customer_user:customer_password@mongodb:27017/customer_db?authSource=customer_db&replicaSet=rs0
+      BAL_CONFIG_VAR_MONGOHOST: mongodb
+      BAL_CONFIG_VAR_MONGOPORT: 27017
+      BAL_CONFIG_VAR_MONGOUSER: customer_user
+      BAL_CONFIG_VAR_MONGOPASSWORD: customer_password
+      BAL_CONFIG_VAR_DATABASENAME: customer_db
+      BAL_CONFIG_VAR_MONGOAUTHSOURCE: customer_db
+      BAL_CONFIG_VAR_ORDERSERVICEURL: http://order-service:9091
     networks:
       - dsa-network
 
@@ -48,7 +56,10 @@ services:
     environment:
       PORT: 9094
       KAFKA_BROKER: kafka:9092
-      MONGO_URI: mongodb://${MONGO_ROOT_USER:-root}:${MONGO_ROOT_PASSWORD:-password}@mongodb:27017/payments_db?authSource=admin
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      BAL_CONFIG_VAR_KAFKABOOTSTRAPSERVERS: kafka:9092
+      MONGO_URI: mongodb://${MONGO_ROOT_USER:-root}:${MONGO_ROOT_PASSWORD:-password}@mongodb:27017/payments_db?authSource=admin&replicaSet=rs0
+      BAL_CONFIG_VAR_MONGOURI: mongodb://${MONGO_ROOT_USER:-root}:${MONGO_ROOT_PASSWORD:-password}@mongodb:27017/payments_db?authSource=admin&replicaSet=rs0
     networks:
       - dsa-network
 
@@ -65,9 +76,15 @@ services:
     environment:
       PORT: 9095
       KAFKA_BROKER: kafka:9092
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       BAL_CONFIG_VAR_KAFKABOOTSTRAPSERVERS: kafka:9092
-      MONGO_URI: mongodb://${MONGO_ROOT_USER:-root}:${MONGO_ROOT_PASSWORD:-password}@mongodb:27017/restaurant_db?authSource=admin
-      BAL_CONFIG_VAR_MONGOURI: mongodb://${MONGO_ROOT_USER:-root}:${MONGO_ROOT_PASSWORD:-password}@mongodb:27017/restaurant_db?authSource=admin
+      MONGO_URI: mongodb://restaurant_user:restaurant_password@mongodb:27017/restaurant_db?authSource=restaurant_db&replicaSet=rs0
+      BAL_CONFIG_VAR_MONGOHOST: mongodb
+      BAL_CONFIG_VAR_MONGOPORT: 27017
+      BAL_CONFIG_VAR_MONGOUSER: restaurant_user
+      BAL_CONFIG_VAR_MONGOPASSWORD: restaurant_password
+      BAL_CONFIG_VAR_DATABASENAME: restaurant_db
+      BAL_CONFIG_VAR_MONGOAUTHSOURCE: restaurant_db
     networks:
       - dsa-network
 
@@ -84,7 +101,10 @@ services:
     environment:
       PORT: 9096
       KAFKA_BROKER: kafka:9092
-      MONGO_URI: mongodb://${MONGO_ROOT_USER:-root}:${MONGO_ROOT_PASSWORD:-password}@mongodb:27017/delivery_db?authSource=admin
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      BAL_CONFIG_VAR_KAFKABOOTSTRAPSERVERS: kafka:9092
+      MONGO_URI: mongodb://delivery_user:delivery_password@mongodb:27017/delivery_db?authSource=delivery_db&replicaSet=rs0
+      BAL_CONFIG_VAR_MONGOURI: mongodb://delivery_user:delivery_password@mongodb:27017/delivery_db?authSource=delivery_db&replicaSet=rs0
     networks:
       - dsa-network
 
@@ -101,7 +121,9 @@ services:
     environment:
       PORT: 9097
       KAFKA_BROKER: kafka:9092
-      MONGO_URI: mongodb://${MONGO_ROOT_USER:-root}:${MONGO_ROOT_PASSWORD:-password}@mongodb:27017/notifications_db?authSource=admin
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      MONGO_URI: mongodb://notification_user:notification_password@mongodb:27017/notification_db?authSource=notification_db&replicaSet=rs0
+      BAL_CONFIG_VAR_MONGOURI: mongodb://notification_user:notification_password@mongodb:27017/notification_db?authSource=notification_db&replicaSet=rs0
     networks:
       - dsa-network
 
@@ -118,7 +140,10 @@ services:
     environment:
       PORT: 9098
       KAFKA_BROKER: kafka:9092
-      MONGO_URI: mongodb://${MONGO_ROOT_USER:-root}:${MONGO_ROOT_PASSWORD:-password}@mongodb:27017/admin_db?authSource=admin
+      MONGO_URI: mongodb://admin_user:admin_password@mongodb:27017/admin_db?authSource=admin_db&replicaSet=rs0
+      ORDER_SERVICE_URL: http://order-service:9091
+      PAYMENT_SERVICE_URL: http://payment-service:9094
+      DELIVERY_SERVICE_URL: http://delivery-service:9096
     networks:
       - dsa-network
 

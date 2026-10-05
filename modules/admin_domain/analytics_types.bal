@@ -11,7 +11,7 @@ public type PlatformOverview record {|
 // One restaurant's revenue breakdown for a date range.
 public type RestaurantReport record {|
     string restaurantId;
-    string restaurantName;
+    string restaurantName = "";
     int orderCount;
     decimal grossSales;
     decimal commissionAmount;

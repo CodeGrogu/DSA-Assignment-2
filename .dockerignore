@@ -4,7 +4,8 @@
 **/.env
 **/.env.*
 **/Config.toml
-!services/payment_service/Config.toml
+!services/*/Config.toml
+!services/admin_service/seed_data.json
 **/Config.local.toml
 **/*.pem
 **/*.key

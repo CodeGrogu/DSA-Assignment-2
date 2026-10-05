@@ -93,6 +93,22 @@ function testDriverRecord() {
 }
 
 @test:Config {}
+function testHaversineDistanceAndEta() {
+    LocationCoordinates cbd = {
+        latitude: -22.5609d,
+        longitude: 17.0658d
+    };
+    LocationCoordinates kleineKuppe = {
+        latitude: -22.6120d,
+        longitude: 17.0900d
+    };
+    decimal dist = calculateDistanceKm(cbd, kleineKuppe);
+    test:assertTrue(dist > 5.0d && dist < 8.0d, "Distance between Windhoek CBD and Kleine Kuppe should be ~6.2 km");
+    int eta = calculateEtaMinutes(dist);
+    test:assertTrue(eta >= 10 && eta <= 20, "ETA should be between 10 and 20 minutes");
+}
+
+@test:Config {}
 function testTrackDeliveryEndpoint() returns error? {
     http:Client clientEp = check new (string `http://localhost:${port}`);
     http:Response resp = check clientEp->get("/delivery/track/ord_test_1");
@@ -106,19 +122,14 @@ function testTrackDeliveryEndpoint() returns error? {
     test:assertEquals(body["status"], "IN_TRANSIT");
     test:assertTrue(body.hasKey("currentLocation"));
 
-    http:Response customResp = check clientEp->get("/delivery/track/ord_custom_99");
-    test:assertEquals(customResp.statusCode, 200);
-    json customPayload = check customResp.getJsonPayload();
-    test:assertTrue(customPayload is map<json>);
-    map<json> customBody = <map<json>>customPayload;
-    test:assertEquals(customBody["orderId"], "ord_custom_99");
-    test:assertEquals(customBody["deliveryId"], "del_ord_custom_99");
+    http:Response unknownResp = check clientEp->get("/delivery/track/ord_unknown_99");
+    test:assertEquals(unknownResp.statusCode, 404);
 }
 
 @test:Config {}
-function testCreateAndTrackDelivery() returns error? {
+function testCreateAndTrackDeliveryLifecycle() returns error? {
     http:Client clientEp = check new (string `http://localhost:${port}`);
-    json payload = {
+    json assignPayload = {
         orderId: "ord_new_456",
         driverId: "drv_002",
         status: "DRIVER_ASSIGNED",
@@ -127,7 +138,7 @@ function testCreateAndTrackDelivery() returns error? {
             longitude: 17.0800d
         }
     };
-    http:Response postResp = check clientEp->post("/deliveries", payload);
+    http:Response postResp = check clientEp->post("/deliveries", assignPayload);
     test:assertEquals(postResp.statusCode, 201);
     json postBody = check postResp.getJsonPayload();
     test:assertTrue(postBody is map<json>);
@@ -144,6 +155,15 @@ function testCreateAndTrackDelivery() returns error? {
     test:assertEquals(trackMap["orderId"], "ord_new_456");
     test:assertEquals(trackMap["driverId"], "drv_002");
     test:assertEquals(trackMap["status"], "DRIVER_ASSIGNED");
+
+    // Illegal jump from DRIVER_ASSIGNED directly to DELIVERED must be rejected with 400
+    json illegalJumpPayload = {
+        orderId: "ord_new_456",
+        driverId: "drv_002",
+        status: "DELIVERED"
+    };
+    http:Response illegalResp = check clientEp->post("/deliveries", illegalJumpPayload);
+    test:assertEquals(illegalResp.statusCode, 400);
 }
 
 @test:Config {}
@@ -155,4 +175,3 @@ function testCreateDeliveryValidation() returns error? {
     http:Response badResp = check clientEp->post("/deliveries", badPayload);
     test:assertEquals(badResp.statusCode, 400);
 }
-

@@ -104,4 +104,3 @@ export function findItem(restaurant, itemId) {
   }
   return undefined;
 }
-

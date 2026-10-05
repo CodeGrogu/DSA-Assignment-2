@@ -177,7 +177,8 @@ service / on new http:Listener(port) {
                     taxRate: item.taxRate,
                     dietaryAttributes: item.dietaryAttributes,
                     stock: item.stock,
-                    isAvailable: item.isAvailable && item.stock > 0
+                    isAvailable: item.isAvailable && item.stock > 0,
+                    imageUrl: item.imageUrl
                 });
             }
             categories.push({id: category.id, name: category.name, items});
@@ -247,8 +248,8 @@ service / on new http:Listener(port) {
 
     isolated resource function put restaurants/[string restaurantId]/menu/items/[string itemId]/price(
             @http:Payload record {|decimal price;|} payload) returns http:Response {
-        if payload.price < 0.0d {
-            return jsonResponse(400, {message: "Menu item price must be non-negative"});
+        if payload.price <= 0.0d {
+            return jsonResponse(400, {message: "Menu item price must be positive"});
         }
         Restaurant?|error restaurantResult = findRestaurant(restaurantId);
         if restaurantResult is error {
@@ -259,39 +260,25 @@ service / on new http:Listener(port) {
         }
         Restaurant restaurant = restaurantResult;
 
-        boolean itemFound = false;
-        foreach MenuCategory category in restaurant.menu {
-            foreach MenuItem item in category.items {
-                if item.id == itemId {
-                    item.price = payload.price;
-                    itemFound = true;
-                    break;
-                }
-            }
-            if itemFound {
-                break;
-            }
-        }
-        if !itemFound {
+        [int, int]? indices = findMenuItemIndices(restaurant, itemId);
+        if indices is () {
             return jsonResponse(404, {message: "Menu item not found"});
         }
+        var [catIdx, itemIdx] = indices;
+        restaurant.menu[catIdx].items[itemIdx].price = payload.price;
 
-        mongodb:Collection collection;
-        var collectionResult = getRestaurantsCollection();
+        mongodb:Collection|error collectionResult = getRestaurantsCollection();
         if collectionResult is error {
             return jsonResponse(500, {message: "Database connection failed"});
         }
-        collection = collectionResult;
+        mongodb:Collection collection = collectionResult;
 
-        map<json>|error restaurantDoc = restaurant.cloneWithType();
-        if restaurantDoc is error {
-            return jsonResponse(500, {message: "Database connection failed"});
-        }
-
+        string itemIdPath = string `menu.${catIdx}.items.${itemIdx}.id`;
+        string pricePath = string `menu.${catIdx}.items.${itemIdx}.price`;
         mongodb:Update update = {
-            "set": restaurantDoc
+            "set": {[pricePath]: payload.price}
         };
-        mongodb:UpdateResult|error updateResult = collection->updateOne({"id": restaurantId}, update);
+        mongodb:UpdateResult|error updateResult = collection->updateOne({"id": restaurantId, [itemIdPath]: itemId}, update);
         if updateResult is error {
             return jsonResponse(500, {message: "Database connection failed"});
         }
@@ -312,40 +299,31 @@ service / on new http:Listener(port) {
         }
         Restaurant restaurant = restaurantResult;
 
-        boolean itemFound = false;
-        foreach MenuCategory category in restaurant.menu {
-            foreach MenuItem item in category.items {
-                if item.id == itemId {
-                    item.stock = payload.stock;
-                    item.isAvailable = item.isAvailable && item.stock > 0;
-                    itemFound = true;
-                    break;
-                }
-            }
-            if itemFound {
-                break;
-            }
-        }
-        if !itemFound {
+        [int, int]? indices = findMenuItemIndices(restaurant, itemId);
+        if indices is () {
             return jsonResponse(404, {message: "Menu item not found"});
         }
+        var [catIdx, itemIdx] = indices;
+        restaurant.menu[catIdx].items[itemIdx].stock = payload.stock;
+        boolean targetAvail = payload.stock > 0;
+        restaurant.menu[catIdx].items[itemIdx].isAvailable = targetAvail;
 
-        mongodb:Collection collection;
-        var collectionResult = getRestaurantsCollection();
+        mongodb:Collection|error collectionResult = getRestaurantsCollection();
         if collectionResult is error {
             return jsonResponse(500, {message: "Database connection failed"});
         }
-        collection = collectionResult;
+        mongodb:Collection collection = collectionResult;
 
-        map<json>|error restaurantDoc = restaurant.cloneWithType();
-        if restaurantDoc is error {
-            return jsonResponse(500, {message: "Database connection failed"});
-        }
-
+        string itemIdPath = string `menu.${catIdx}.items.${itemIdx}.id`;
+        string stockPath = string `menu.${catIdx}.items.${itemIdx}.stock`;
+        string availPath = string `menu.${catIdx}.items.${itemIdx}.isAvailable`;
         mongodb:Update update = {
-            "set": restaurantDoc
+            "set": {
+                [stockPath]: payload.stock,
+                [availPath]: targetAvail
+            }
         };
-        mongodb:UpdateResult|error updateResult = collection->updateOne({"id": restaurantId}, update);
+        mongodb:UpdateResult|error updateResult = collection->updateOne({"id": restaurantId, [itemIdPath]: itemId}, update);
         if updateResult is error {
             return jsonResponse(500, {message: "Database connection failed"});
         }
@@ -367,40 +345,28 @@ service / on new http:Listener(port) {
         }
         Restaurant restaurant = restaurantResult;
 
-        boolean itemFound = false;
-        foreach MenuCategory category in restaurant.menu {
-            foreach MenuItem item in category.items {
-                if item.id == itemId {
-                    item.stock = item.stock + payload.quantity;
-                    item.isAvailable = item.stock > 0;
-                    itemFound = true;
-                    break;
-                }
-            }
-            if itemFound {
-                break;
-            }
-        }
-        if !itemFound {
+        [int, int]? indices = findMenuItemIndices(restaurant, itemId);
+        if indices is () {
             return jsonResponse(404, {message: "Menu item not found"});
         }
+        var [catIdx, itemIdx] = indices;
+        restaurant.menu[catIdx].items[itemIdx].stock = restaurant.menu[catIdx].items[itemIdx].stock + payload.quantity;
+        restaurant.menu[catIdx].items[itemIdx].isAvailable = restaurant.menu[catIdx].items[itemIdx].stock > 0;
 
-        mongodb:Collection collection;
-        var collectionResult = getRestaurantsCollection();
+        mongodb:Collection|error collectionResult = getRestaurantsCollection();
         if collectionResult is error {
             return jsonResponse(500, {message: "Database connection failed"});
         }
-        collection = collectionResult;
+        mongodb:Collection collection = collectionResult;
 
-        map<json>|error restaurantDoc = restaurant.cloneWithType();
-        if restaurantDoc is error {
-            return jsonResponse(500, {message: "Database connection failed"});
-        }
-
+        string itemIdPath = string `menu.${catIdx}.items.${itemIdx}.id`;
+        string stockPath = string `menu.${catIdx}.items.${itemIdx}.stock`;
+        string availPath = string `menu.${catIdx}.items.${itemIdx}.isAvailable`;
         mongodb:Update update = {
-            "set": restaurantDoc
+            "inc": {[stockPath]: payload.quantity},
+            "set": {[availPath]: true}
         };
-        mongodb:UpdateResult|error updateResult = collection->updateOne({"id": restaurantId}, update);
+        mongodb:UpdateResult|error updateResult = collection->updateOne({"id": restaurantId, [itemIdPath]: itemId}, update);
         if updateResult is error {
             return jsonResponse(500, {message: "Database connection failed"});
         }
@@ -408,12 +374,7 @@ service / on new http:Listener(port) {
     }
 
     isolated resource function put restaurants/[string restaurantId]/menu/items/[string itemId](
-            @http:Payload MenuItem itemPayload) returns http:Response {
-        string? validationError = validateMenuItem(itemPayload);
-        if validationError is string {
-            return jsonResponse(400, {message: validationError});
-        }
-
+            @http:Payload UpdateMenuItemRequest itemPayload) returns http:Response {
         Restaurant?|error restaurantResult = findRestaurant(restaurantId);
         if restaurantResult is error {
             return jsonResponse(500, {message: "Database connection failed"});
@@ -423,50 +384,64 @@ service / on new http:Listener(port) {
         }
         Restaurant restaurant = restaurantResult;
 
-        boolean itemFound = false;
-        foreach MenuCategory category in restaurant.menu {
-            foreach MenuItem item in category.items {
-                if item.id == itemId {
-                    item.id = itemPayload.id;
-                    item.name = itemPayload.name;
-                    item.description = itemPayload.description;
-                    item.price = itemPayload.price;
-                    item.taxRate = itemPayload.taxRate;
-                    item.dietaryAttributes = itemPayload.dietaryAttributes;
-                    item.stock = itemPayload.stock;
-                    item.isAvailable = itemPayload.isAvailable && itemPayload.stock > 0;
-                    itemFound = true;
-                    break;
-                }
-            }
-            if itemFound {
-                break;
-            }
-        }
-        if !itemFound {
+        [int, int]? indices = findMenuItemIndices(restaurant, itemId);
+        if indices is () {
             return jsonResponse(404, {message: "Menu item not found"});
         }
+        var [catIdx, itemIdx] = indices;
+        MenuItem existingItem = restaurant.menu[catIdx].items[itemIdx];
 
-        mongodb:Collection collection;
-        var collectionResult = getRestaurantsCollection();
+        string resolvedId = itemPayload.id is string && (<string>itemPayload.id).trim().length() > 0 ? (<string>itemPayload.id).trim() : itemId;
+        if resolvedId != itemId && !isMenuItemIdUniqueAcrossRestaurant(restaurant, resolvedId) {
+            return jsonResponse(409, {message: "duplicate menu item ID '" + resolvedId + "' found across the restaurant menu"});
+        }
+
+        int resolvedStock = itemPayload.stock is int ? <int>itemPayload.stock : existingItem.stock;
+        int resolvedLowStockThreshold = itemPayload.lowStockThreshold is int ? <int>itemPayload.lowStockThreshold : existingItem.lowStockThreshold;
+        boolean requestedAvail = itemPayload.isAvailable is boolean ? <boolean>itemPayload.isAvailable : existingItem.isAvailable;
+        boolean resolvedAvail = requestedAvail && resolvedStock > 0;
+
+        MenuItem updatedItem = {
+            id: resolvedId,
+            name: itemPayload.name is string && (<string>itemPayload.name).trim().length() > 0 ? (<string>itemPayload.name).trim() : existingItem.name,
+            description: itemPayload.description is string ? <string>itemPayload.description : existingItem.description,
+            price: itemPayload.price is decimal ? <decimal>itemPayload.price : existingItem.price,
+            taxRate: itemPayload.taxRate is decimal ? <decimal>itemPayload.taxRate : existingItem.taxRate,
+            dietaryAttributes: itemPayload.dietaryAttributes is string[] ? <string[]>itemPayload.dietaryAttributes : existingItem.dietaryAttributes,
+            stock: resolvedStock,
+            lowStockThreshold: resolvedLowStockThreshold,
+            isAvailable: resolvedAvail,
+            imageUrl: itemPayload.imageUrl is string ? <string>itemPayload.imageUrl : existingItem.imageUrl
+        };
+
+        string? validationError = validateMenuItem(updatedItem);
+        if validationError is string {
+            return jsonResponse(400, {message: validationError});
+        }
+
+        restaurant.menu[catIdx].items[itemIdx] = updatedItem;
+
+        mongodb:Collection|error collectionResult = getRestaurantsCollection();
         if collectionResult is error {
             return jsonResponse(500, {message: "Database connection failed"});
         }
-        collection = collectionResult;
+        mongodb:Collection collection = collectionResult;
 
-        map<json>|error restaurantDoc = restaurant.cloneWithType();
-        if restaurantDoc is error {
+        map<json>|error itemDoc = updatedItem.cloneWithType();
+        if itemDoc is error {
             return jsonResponse(500, {message: "Database connection failed"});
         }
 
+        string itemIdPath = string `menu.${catIdx}.items.${itemIdx}.id`;
+        string itemPath = string `menu.${catIdx}.items.${itemIdx}`;
         mongodb:Update update = {
-            "set": restaurantDoc
+            "set": {[itemPath]: itemDoc}
         };
-        mongodb:UpdateResult|error updateResult = collection->updateOne({"id": restaurantId}, update);
+        mongodb:UpdateResult|error updateResult = collection->updateOne({"id": restaurantId, [itemIdPath]: itemId}, update);
         if updateResult is error {
-            return jsonResponse(500, {message: "Database connection failed"});
+            return jsonResponse(500, {message: "Failed to update menu item"});
         }
-        return jsonResponse(200, restaurant);
+        return jsonResponse(200, updatedItem);
     }
 
     isolated resource function get restaurants/[string restaurantId]/'open\-status(
@@ -486,23 +461,23 @@ service / on new http:Listener(port) {
 
         if isOpen {
             return jsonResponse(200, {
-                                         restaurantId: restaurantId,
-                                         status: "OPEN",
-                                         open: true,
-                                         dayOfWeek: resolvedDay,
-                                         timeOfDay: resolvedTime
-                                     });
+                                        restaurantId: restaurantId,
+                                        status: "OPEN",
+                                        open: true,
+                                        dayOfWeek: resolvedDay,
+                                        timeOfDay: resolvedTime
+                                    });
         }
 
         return jsonResponse(409, {
-                                     restaurantId: restaurantId,
-                                     status: "CLOSED",
-                                     open: false,
-                                     message: "Restaurant is currently closed for ordering",
-                                     dayOfWeek: resolvedDay,
-                                     timeOfDay: resolvedTime,
-                                     operatingHours: restaurant.operatingHours
-                                 });
+                                    restaurantId: restaurantId,
+                                    status: "CLOSED",
+                                    open: false,
+                                    message: "Restaurant is currently closed for ordering",
+                                    dayOfWeek: resolvedDay,
+                                    timeOfDay: resolvedTime,
+                                    operatingHours: restaurant.operatingHours
+                                });
     }
 
     isolated resource function post restaurants/[string restaurantId]/'validate\-order(
@@ -536,10 +511,10 @@ service / on new http:Listener(port) {
         }
 
         return jsonResponse(200, {
-                                     status: "VALID",
-                                     restaurantId: restaurantId,
-                                     message: result.message
-                                 });
+                                    status: "VALID",
+                                    restaurantId: restaurantId,
+                                    message: result.message
+                                });
     }
 
     isolated resource function post restaurants/[string restaurantId]/orders(
@@ -555,38 +530,43 @@ service / on new http:Listener(port) {
 
         if !isRestaurantOpenForOrdering(restaurant, payload.dayOfWeek, payload.timeOfDay, payload.date) {
             return jsonResponse(400, {
-                                         status: "CLOSED",
-                                         restaurantId: restaurantId,
-                                         message: "Restaurant is currently closed for ordering"
-                                     });
+                                        status: "CLOSED",
+                                        restaurantId: restaurantId,
+                                        message: "Restaurant is currently closed for ordering"
+                                    });
         }
 
         if payload.items.length() == 0 {
             return jsonResponse(400, {message: "Order must contain at least one item"});
         }
 
+        [string, int][] decrementedItems = [];
         foreach ValidateOrderItem item in payload.items {
             if item.quantity <= 0 {
+                rollbackReservedStock(restaurantId, decrementedItems);
                 return jsonResponse(400, {message: "Item quantity must be greater than zero"});
             }
             boolean|error decremented = decrementMenuItemStock(restaurantId, item.itemId, item.quantity);
             if decremented is error {
+                rollbackReservedStock(restaurantId, decrementedItems);
                 return jsonResponse(500, {message: "Database connection failed"});
             }
             if !decremented {
+                rollbackReservedStock(restaurantId, decrementedItems);
                 return jsonResponse(409, {
-                                             status: "INSUFFICIENT_STOCK",
-                                             message: "Insufficient stock for item " + item.itemId,
-                                             itemId: item.itemId
-                                         });
+                                            status: "INSUFFICIENT_STOCK",
+                                            message: "Insufficient stock for item " + item.itemId,
+                                            itemId: item.itemId
+                                        });
             }
+            decrementedItems.push([item.itemId, item.quantity]);
         }
 
         return jsonResponse(201, {
-                                     status: "CONFIRMED",
-                                     restaurantId: restaurantId,
-                                     message: "Order placed successfully"
-                                 });
+                                    status: "CONFIRMED",
+                                    restaurantId: restaurantId,
+                                    message: "Order placed successfully"
+                                });
     }
 
     isolated resource function post restaurants/[string restaurantId]/'order/validate\-and\-reserve(
@@ -612,26 +592,14 @@ service / on new http:Listener(port) {
         }
         collection = collectionResult;
 
+        [string, int][] reservedSoFar = [];
         foreach OrderItemReservation item in request.items {
-            int? categoryIndex = ();
-            int? itemIndex = ();
-
-            foreach int i in 0 ..< restaurant.menu.length() {
-                foreach int j in 0 ..< restaurant.menu[i].items.length() {
-                    if restaurant.menu[i].items[j].id == item.itemId {
-                        categoryIndex = i;
-                        itemIndex = j;
-                        break;
-                    }
-                }
-                if categoryIndex is int {
-                    break;
-                }
-            }
-
-            if categoryIndex is () || itemIndex is () {
+            [int, int]? indices = findMenuItemIndices(restaurant, item.itemId);
+            if indices is () {
+                rollbackReservedStock(restaurantId, reservedSoFar);
                 return jsonResponse(409, {"error": "ITEM_NOT_FOUND", itemId: item.itemId, message: string `Item ${item.itemId} not found`});
             }
+            var [categoryIndex, itemIndex] = indices;
 
             string stockPath = string `menu.${categoryIndex}.items.${itemIndex}.stock`;
 
@@ -647,12 +615,282 @@ service / on new http:Listener(port) {
             mongodb:UpdateResult|error updateRes = collection->updateOne(filter, update);
 
             if updateRes is error || updateRes.modifiedCount == 0 {
-                // Failed atomic check: either item does not exist or insufficient stock
+                rollbackReservedStock(restaurantId, reservedSoFar);
                 return jsonResponse(409, {"error": "INSUFFICIENT_STOCK", itemId: item.itemId, message: string `Item ${item.itemId} has insufficient stock or is unavailable`});
             }
+            reservedSoFar.push([item.itemId, item.quantity]);
         }
 
         return jsonResponse(200, {status: "RESERVED", restaurantId: restaurantId, message: "Stock successfully reserved and operating hours validated"});
+    }
+
+    isolated resource function post restaurants/[string restaurantId]/orders/[string orderId]/prepare() returns http:Response {
+        Restaurant?|error restaurantResult = findRestaurant(restaurantId);
+        if restaurantResult is error {
+            return jsonResponse(500, {message: "Database connection failed"});
+        }
+        if restaurantResult is () {
+            return jsonResponse(404, {message: "Restaurant not found"});
+        }
+        return jsonResponse(200, {
+            orderId: orderId,
+            restaurantId: restaurantId,
+            status: "PREPARING",
+            preparingStartedAt: time:utcToString(time:utcNow())
+        });
+    }
+
+    isolated resource function post restaurants/[string restaurantId]/orders/[string orderId]/ready() returns http:Response {
+        Restaurant?|error restaurantResult = findRestaurant(restaurantId);
+        if restaurantResult is error {
+            return jsonResponse(500, {message: "Database connection failed"});
+        }
+        if restaurantResult is () {
+            return jsonResponse(404, {message: "Restaurant not found"});
+        }
+        Restaurant restaurant = restaurantResult;
+        return jsonResponse(200, {
+            orderId: orderId,
+            restaurantId: restaurantId,
+            status: "READY",
+            pickupAddress: restaurant.address,
+            pickupReadyAt: time:utcToString(time:utcNow())
+        });
+    }
+
+    isolated resource function put restaurants/[string restaurantId](
+            @http:Payload Restaurant updated) returns http:Response {
+        Restaurant?|error restaurantResult = findRestaurant(restaurantId);
+        if restaurantResult is error {
+            return jsonResponse(500, {message: "Database connection failed"});
+        }
+        if restaurantResult is () {
+            return jsonResponse(404, {message: "Restaurant not found"});
+        }
+
+        mongodb:Collection|error collectionResult = getRestaurantsCollection();
+        if collectionResult is error {
+            return jsonResponse(500, {message: "Database connection failed"});
+        }
+        mongodb:Collection collection = collectionResult;
+
+        map<json>|error updatedDoc = updated.cloneWithType();
+        if updatedDoc is error {
+            return jsonResponse(500, {message: "Failed to serialize restaurant data"});
+        }
+
+        map<json> updatedFields = {};
+        foreach var [k, v] in updatedDoc.entries() {
+            if k != "id" && k != "_id" && k != "balance" && k != "totalEarnings" {
+                if k == "menu" {
+                    if updated.menu.length() > 0 {
+                        string? validationErr = validateRestaurant(updated);
+                        if validationErr is string {
+                            return jsonResponse(400, {message: validationErr});
+                        }
+                        updatedFields[k] = v;
+                    }
+                } else {
+                    updatedFields[k] = v;
+                }
+            }
+        }
+
+        mongodb:Update update = {
+            "set": updatedFields
+        };
+
+        mongodb:UpdateResult|error updateResult = collection->updateOne({"id": restaurantId}, update);
+        if updateResult is error {
+            return jsonResponse(500, {message: "Database update failed: " + updateResult.message()});
+        }
+
+        Restaurant?|error reloaded = findRestaurant(restaurantId);
+        if reloaded is Restaurant {
+            return jsonResponse(200, reloaded);
+        }
+        return jsonResponse(200, updated);
+    }
+
+    isolated resource function delete restaurants/[string restaurantId]/menu/items/[string itemId]() returns http:Response {
+        Restaurant?|error restaurantResult = findRestaurant(restaurantId);
+        if restaurantResult is error {
+            return jsonResponse(500, {message: "Database connection failed"});
+        }
+        if restaurantResult is () {
+            return jsonResponse(404, {message: "Restaurant not found"});
+        }
+        Restaurant restaurant = restaurantResult;
+
+        [int, int]? indices = findMenuItemIndices(restaurant, itemId);
+        if indices is () {
+            return jsonResponse(404, {message: "Menu item not found"});
+        }
+        var [catIdx, _] = indices;
+
+        mongodb:Collection|error collectionResult = getRestaurantsCollection();
+        if collectionResult is error {
+            return jsonResponse(500, {message: "Database connection failed"});
+        }
+        mongodb:Collection collection = collectionResult;
+
+        string itemsPath = string `menu.${catIdx}.items`;
+        mongodb:Update update = {
+            "pull": {[itemsPath]: {"id": itemId}}
+        };
+        mongodb:UpdateResult|error updateResult = collection->updateOne({"id": restaurantId}, update);
+        if updateResult is error {
+            return jsonResponse(500, {message: "Database deletion failed: " + updateResult.message()});
+        }
+
+        return jsonResponse(200, {message: "Menu item removed successfully", itemId: itemId});
+    }
+
+    isolated resource function post restaurants/[string restaurantId]/orders/[string orderId]/verify\-handover(
+            @http:Payload VerifyHandoverRequest request) returns http:Response {
+        Restaurant?|error restaurantResult = findRestaurant(restaurantId);
+        if restaurantResult is error {
+            return jsonResponse(500, {message: "Database connection failed"});
+        }
+        if restaurantResult is () {
+            return jsonResponse(404, {message: "Restaurant not found"});
+        }
+
+        string expectedPin = getOrderHandoverPin(orderId);
+        if request.pin.trim() != expectedPin {
+            return jsonResponse(400, {
+                verified: false,
+                orderId: orderId,
+                status: "REJECTED",
+                message: "Invalid handover PIN provided. Courier verification rejected.",
+                timestamp: time:utcToString(time:utcNow())
+            });
+        }
+
+        return jsonResponse(200, {
+            verified: true,
+            orderId: orderId,
+            status: "OUT_FOR_DELIVERY",
+            message: "Driver handover authenticated successfully. Order handed to courier.",
+            timestamp: time:utcToString(time:utcNow())
+        });
+    }
+
+    isolated resource function get restaurants/[string restaurantId]/earnings() returns http:Response {
+        Restaurant?|error restaurantResult = findRestaurant(restaurantId);
+        if restaurantResult is error {
+            return jsonResponse(500, {message: "Database connection failed"});
+        }
+        if restaurantResult is () {
+            return jsonResponse(404, {message: "Restaurant not found"});
+        }
+        Restaurant restaurant = restaurantResult;
+
+        return jsonResponse(200, {
+            restaurantId: restaurantId,
+            restaurantName: restaurant.name,
+            balance: restaurant.balance,
+            totalEarnings: restaurant.totalEarnings,
+            currency: "NAD",
+            updatedAt: time:utcToString(time:utcNow())
+        });
+    }
+
+    isolated resource function post restaurants/[string restaurantId]/earnings/credit(
+            @http:Payload CreditEarningsRequest request) returns http:Response {
+        if request.amount <= 0.0d {
+            return jsonResponse(400, {message: "Credit amount must be greater than zero"});
+        }
+
+        Restaurant?|error restaurantResult = findRestaurant(restaurantId);
+        if restaurantResult is error {
+            return jsonResponse(500, {message: "Database connection failed"});
+        }
+        if restaurantResult is () {
+            return jsonResponse(404, {message: "Restaurant not found"});
+        }
+
+        mongodb:Collection|error collectionResult = getRestaurantsCollection();
+        if collectionResult is error {
+            return jsonResponse(500, {message: "Database connection failed"});
+        }
+        mongodb:Collection collection = collectionResult;
+
+        mongodb:Update update = {
+            "inc": {
+                "balance": request.amount,
+                "totalEarnings": request.amount
+            }
+        };
+        mongodb:UpdateResult|error updateResult = collection->updateOne({"id": restaurantId}, update);
+        if updateResult is error {
+            return jsonResponse(500, {message: "Database credit failed: " + updateResult.message()});
+        }
+
+        Restaurant?|error reloaded = findRestaurant(restaurantId);
+        decimal newBalance = reloaded is Restaurant ? reloaded.balance : 0.0d;
+
+        return jsonResponse(200, {
+            success: true,
+            restaurantId: restaurantId,
+            creditedAmount: request.amount,
+            newBalance: newBalance,
+            orderId: request.orderId,
+            timestamp: time:utcToString(time:utcNow())
+        });
+    }
+
+    isolated resource function post restaurants/[string restaurantId]/payout(
+            @http:Payload PayoutRequest request) returns http:Response {
+        if request.amount <= 0.0d {
+            return jsonResponse(400, {message: "Payout withdrawal amount must be greater than zero"});
+        }
+
+        Restaurant?|error restaurantResult = findRestaurant(restaurantId);
+        if restaurantResult is error {
+            return jsonResponse(500, {message: "Database connection failed"});
+        }
+        if restaurantResult is () {
+            return jsonResponse(404, {message: "Restaurant not found"});
+        }
+        Restaurant restaurant = restaurantResult;
+
+        if restaurant.balance < request.amount {
+            return jsonResponse(400, {
+                message: string `Insufficient balance for payout. Available: N$ ${restaurant.balance}, Requested: N$ ${request.amount}`
+            });
+        }
+
+        mongodb:Collection|error collectionResult = getRestaurantsCollection();
+        if collectionResult is error {
+            return jsonResponse(500, {message: "Database connection failed"});
+        }
+        mongodb:Collection collection = collectionResult;
+
+        mongodb:Update update = {
+            "inc": {
+                "balance": -request.amount
+            }
+        };
+        mongodb:UpdateResult|error updateResult = collection->updateOne({"id": restaurantId}, update);
+        if updateResult is error {
+            return jsonResponse(500, {message: "Database withdrawal failed: " + updateResult.message()});
+        }
+
+        Restaurant?|error reloaded = findRestaurant(restaurantId);
+        decimal remainingBalance = reloaded is Restaurant ? reloaded.balance : 0.0d;
+
+        return jsonResponse(200, {
+            success: true,
+            restaurantId: restaurantId,
+            withdrawnAmount: request.amount,
+            remainingBalance: remainingBalance,
+            bankAccount: request.bankAccount,
+            bankName: request.bankName,
+            status: "PAID_OUT",
+            referenceId: "PAY-" + uuid:createType1AsString().substring(0, 8).toUpperAscii(),
+            timestamp: time:utcToString(time:utcNow())
+        });
     }
 
     isolated resource function post seed() returns http:Response {
@@ -698,6 +936,9 @@ isolated function isRestaurantOpenForOrdering(
                     int curMins = parseTimeStringToMinutes(resolvedHolidayTime);
                     int opMins = parseTimeStringToMinutes(opTime);
                     int clMins = parseTimeStringToMinutes(clTime);
+                    if curMins < 0 || opMins < 0 || clMins < 0 {
+                        return false;
+                    }
                     if clMins < opMins {
                         return curMins >= opMins || curMins <= clMins;
                     }
@@ -721,6 +962,9 @@ isolated function isRestaurantOpenForOrdering(
         int currentMinutes = parseTimeStringToMinutes(resolvedTime);
         int openMinutes = parseTimeStringToMinutes(operatingHours.openTime);
         int closeMinutes = parseTimeStringToMinutes(operatingHours.closeTime);
+        if currentMinutes < 0 || openMinutes < 0 || closeMinutes < 0 {
+            return false;
+        }
         if closeMinutes < openMinutes {
             return currentMinutes >= openMinutes || currentMinutes <= closeMinutes;
         }
@@ -769,20 +1013,8 @@ isolated function validateRestaurantOrder(Restaurant restaurant, ValidateOrderRe
             };
         }
 
-        MenuItem? matchedItem = ();
-        foreach MenuCategory category in restaurant.menu {
-            foreach MenuItem menuItem in category.items {
-                if menuItem.id == item.itemId {
-                    matchedItem = menuItem;
-                    break;
-                }
-            }
-            if matchedItem is MenuItem {
-                break;
-            }
-        }
-
-        if matchedItem is () {
+        [int, int]? indices = findMenuItemIndices(restaurant, item.itemId);
+        if indices is () {
             return {
                 isValid: false,
                 statusCode: 404,
@@ -791,6 +1023,8 @@ isolated function validateRestaurantOrder(Restaurant restaurant, ValidateOrderRe
                 failedItemId: item.itemId
             };
         }
+        var [catIdx, itemIdx] = indices;
+        MenuItem matchedItem = restaurant.menu[catIdx].items[itemIdx];
 
         if !matchedItem.isAvailable || matchedItem.stock < item.quantity {
             return {
@@ -813,37 +1047,38 @@ isolated function validateRestaurantOrder(Restaurant restaurant, ValidateOrderRe
     };
 }
 
+isolated function getCurrentCatCivil() returns time:Civil {
+    return time:utcToCivil(time:utcAddSeconds(time:utcNow(), 7200d));
+}
+
 isolated function getCurrentDateString() returns string {
-    time:Civil civil = time:utcToCivil(time:utcNow());
+    time:Civil civil = getCurrentCatCivil();
     return string `${civil.year.toString().padStart(4, "0")}-${civil.month.toString().padStart(2, "0")}-${civil.day.toString().padStart(2, "0")}`;
 }
 
 isolated function getCurrentDayOfWeek() returns string {
-    time:Civil civil = time:utcToCivil(time:utcNow());
-    string[] days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-    int? dayOfWeek = civil.dayOfWeek;
-    if dayOfWeek is () {
-        return "Sunday";
-    }
-    int index = dayOfWeek - 1;
-    if index < 0 || index >= days.length() {
-        index = 0;
-    }
-    return days[index];
+    return getDayOfWeekName(getCurrentCatCivil());
 }
 
 isolated function getCurrentTimeOfDay() returns string {
-    time:Civil civil = time:utcToCivil(time:utcNow());
+    time:Civil civil = getCurrentCatCivil();
     return string `${civil.hour.toString().padStart(2, "0")}:${civil.minute.toString().padStart(2, "0")}`;
 }
 
 isolated function parseTimeStringToMinutes(string timeText) returns int {
-    string[] parts = re `:`.split(timeText);
-    if parts.length() < 2 {
-        return 0;
+    string trimmed = timeText.trim();
+    string[] parts = re `:`.split(trimmed);
+    if parts.length() != 2 {
+        return -1;
     }
-    int hours = checkpanic int:fromString(parts[0]);
-    int minutes = checkpanic int:fromString(parts[1]);
+    int|error hours = int:fromString(parts[0].trim());
+    int|error minutes = int:fromString(parts[1].trim());
+    if hours is error || minutes is error {
+        return -1;
+    }
+    if hours < 0 || hours > 23 || minutes < 0 || minutes > 59 {
+        return -1;
+    }
     return (hours * 60) + minutes;
 }
 
@@ -945,6 +1180,9 @@ isolated function validateMenuItem(MenuItem item) returns string? {
     if item.stock < 0 {
         return "Menu item stock cannot be negative";
     }
+    if item.lowStockThreshold < 0 {
+        return "Menu item low stock threshold cannot be negative";
+    }
     if item.isAvailable && item.stock <= 0 {
         return "Item cannot be available when stock is 0 or less";
     }
@@ -1025,4 +1263,20 @@ isolated function getDayOfWeekName(time:Civil civil) returns string {
         index = 0;
     }
     return days[index];
+}
+
+isolated function getOrderHandoverPin(string orderId) returns string {
+    int hash = 0;
+    byte[] bytes = orderId.toBytes();
+    foreach byte b in bytes {
+        hash = (hash * 31 + <int>b) % 10000;
+    }
+    if hash < 0 {
+        hash = -hash;
+    }
+    string pin = hash.toString();
+    while pin.length() < 4 {
+        pin = "0" + pin;
+    }
+    return pin;
 }

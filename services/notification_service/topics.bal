@@ -17,6 +17,7 @@ public const string TOPIC_ORDERS_PREPARING = "orders.preparing";
 public const string TOPIC_KITCHEN_ORDERS_READY = "kitchen.orders.ready";
 public const string TOPIC_DELIVERY_ASSIGNED = "delivery.assigned";
 public const string TOPIC_DELIVERY_STATUS = "delivery.status";
+public const string TOPIC_DELIVERY_SLA_BREACH = "delivery.sla_breach";
 
 // Subscription list containing all platform topics as well as legacy shared topics
 public final string[] SUBSCRIPTION_TOPICS = [
@@ -29,6 +30,7 @@ public final string[] SUBSCRIPTION_TOPICS = [
     TOPIC_KITCHEN_ORDERS_READY,
     TOPIC_DELIVERY_ASSIGNED,
     TOPIC_DELIVERY_STATUS,
+    TOPIC_DELIVERY_SLA_BREACH,
     TOPIC_ORDERS,
     TOPIC_PAYMENTS,
     TOPIC_KITCHEN,

@@ -1,37 +1,31 @@
 import ballerina/log;
 
-// Wrapper every service puts around its payload so we know what it is.
-// Shape: { "eventType": "order.created", "data": { ... } }
-public type EventEnvelope record {|
-    string eventType;
-    json data;
-|};
+import peerpressure/kafka_client;
 
-// Result of parsing a raw payload — carries both the type and the typed record.
+// Event envelope we expect on the wire:
+// {
+//   "eventType": "order.created",
+//   "data": { ... }
+// }
+// Or a raw domain event (OrderCreatedEvent, PaymentCompletedEvent, etc.)
+
 public type ParsedEvent record {|
     string eventType;
     json data;
 |};
 
-// Try to decode bytes into an envelope or raw domain event. Returns nil if it doesn't match.
+// Try to decode bytes into an envelope or raw domain event using kafka_client:safeParseJson.
 public function parseEnvelope(byte[] raw, string? topic = ()) returns ParsedEvent? {
-    string|error textResult = string:fromBytes(raw);
-    if textResult is error {
-        log:printWarn("Failed to decode raw bytes to string", 'error = textResult);
-        return ();
-    }
-    string text = textResult;
-
-    json|error payloadResult = payloadFromJson(text);
-    if payloadResult is error {
-        log:printWarn("Failed to parse JSON payload", 'error = payloadResult, payload = text);
+    json|kafka_client:DeserializationError payloadResult = kafka_client:safeParseJson(raw);
+    if payloadResult is kafka_client:DeserializationError {
+        log:printWarn("Failed to deserialize raw Kafka payload", 'error = payloadResult);
         return ();
     }
     json payload = payloadResult;
 
     // Must be a JSON object
     if payload !is map<json> {
-        log:printWarn("Dropped a message — payload is not a JSON object", payload = text);
+        log:printWarn("Dropped a message — payload is not a JSON object", payload = payload.toJsonString());
         return ();
     }
 
@@ -92,7 +86,7 @@ public function parseEnvelope(byte[] raw, string? topic = ()) returns ParsedEven
         };
     }
 
-    log:printWarn("Dropped a message — no eventType/data envelope or recognizable domain event", payload = text);
+    log:printWarn("Dropped a message — no eventType/data envelope or recognizable domain event", payload = payload.toJsonString());
     return ();
 }
 
@@ -170,7 +164,7 @@ isolated function inferEventType(map<json> data, string? topic) returns string? 
         return "delivery.completed";
     }
 
-    if data.hasKey("slaBreached") || data.hasKey("sla_breach") {
+    if data.hasKey("slaBreachAt") || data.hasKey("slaBreached") || data.hasKey("sla_breach") {
         return "delivery.sla_breach";
     }
 
@@ -194,18 +188,12 @@ isolated function inferEventType(map<json> data, string? topic) returns string? 
                 return "order.cancelled";
             }
             "COMPLETED" => {
-                if data.hasKey("paymentId") || data.hasKey("transactionId") || topic == "payments.completed" {
-                    return "payment.completed";
-                }
                 if data.hasKey("deliveryId") || topic == "delivery.status" {
                     return "delivery.completed";
                 }
                 return "payment.completed";
             }
             "FAILED" => {
-                if data.hasKey("paymentId") || data.hasKey("errorCode") || topic == "payments.failed" {
-                    return "payment.failed";
-                }
                 return "payment.failed";
             }
             "ASSIGNED" => {
@@ -219,13 +207,6 @@ isolated function inferEventType(map<json> data, string? topic) returns string? 
             }
             _ => {
             }
-        }
-    }
-
-    // Check paymentId with completedAt or status
-    if data.hasKey("paymentId") {
-        if data.hasKey("completedAt") {
-            return "payment.completed";
         }
     }
 
@@ -255,6 +236,9 @@ isolated function inferEventType(map<json> data, string? topic) returns string? 
             }
             "delivery.assigned" => {
                 return "delivery.assigned";
+            }
+            "delivery.sla_breach" => {
+                return "delivery.sla_breach";
             }
             "delivery.status" => {
                 if data.hasKey("deliveredAt") {
@@ -324,9 +308,3 @@ isolated function getStringField(map<json> data, string fieldName) returns strin
     }
     return ();
 }
-
-// Parse a JSON string. Small wrapper so we can add logging later.
-function payloadFromJson(string text) returns json|error {
-    return text.fromJsonString();
-}
-
