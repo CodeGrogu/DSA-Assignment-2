@@ -7,11 +7,14 @@ public enum Severity {
 }
 
 // Delivery channels we support. Each channel has its own message format.
-public enum Channel {
+public enum DeliveryChannel {
     EMAIL,
     SMS,
     PUSH
 }
+
+// Alias for backwards compatibility
+public type Channel DeliveryChannel;
 
 // Who the notification is going to.
 public enum RecipientRole {

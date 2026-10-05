@@ -4,7 +4,7 @@ public type NotificationPayload record {|
     string notificationId;
     RecipientRole role;
     string recipientId;
-    Channel channel;
+    DeliveryChannel channel;
     Severity severity;
     string subject;
     string body;
@@ -18,7 +18,7 @@ public type NotificationAuditRecord record {|
     string notificationId;
     RecipientRole role;
     string recipientId;
-    Channel channel;
+    DeliveryChannel channel;
     Severity severity;
     string payload; // JSON string of the full NotificationPayload
     string status; // "SENT", "FAILED", "SKIPPED"
@@ -30,7 +30,7 @@ public type NotificationAuditRecord record {|
 public type SubscriptionRule record {|
     string eventType; // e.g. "order.created"
     RecipientRole recipient; // who gets told
-    Channel channel; // how they get told
+    DeliveryChannel channel; // how they get told
     Severity severity; // how loud it is
     string template; // which message template to use
 |};

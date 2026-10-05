@@ -1,8 +1,17 @@
-// Notification service entry point.
-// Real HTTP endpoint comes later — for now this file just reserves the module entry.
+import ballerina/http;
 
-import ballerina/log;
+import peerpressure/events as _;
 
-public function main() returns error? {
-    log:printInfo("notification_service starting — Kafka consumer attached");
+configurable int port = 9097;
+
+service / on new http:Listener(port) {
+    resource function get health() returns json {
+        return {
+            status: "UP",
+            "service": "notification_service",
+            port: port,
+            version: "0.1.0",
+            contracts: "peerpressure/events:0.1.0"
+        };
+    }
 }

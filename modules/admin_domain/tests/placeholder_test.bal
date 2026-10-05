@@ -19,6 +19,53 @@ function testChannelEnum() {
 }
 
 @test:Config {}
+function testDeliveryChannelEnum() {
+    DeliveryChannel emailChan = EMAIL;
+    DeliveryChannel smsChan = SMS;
+    DeliveryChannel pushChan = PUSH;
+    test:assertEquals(emailChan.toString(), "EMAIL");
+    test:assertEquals(smsChan.toString(), "SMS");
+    test:assertEquals(pushChan.toString(), "PUSH");
+}
+
+@test:Config {}
+function testNotificationAuditRecordRoundTrip() {
+    NotificationAuditRecord audit = {
+        notificationId: "n-audit-1",
+        role: CUSTOMER,
+        recipientId: "c-100",
+        channel: PUSH,
+        severity: INFO,
+        payload: "{\"notificationId\":\"n-1\",\"role\":\"CUSTOMER\"}",
+        status: "SENT",
+        sentAt: "2026-10-04T10:05:00Z"
+    };
+    test:assertEquals(audit.notificationId, "n-audit-1");
+    test:assertEquals(audit.role, CUSTOMER);
+    test:assertEquals(audit.recipientId, "c-100");
+    test:assertEquals(audit.channel, PUSH);
+    test:assertEquals(audit.severity, INFO);
+    test:assertEquals(audit.status, "SENT");
+    test:assertEquals(audit.sentAt, "2026-10-04T10:05:00Z");
+}
+
+@test:Config {}
+function testSubscriptionRuleRoundTrip() {
+    SubscriptionRule rule = {
+        eventType: "order.created",
+        recipient: CUSTOMER,
+        channel: PUSH,
+        severity: INFO,
+        template: "order_created_customer"
+    };
+    test:assertEquals(rule.eventType, "order.created");
+    test:assertEquals(rule.recipient, CUSTOMER);
+    test:assertEquals(rule.channel, PUSH);
+    test:assertEquals(rule.severity, INFO);
+    test:assertEquals(rule.template, "order_created_customer");
+}
+
+@test:Config {}
 function testNotificationPayloadRoundTrip() {
     // Just make sure the record accepts the fields we expect.
     NotificationPayload p = {

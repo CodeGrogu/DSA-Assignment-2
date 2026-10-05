@@ -4,7 +4,7 @@ Shared types and rules for notifications and admin analytics.
 
 ## What's in here
 
-- `enums.bal` — Severity (INFO/WARN/CRITICAL), Channel (EMAIL/SMS/PUSH), RecipientRole (CUSTOMER/RESTAURANT/DRIVER)
+- `enums.bal` — Severity (INFO/WARN/CRITICAL), DeliveryChannel / Channel (EMAIL/SMS/PUSH), RecipientRole (CUSTOMER/RESTAURANT/DRIVER)
 - `notification_types.bal` — NotificationPayload, NotificationAuditRecord, SubscriptionRule
 - `subscription_matrix.bal` — the "when X happens, notify Y" rules
 - `analytics_types.bal` — PlatformOverview, RestaurantReport, DriverReport, DailyMetricsSnapshot
