@@ -36,53 +36,45 @@ isolated function decrementMenuItemStock(string restaurantId, string itemId, int
     if quantity <= 0 {
         return false;
     }
+    mongodb:Collection collection = check getRestaurantsCollection();
+    
+    map<json> filter = {
+        "id": restaurantId,
+        "menu.items.id": itemId,
+        "menu.items": {
+            "$elemMatch": {
+                "id": itemId,
+                "stock": {"$gte": quantity}
+            }
+        }
+    };
+    
+    map<json> updateMap = {"$inc": {"menu.items.$.stock": -quantity}};
+    mongodb:Update update = check updateMap.cloneWithType();
+    
+    mongodb:UpdateResult result = check collection->updateOne(filter, update);
+    return result.modifiedCount == 1;
+}
 
-    Restaurant?|error restaurantResult = findRestaurant(restaurantId);
-    if restaurantResult is error {
-        return restaurantResult;
-    }
-    if restaurantResult is () {
+isolated function incrementMenuItemStock(string restaurantId, string itemId, int quantity) returns boolean|error {
+    if quantity <= 0 {
         return false;
     }
-    Restaurant restaurant = restaurantResult;
-
-    int categoryIndex = 0;
-    foreach MenuCategory category in restaurant.menu {
-        int itemIndex = 0;
-        foreach MenuItem item in category.items {
-            if item.id == itemId {
-                string itemIdPath = string `menu.${categoryIndex}.items.${itemIndex}.id`;
-                string stockPath = string `menu.${categoryIndex}.items.${itemIndex}.stock`;
-                mongodb:Collection collection = check getRestaurantsCollection();
-                mongodb:UpdateResult result = check collection->updateOne(
-                    buildStockDecrementFilter(restaurantId, itemId, quantity, categoryIndex, itemIndex),
-                    buildStockDecrementUpdate(quantity, categoryIndex, itemIndex)
-                );
-                return result.matchedCount == 1;
-            }
-            itemIndex += 1;
-        }
-        categoryIndex += 1;
-    }
-    return false;
+    mongodb:Collection collection = check getRestaurantsCollection();
+    
+    map<json> filter = {
+        "id": restaurantId,
+        "menu.items.id": itemId
+    };
+    
+    map<json> updateMap = {"$inc": {"menu.items.$.stock": quantity}};
+    mongodb:Update update = check updateMap.cloneWithType();
+    
+    mongodb:UpdateResult result = check collection->updateOne(filter, update);
+    return result.modifiedCount == 1;
 }
 
-isolated function buildStockDecrementFilter(string restaurantId, string itemId, int quantity,
-        int categoryIndex, int itemIndex) returns map<json> {
-    string itemIdPath = string `menu.${categoryIndex}.items.${itemIndex}.id`;
-    string stockPath = string `menu.${categoryIndex}.items.${itemIndex}.stock`;
-    map<json> filter = {"id": restaurantId};
-    filter[itemIdPath] = itemId;
-    filter[stockPath] = {"$gte": quantity};
-    return filter;
-}
 
-isolated function buildStockDecrementUpdate(int quantity, int categoryIndex, int itemIndex) returns mongodb:Update {
-    string stockPath = string `menu.${categoryIndex}.items.${itemIndex}.stock`;
-    map<json> increments = {};
-    increments[stockPath] = -quantity;
-    return {"$inc": increments};
-}
 
 public isolated function seedDatabase() returns error? {
     do {

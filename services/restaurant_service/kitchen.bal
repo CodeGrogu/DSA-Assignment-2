@@ -19,13 +19,22 @@ listener kafka:Listener kitchenListener = new (kafkaBootstrapServers, {
     autoCommit: false
 });
 
+final kafka:Producer kitchenProducer = check new (kafkaBootstrapServers, {
+    acks: kafka:ACKS_ALL,
+    enableIdempotence: true
+});
+
 service on kitchenListener {
     remote function onConsumerRecord(kafka:Caller caller, kafka:BytesConsumerRecord[] records) returns error? {
         foreach kafka:BytesConsumerRecord consumerRecord in records {
-            string payloadText = check string:fromBytes(consumerRecord.value);
-            json payload = check payloadText.fromJsonString();
-            events:OrderConfirmedEvent confirmedOrder = check payload.cloneWithType();
-            check startKitchenPreparation(confirmedOrder);
+            do {
+                string payloadText = check string:fromBytes(consumerRecord.value);
+                json payload = check payloadText.fromJsonString();
+                events:OrderConfirmedEvent confirmedOrder = check payload.cloneWithType();
+                check startKitchenPreparation(confirmedOrder);
+            } on fail error err {
+                log:printError("Failed processing kitchen order record; skipping poison pill", err);
+            }
         }
         check caller->commit();
     }
@@ -43,16 +52,36 @@ function startKitchenPreparation(events:OrderConfirmedEvent confirmedOrder) retu
     }
     Restaurant restaurant = restaurantResult;
 
+    events:OrderItem[] decrementedItems = [];
     foreach events:OrderItem item in confirmedOrder.items {
         if item.quantity <= 0 {
+            foreach events:OrderItem prior in decrementedItems {
+                _ = check incrementMenuItemStock(confirmedOrder.restaurantId, prior.itemId, prior.quantity);
+            }
             return error("Confirmed order item quantity must be positive");
         }
         boolean stockDecremented = check decrementMenuItemStock(
                 confirmedOrder.restaurantId, item.itemId, item.quantity);
         if !stockDecremented {
+            foreach events:OrderItem prior in decrementedItems {
+                _ = check incrementMenuItemStock(confirmedOrder.restaurantId, prior.itemId, prior.quantity);
+            }
             return error("Insufficient stock for menu item " + item.itemId);
         }
+        decrementedItems.push(item);
     }
+
+    events:OrderPreparingEvent preparingEvent = {
+        eventId: uuid:createType1AsString(),
+        orderId: confirmedOrder.orderId,
+        restaurantId: confirmedOrder.restaurantId,
+        preparingStartedAt: time:utcToString(time:utcNow())
+    };
+    check kitchenProducer->send({
+        topic: "orders.preparing",
+        key: confirmedOrder.orderId.toBytes(),
+        value: preparingEvent.toJsonString().toBytes()
+    });
 
     future<()> preparationJob = start runKitchenPreparationJob(confirmedOrder, restaurant.address);
 }
@@ -92,14 +121,9 @@ function completeKitchenPreparation(events:OrderConfirmedEvent confirmedOrder, s
     json payload = readyEvent;
     string serializedPayload = payload.toJsonString();
 
-    kafka:Producer producer = check new (kafkaBootstrapServers, {acks: kafka:ACKS_ALL, enableIdempotence: true});
-    check producer->send({
+    check kitchenProducer->send({
         topic: kitchenReadyTopic,
         key: confirmedOrder.orderId.toBytes(),
         value: serializedPayload.toBytes()
     });
-    error? closeResult = producer->close();
-    if closeResult is error {
-        log:printError("Failed to close kitchen Kafka producer", closeResult);
-    }
 }

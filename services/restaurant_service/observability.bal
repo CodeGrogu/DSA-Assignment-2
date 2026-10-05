@@ -44,22 +44,7 @@ isolated function setConsumerLagMetric(string groupId, string topic, int lag) {
     }
 }
 
-isolated function getMetricsResponse() returns http:Response {
-    json[] snapshots = [];
-    foreach observe:Metric metric in observe:getAllMetrics() {
-        snapshots.push({
-            name: metric.name,
-            description: metric.desc,
-            "type": metric.metricType,
-            tags: metric.tags,
-            value: metric.value
-        });
-    }
 
-    http:Response response = new;
-    response.setJsonPayload(snapshots);
-    return response;
-}
 
 isolated function getOrCreateCounter(string name, map<string> tags) returns observe:Counter|error {
     observe:Counter|observe:Gauge? currentMetric = observe:lookupMetric(name, tags = tags);
