@@ -1,4 +1,5 @@
 import ballerina/http;
+import ballerina/log;
 import ballerina/time;
 import ballerina/uuid;
 import peerpressure/events as events;
@@ -85,6 +86,11 @@ service / on new http:Listener(port) {
             return <http:InternalServerError>{body: errResp};
         }
 
+        error? pubErr = orderEventProducer.publishOrderCreated(newOrder);
+        if pubErr is error {
+            log:printError("Failed to publish OrderCreated event", 'error = pubErr, orderId = newOrder.orderId);
+        }
+
         time:Utc endTime = time:utcNow();
         decimal durationMs = time:utcDiffSeconds(endTime, startTime) * 1000d;
         metrics:recordHttpRequest("POST", "/orders", 201, durationMs, "order_service");
@@ -124,7 +130,7 @@ service / on new http:Listener(port) {
 
     # Cancels an active order, subject to state machine transition guards.
     # Rejects cancellation with HTTP 409 Conflict if kitchen preparation has already started.
-    resource function post orders/[string orderId]/cancel() returns http:Ok|http:NotFound|http:Conflict|http:InternalServerError {
+    resource function post orders/[string orderId]/cancel(@http:Payload CancelOrderRequest? req = ()) returns http:Ok|http:NotFound|http:Conflict|http:InternalServerError {
         time:Utc startTime = time:utcNow();
 
         Order?|error orderResult = orderStore.get(orderId);
@@ -167,7 +173,8 @@ service / on new http:Listener(port) {
             return <http:Conflict>{body: errResp};
         }
 
-        Order|error updated = orderStore.updateStatus(orderId, events:CANCELLED, (), "Customer requested cancellation");
+        string reason = (req is CancelOrderRequest && req.reason.trim().length() > 0) ? req.reason : "Customer requested cancellation";
+        Order|error updated = orderStore.updateStatus(orderId, events:CANCELLED, (), reason);
         if updated is error {
             ErrorResponse errResp = {
                 'error: "Conflict",
@@ -177,11 +184,17 @@ service / on new http:Listener(port) {
             return <http:Conflict>{body: errResp};
         }
 
+        string cancelledAt = currentTimestamp();
+        error? pubErr = orderEventProducer.publishOrderCancelled(orderId, reason, "CUSTOMER", cancelledAt);
+        if pubErr is error {
+            log:printError("Failed to publish OrderCancelled event", 'error = pubErr, orderId = orderId);
+        }
+
         CancelOrderResponse cancelResponse = {
             orderId: orderId,
             status: events:CANCELLED,
             message: "Order has been successfully cancelled",
-            cancelledAt: currentTimestamp()
+            cancelledAt: cancelledAt
         };
 
         time:Utc endTime = time:utcNow();

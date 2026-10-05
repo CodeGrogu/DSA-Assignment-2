@@ -36,6 +36,11 @@ public type Order record {|
     string updatedAt;
 |};
 
+# Request payload for an order cancellation request.
+public type CancelOrderRequest record {|
+    string reason = "Customer requested cancellation";
+|};
+
 # Response payload for an order cancellation request.
 public type CancelOrderResponse record {|
     string orderId;
