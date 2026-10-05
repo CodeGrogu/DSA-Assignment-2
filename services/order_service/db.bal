@@ -36,7 +36,9 @@ public class OrderStore {
 
     # Inserts or updates an order document.
     public function save(Order 'order) returns error? {
-        self.inMemoryStore['order.orderId] = 'order.clone();
+        lock {
+            self.inMemoryStore['order.orderId] = 'order.clone();
+        }
         if self.isConnected {
             mongodb:Collection? coll = self.collectionInstance;
             if coll is mongodb:Collection {
@@ -47,15 +49,19 @@ public class OrderStore {
 
     # Retrieves an order by its unique identifier.
     public function get(string orderId) returns Order?|error {
-        if self.inMemoryStore.hasKey(orderId) {
-            return self.inMemoryStore.get(orderId).clone();
+        lock {
+            if self.inMemoryStore.hasKey(orderId) {
+                return self.inMemoryStore.get(orderId).clone();
+            }
         }
         if self.isConnected {
             mongodb:Collection? coll = self.collectionInstance;
             if coll is mongodb:Collection {
                 Order? found = check coll->findOne({orderId: orderId}, targetType = Order);
                 if found is Order {
-                    self.inMemoryStore[orderId] = found.clone();
+                    lock {
+                        self.inMemoryStore[orderId] = found.clone();
+                    }
                     return found;
                 }
             }
@@ -65,7 +71,12 @@ public class OrderStore {
 
     # Updates the lifecycle status of an existing order with atomic FSM transition verification.
     public function updateStatus(string orderId, events:OrderStatus newStatus, string? paymentId = (), string? reason = ()) returns Order|error {
-        Order? existing = self.inMemoryStore.hasKey(orderId) ? self.inMemoryStore.get(orderId).clone() : ();
+        Order? existing = ();
+        lock {
+            if self.inMemoryStore.hasKey(orderId) {
+                existing = self.inMemoryStore.get(orderId).clone();
+            }
+        }
         if existing is () && self.isConnected {
             mongodb:Collection? coll = self.collectionInstance;
             if coll is mongodb:Collection {
@@ -98,7 +109,9 @@ public class OrderStore {
             updated.cancellationReason = reason;
         }
 
-        self.inMemoryStore[orderId] = updated.clone();
+        lock {
+            self.inMemoryStore[orderId] = updated.clone();
+        }
 
         if self.isConnected {
             mongodb:Collection? coll = self.collectionInstance;
@@ -122,7 +135,9 @@ public class OrderStore {
 
     # Clears local in-memory records (useful for test resets).
     public function clearMemory() {
-        self.inMemoryStore.removeAll();
+        lock {
+            self.inMemoryStore.removeAll();
+        }
     }
 }
 

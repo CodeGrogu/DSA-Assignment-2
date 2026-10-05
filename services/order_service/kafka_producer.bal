@@ -6,6 +6,7 @@ import peerpressure/events as events;
 configurable string kafkaBootstrapServers = "localhost:9092";
 configurable boolean enableKafka = true;
 configurable string orderCreatedTopic = "orders.created";
+configurable string orderConfirmedTopic = "orders.confirmed";
 configurable string orderCancelledTopic = "orders.cancelled";
 
 # Producer class responsible for publishing order lifecycle events to Kafka topics.
@@ -13,6 +14,7 @@ configurable string orderCancelledTopic = "orders.cancelled";
 public class OrderEventProducer {
     private kafka:Producer? producer = ();
     private final events:OrderCreated[] recordedCreatedEvents = [];
+    private final events:OrderConfirmed[] recordedConfirmedEvents = [];
     private final events:OrderCancelled[] recordedCancelledEvents = [];
 
     public function init() {
@@ -31,7 +33,7 @@ public class OrderEventProducer {
         }
     }
 
-    # Publishes an OrderCreated event to Kafka topic `orders.created` keyed by orderId.
+    # Publishes an OrderCreated event to Kafka topic `orders.created` keyed by customerId.
     public function publishOrderCreated(Order 'order) returns error? {
         events:OrderItem[] eventItems = from CreateOrderItem item in 'order.items
             select {
@@ -79,7 +81,7 @@ public class OrderEventProducer {
                 byte[] valBytes = jsonPayload.toJsonString().toBytes();
                 kafka:AnydataProducerRecord rec = {
                     topic: orderCreatedTopic,
-                    key: 'order.orderId.toBytes(),
+                    key: 'order.customerId.toBytes(),
                     value: valBytes
                 };
                 kafka:Error? sendErr = prod->send(rec);
@@ -87,6 +89,53 @@ public class OrderEventProducer {
                     log:printError("Failed to send OrderCreated event to Kafka", 'error = sendErr, topic = orderCreatedTopic, orderId = 'order.orderId);
                 } else {
                     log:printInfo("Successfully published OrderCreated event to Kafka", topic = orderCreatedTopic, orderId = 'order.orderId);
+                }
+            }
+        }
+    }
+
+    # Publishes an OrderConfirmed event to Kafka topic `orders.confirmed` keyed by orderId.
+    public function publishOrderConfirmed(Order 'order, string confirmedAt) returns error? {
+        events:OrderConfirmed event = {
+            eventId: uuid:createType4AsString(),
+            orderId: 'order.orderId,
+            paymentId: 'order.paymentId ?: "pay_confirmed",
+            estimatedDeliveryMinutes: 30,
+            confirmedAt: confirmedAt
+        };
+
+        lock {
+            self.recordedConfirmedEvents.push(event.cloneReadOnly());
+        }
+
+        if enableKafka {
+            kafka:Producer? prod = self.producer;
+            if prod is () {
+                kafka:Producer|error newProd = new (kafkaBootstrapServers, {
+                    clientId: "order-service-producer"
+                });
+                if newProd is kafka:Producer {
+                    self.producer = newProd;
+                    prod = newProd;
+                } else {
+                    log:printError("Kafka producer reconnection failed; OrderConfirmed event recorded in memory only", 'error = newProd);
+                    return;
+                }
+            }
+
+            if prod is kafka:Producer {
+                json jsonPayload = event.toJson();
+                byte[] valBytes = jsonPayload.toJsonString().toBytes();
+                kafka:AnydataProducerRecord rec = {
+                    topic: orderConfirmedTopic,
+                    key: 'order.orderId.toBytes(),
+                    value: valBytes
+                };
+                kafka:Error? sendErr = prod->send(rec);
+                if sendErr is kafka:Error {
+                    log:printError("Failed to send OrderConfirmed event to Kafka", 'error = sendErr, topic = orderConfirmedTopic, orderId = 'order.orderId);
+                } else {
+                    log:printInfo("Successfully published OrderConfirmed event to Kafka", topic = orderConfirmedTopic, orderId = 'order.orderId);
                 }
             }
         }
@@ -146,6 +195,13 @@ public class OrderEventProducer {
         }
     }
 
+    # Retrieves recorded OrderConfirmed events for verification and testing.
+    public function getRecordedConfirmedEvents() returns events:OrderConfirmed[] {
+        lock {
+            return self.recordedConfirmedEvents.clone();
+        }
+    }
+
     # Retrieves recorded OrderCancelled events for verification and testing.
     public function getRecordedCancelledEvents() returns events:OrderCancelled[] {
         lock {
@@ -157,6 +213,7 @@ public class OrderEventProducer {
     public function clearRecordedEvents() {
         lock {
             self.recordedCreatedEvents.removeAll();
+            self.recordedConfirmedEvents.removeAll();
             self.recordedCancelledEvents.removeAll();
         }
     }
@@ -168,6 +225,11 @@ public final OrderEventProducer orderEventProducer = new;
 # Helper function to publish OrderCreated via the singleton producer.
 public function publishOrderCreated(Order 'order) returns error? {
     return orderEventProducer.publishOrderCreated('order);
+}
+
+# Helper function to publish OrderConfirmed via the singleton producer.
+public function publishOrderConfirmed(Order 'order, string confirmedAt) returns error? {
+    return orderEventProducer.publishOrderConfirmed('order, confirmedAt);
 }
 
 # Helper function to publish OrderCancelled via the singleton producer.

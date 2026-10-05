@@ -6,7 +6,9 @@ import peerpressure/events as events;
 configurable boolean startKafkaConsumers = true;
 configurable string paymentsCompletedTopic = "payments.completed";
 configurable string paymentsFailedTopic = "payments.failed";
-configurable string deliveryStatusUpdatedTopic = "delivery.status_updated";
+configurable string kitchenPreparingTopic = "orders.preparing";
+configurable string kitchenReadyTopic = "orders.ready";
+configurable string deliveryStatusUpdatedTopic = "delivery.status";
 configurable string orderConsumerGroup = "order-service-group";
 
 # Module initialization starting the Kafka consumers in the background if enabled.
@@ -37,7 +39,7 @@ function pollOrderEventTopics() returns error? {
         offsetReset: "earliest",
         autoCommit: false
     });
-    string[] subscribedTopics = [paymentsCompletedTopic, paymentsFailedTopic, deliveryStatusUpdatedTopic];
+    string[] subscribedTopics = [paymentsCompletedTopic, paymentsFailedTopic, kitchenPreparingTopic, kitchenReadyTopic, deliveryStatusUpdatedTopic];
     check consumer->subscribe(subscribedTopics);
     log:printInfo("Order Service Kafka consumer subscribed", topics = subscribedTopics, groupId = orderConsumerGroup);
 
@@ -83,6 +85,10 @@ public function dispatchTopicPayload(string topic, byte[] payloadBytes) returns 
     } else if topic == paymentsFailedTopic {
         events:PaymentFailed event = check events:validatePaymentFailed(parsed);
         _ = check processPaymentFailed(event);
+    } else if topic == kitchenPreparingTopic {
+        _ = check processKitchenPreparingJson(parsed);
+    } else if topic == kitchenReadyTopic {
+        _ = check processKitchenReadyJson(parsed);
     } else if topic == deliveryStatusUpdatedTopic {
         events:DeliveryStatusUpdated event = check events:validateDeliveryStatusUpdated(parsed);
         _ = check processDeliveryStatusUpdated(event);
@@ -92,7 +98,7 @@ public function dispatchTopicPayload(string topic, byte[] payloadBytes) returns 
 }
 
 # Processes a PaymentCompleted event idempotently and deterministically.
-# Transitions order from CREATED to CONFIRMED.
+# Transitions order from CREATED to CONFIRMED and publishes OrderConfirmed.
 # Duplicate events for an already confirmed or downstream order are handled harmlessly.
 # Illegal transitions are safely rejected with an error and logged.
 public function processPaymentCompleted(events:PaymentCompleted event) returns Order|error {
@@ -126,6 +132,13 @@ public function processPaymentCompleted(events:PaymentCompleted event) returns O
 
     Order updated = check orderStore.updateStatus(event.orderId, events:CONFIRMED, event.paymentId);
     log:printInfo("Order updated to CONFIRMED via PaymentCompleted event", orderId = event.orderId, paymentId = event.paymentId);
+
+    // Emit OrderConfirmed domain event to orders.confirmed
+    error? pubErr = orderEventProducer.publishOrderConfirmed(updated, currentTimestamp());
+    if pubErr is error {
+        log:printError("Failed to publish OrderConfirmed event", 'error = pubErr, orderId = event.orderId);
+    }
+
     return updated;
 }
 
@@ -238,4 +251,72 @@ public function processPaymentFailedJson(json payload) returns Order|error {
 public function processDeliveryStatusUpdatedJson(json payload) returns Order|error {
     events:DeliveryStatusUpdated event = check events:validateDeliveryStatusUpdated(payload);
     return processDeliveryStatusUpdated(event);
+}
+
+# Processes an order entering PREPARING state idempotently and deterministically.
+# Transitions order from CONFIRMED to PREPARING.
+public function processKitchenPreparing(string orderId) returns Order|error {
+    Order? existing = check orderStore.get(orderId);
+    if existing is () {
+        string msg = string `Order '${orderId}' not found for KitchenPreparing event`;
+        log:printWarn(msg);
+        return error(msg);
+    }
+
+    if existing.status == events:PREPARING || existing.status == events:READY ||
+       existing.status == events:OUT_FOR_DELIVERY || existing.status == events:DELIVERED {
+        log:printInfo(string `Order '${orderId}' is already at or past PREPARING ('${existing.status}'); ignoring duplicate preparing event`);
+        return existing;
+    }
+
+    StateTransitionResult checkResult = validateTransition(existing.status, events:PREPARING);
+    if !checkResult.allowed {
+        string reason = checkResult.rejectionReason ?: string `Illegal transition from '${existing.status}' to PREPARING`;
+        log:printError(string `Disallowed transition for order '${orderId}': ${reason}`);
+        return error(reason);
+    }
+
+    Order updated = check orderStore.updateStatus(orderId, events:PREPARING);
+    log:printInfo("Order updated to PREPARING via KitchenPreparing event", orderId = orderId);
+    return updated;
+}
+
+# Processes an order entering READY state idempotently and deterministically.
+# Transitions order from PREPARING to READY.
+public function processKitchenReady(string orderId) returns Order|error {
+    Order? existing = check orderStore.get(orderId);
+    if existing is () {
+        string msg = string `Order '${orderId}' not found for KitchenReady event`;
+        log:printWarn(msg);
+        return error(msg);
+    }
+
+    if existing.status == events:READY || existing.status == events:OUT_FOR_DELIVERY ||
+       existing.status == events:DELIVERED {
+        log:printInfo(string `Order '${orderId}' is already at or past READY ('${existing.status}'); ignoring duplicate ready event`);
+        return existing;
+    }
+
+    StateTransitionResult checkResult = validateTransition(existing.status, events:READY);
+    if !checkResult.allowed {
+        string reason = checkResult.rejectionReason ?: string `Illegal transition from '${existing.status}' to READY`;
+        log:printError(string `Disallowed transition for order '${orderId}': ${reason}`);
+        return error(reason);
+    }
+
+    Order updated = check orderStore.updateStatus(orderId, events:READY);
+    log:printInfo("Order updated to READY via KitchenReady event", orderId = orderId);
+    return updated;
+}
+
+# Helper function to process KitchenPreparing from JSON.
+public function processKitchenPreparingJson(json payload) returns Order|error {
+    string orderId = check payload.orderId;
+    return processKitchenPreparing(orderId);
+}
+
+# Helper function to process KitchenReady from JSON.
+public function processKitchenReadyJson(json payload) returns Order|error {
+    string orderId = check payload.orderId;
+    return processKitchenReady(orderId);
 }

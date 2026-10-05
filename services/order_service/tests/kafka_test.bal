@@ -76,9 +76,9 @@ function testOrderCreatedEventPublishing() returns error? {
     test:assertEquals(event.items[1].itemName, "Ginger Beer");
     test:assertEquals(event.items[1].subtotal, 20.0d);
 
-    // Verify correct partition key
-    byte[] expectedPartitionKey = testOrder.orderId.toBytes();
-    test:assertEquals(testOrder.orderId.toBytes(), expectedPartitionKey, "Partition key must be orderId bytes");
+    // Verify correct partition key (customerId bytes per README § 3 Schema Registry)
+    byte[] expectedPartitionKey = testOrder.customerId.toBytes();
+    test:assertEquals(testOrder.customerId.toBytes(), expectedPartitionKey, "Partition key must be customerId bytes");
 
     // Verify events contract validation passes
     events:OrderCreated validated = check events:validateOrderCreated(event.toJson());
@@ -112,10 +112,11 @@ function testOrderCancelledEventPublishing() returns error? {
     test:assertEquals(orderId.toBytes(), expectedKey, "Partition key must be orderId bytes");
 }
 
-# Test 3: State coordinator processes PaymentCompleted -> transitions order CREATED -> CONFIRMED.
+# Test 3: State coordinator processes PaymentCompleted -> transitions order CREATED -> CONFIRMED and emits OrderConfirmed.
 @test:Config {}
 function testStateCoordinatorPaymentCompletedTransitionsOrderToConfirmed() returns error? {
     orderStore.clearMemory();
+    orderEventProducer.clearRecordedEvents();
 
     string orderId = "ord_coord_pay_comp_003";
     Order testOrder = createSampleOrder(orderId, events:CREATED);
@@ -143,6 +144,12 @@ function testStateCoordinatorPaymentCompletedTransitionsOrderToConfirmed() retur
         test:assertEquals(stored.status, events:CONFIRMED);
         test:assertEquals(stored.paymentId, "pay_tx_coord_12345");
     }
+
+    // Verify OrderConfirmed event emitted
+    events:OrderConfirmed[] confirmedEvents = orderEventProducer.getRecordedConfirmedEvents();
+    test:assertEquals(confirmedEvents.length(), 1, "Exactly one OrderConfirmed event must be emitted");
+    test:assertEquals(confirmedEvents[0].orderId, orderId);
+    test:assertEquals(confirmedEvents[0].paymentId, "pay_tx_coord_12345");
 }
 
 # Test 4: State coordinator processes PaymentFailed -> transitions order CREATED -> CANCELLED.
@@ -392,7 +399,7 @@ function testTopicDispatchPayloadFromJsonBytes() returns error? {
         updatedAt: currentTimestamp()
     };
     byte[] pickupBytes = pickup.toJson().toJsonString().toBytes();
-    check dispatchTopicPayload("delivery.status_updated", pickupBytes);
+    check dispatchTopicPayload("delivery.status", pickupBytes);
 
     Order? storedInTransit = check orderStore.get(orderId);
     test:assertTrue(storedInTransit is Order);
@@ -410,7 +417,7 @@ function testTopicDispatchPayloadFromJsonBytes() returns error? {
         updatedAt: currentTimestamp()
     };
     byte[] deliveredBytes = delivered.toJson().toJsonString().toBytes();
-    check dispatchTopicPayload("delivery.status_updated", deliveredBytes);
+    check dispatchTopicPayload("delivery.status", deliveredBytes);
 
     Order? storedDelivered = check orderStore.get(orderId);
     test:assertTrue(storedDelivered is Order);
@@ -467,4 +474,121 @@ function testHttpOrderPublishingIntegration() returns error? {
     test:assertEquals(cancelledEvents[0].orderId, orderId);
     test:assertEquals(cancelledEvents[0].reason, "Customer changed mind before preparation");
 }
+
+# Test 11: State coordinator processes KitchenPreparing -> transitions order CONFIRMED -> PREPARING.
+@test:Config {}
+function testStateCoordinatorKitchenPreparingTransitionsOrderToPreparing() returns error? {
+    orderStore.clearMemory();
+
+    string orderId = "ord_coord_prep_011";
+    Order testOrder = createSampleOrder(orderId, events:CREATED);
+    check orderStore.save(testOrder);
+
+    // Transition to CONFIRMED
+    _ = check orderStore.updateStatus(orderId, events:CONFIRMED, "pay_tx_prep_11");
+
+    Order updated = check processKitchenPreparing(orderId);
+    test:assertEquals(updated.status, events:PREPARING, "Order status must transition to PREPARING");
+
+    Order? stored = check orderStore.get(orderId);
+    test:assertTrue(stored is Order);
+    if stored is Order {
+        test:assertEquals(stored.status, events:PREPARING);
+    }
+}
+
+# Test 12: State coordinator processes KitchenReady -> transitions order PREPARING -> READY.
+@test:Config {}
+function testStateCoordinatorKitchenReadyTransitionsOrderToReady() returns error? {
+    orderStore.clearMemory();
+
+    string orderId = "ord_coord_ready_012";
+    Order testOrder = createSampleOrder(orderId, events:CREATED);
+    check orderStore.save(testOrder);
+
+    // Transition to CONFIRMED then PREPARING
+    _ = check orderStore.updateStatus(orderId, events:CONFIRMED, "pay_tx_ready_12");
+    _ = check orderStore.updateStatus(orderId, events:PREPARING);
+
+    Order updated = check processKitchenReady(orderId);
+    test:assertEquals(updated.status, events:READY, "Order status must transition to READY");
+
+    Order? stored = check orderStore.get(orderId);
+    test:assertTrue(stored is Order);
+    if stored is Order {
+        test:assertEquals(stored.status, events:READY);
+    }
+}
+
+# Test 13: End-to-end full order lifecycle via Kafka events sequence.
+# CREATED -> PaymentCompleted -> CONFIRMED -> KitchenPreparing -> PREPARING -> KitchenReady -> READY -> Delivery PICKED_UP -> OUT_FOR_DELIVERY -> Delivery DELIVERED -> DELIVERED.
+@test:Config {}
+function testEndToEndOrderLifecycleViaKafkaEvents() returns error? {
+    orderStore.clearMemory();
+    orderEventProducer.clearRecordedEvents();
+
+    string orderId = "ord_coord_e2e_013";
+    Order testOrder = createSampleOrder(orderId, events:CREATED);
+    check orderStore.save(testOrder);
+
+    // 1. PaymentCompleted event arrives
+    events:PaymentCompleted pcEvent = {
+        eventId: "evt_e2e_pay_001",
+        paymentId: "pay_tx_e2e_123",
+        orderId: orderId,
+        customerId: testOrder.customerId,
+        amount: testOrder.totalAmount,
+        currency: "NAD",
+        paymentMethod: "CARD",
+        transactionReference: "txn_e2e_ref",
+        completedAt: currentTimestamp()
+    };
+    Order confOrder = check processPaymentCompleted(pcEvent);
+    test:assertEquals(confOrder.status, events:CONFIRMED);
+
+    // Verify OrderConfirmed event emitted on topic orders.confirmed
+    events:OrderConfirmed[] confEvents = orderEventProducer.getRecordedConfirmedEvents();
+    test:assertEquals(confEvents.length(), 1);
+    test:assertEquals(confEvents[0].orderId, orderId);
+
+    // 2. KitchenPreparing arrives
+    Order prepOrder = check processKitchenPreparing(orderId);
+    test:assertEquals(prepOrder.status, events:PREPARING);
+
+    // 3. KitchenReady arrives
+    Order readyOrder = check processKitchenReady(orderId);
+    test:assertEquals(readyOrder.status, events:READY);
+
+    // 4. DeliveryStatusUpdated (PICKED_UP) arrives
+    events:DeliveryStatusUpdated pickupEvent = {
+        eventId: "evt_e2e_del_001",
+        deliveryId: "del_e2e_001",
+        orderId: orderId,
+        driverId: "drv_e2e_001",
+        status: events:PICKED_UP,
+        updatedAt: currentTimestamp()
+    };
+    Order pickupOrder = check processDeliveryStatusUpdated(pickupEvent);
+    test:assertEquals(pickupOrder.status, events:OUT_FOR_DELIVERY);
+
+    // 5. DeliveryStatusUpdated (DELIVERED) arrives
+    events:DeliveryStatusUpdated delivEvent = {
+        eventId: "evt_e2e_del_002",
+        deliveryId: "del_e2e_001",
+        orderId: orderId,
+        driverId: "drv_e2e_001",
+        status: events:DELIVERED,
+        updatedAt: currentTimestamp()
+    };
+    Order finalOrder = check processDeliveryStatusUpdated(delivEvent);
+    test:assertEquals(finalOrder.status, events:DELIVERED);
+
+    // Verify terminal state in orderStore
+    Order? finalStored = check orderStore.get(orderId);
+    test:assertTrue(finalStored is Order);
+    if finalStored is Order {
+        test:assertEquals(finalStored.status, events:DELIVERED);
+    }
+}
+
 
