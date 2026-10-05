@@ -96,6 +96,7 @@ function testKitchenOrderReadySerializationAndValidation() returns error? {
         eventId: "evt-kit-001",
         orderId: "ord-9001",
         restaurantId: "rest-202",
+        pickupAddress: "14 Independence Avenue, Windhoek",
         pickupReadyAt: "2026-09-21T12:15:30Z"
     };
 
@@ -198,6 +199,7 @@ function testBackwardCompatibilityTypeAliases() returns error? {
         eventId: "evt-kit-alias",
         orderId: "ord-alias-01",
         restaurantId: "rest-01",
+        pickupAddress: "Sam Nujoma Drive, Windhoek",
         pickupReadyAt: "2026-09-21T10:10:00Z"
     };
     KitchenOrderReady directKitchen = kitEvt;
@@ -415,7 +417,7 @@ function testValidatePaymentCompletedMissingField() {
         customerId: "cust-01",
         amount: 50.00,
         currency: "NAD"
-        // missing transactionReference, paymentMethod, completedAt
+    // missing transactionReference, paymentMethod, completedAt
     };
 
     PaymentCompleted|error result = validatePaymentCompleted(invalidJson);
@@ -427,7 +429,7 @@ function testValidateKitchenOrderReadyMissingField() {
     json invalidJson = {
         eventId: "evt-kit-01",
         orderId: "ord-01"
-        // missing restaurantId and pickupReadyAt
+    // missing restaurantId and pickupReadyAt
     };
 
     KitchenOrderReady|error result = validateKitchenOrderReady(invalidJson);
@@ -443,7 +445,7 @@ function testValidateDeliveryStatusUpdatedInvalidCoordinates() {
         driverId: "drv-01",
         status: "PICKED_UP",
         currentLocation: {
-            latitude: 195.0, // Invalid: exceeds 90 degrees
+            latitude: 195.0,  // Invalid: exceeds 90 degrees
             longitude: 17.06
         },
         updatedAt: "2026-09-21T12:00:00Z"
