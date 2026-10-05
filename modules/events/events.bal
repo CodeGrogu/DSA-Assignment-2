@@ -15,12 +15,23 @@ public type OrderCreatedEvent OrderCreated;
 public type OrderConfirmed readonly & record {|
     string eventId;
     string orderId;
+    string restaurantId = "";
+    OrderItem[] items = [];
     string paymentId;
     int estimatedDeliveryMinutes;
     string confirmedAt;
 |};
 
 public type OrderConfirmedEvent OrderConfirmed;
+
+public type OrderPreparing readonly & record {|
+    string eventId;
+    string orderId;
+    string restaurantId;
+    string preparingStartedAt;
+|};
+
+public type OrderPreparingEvent OrderPreparing;
 
 public type OrderCancelled readonly & record {|
     string eventId;
@@ -81,6 +92,7 @@ public type KitchenOrderReady readonly & record {|
     string eventId;
     string orderId;
     string restaurantId;
+    string pickupAddress;
     string pickupReadyAt;
 |};
 

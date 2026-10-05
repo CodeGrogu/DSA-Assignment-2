@@ -32,6 +32,48 @@ isolated function getRestaurantsCollection() returns mongodb:Collection|error {
     }
 }
 
+isolated function decrementMenuItemStock(string restaurantId, string itemId, int quantity) returns boolean|error {
+    if quantity <= 0 {
+        return false;
+    }
+    mongodb:Collection collection = check getRestaurantsCollection();
+
+    map<json> filter = {
+        "id": restaurantId,
+        "menu.items.id": itemId,
+        "menu.items": {
+            "$elemMatch": {
+                "id": itemId,
+                "stock": {"$gte": quantity}
+            }
+        }
+    };
+
+    map<json> updateMap = {"$inc": {"menu.items.$.stock": -quantity}};
+    mongodb:Update update = check updateMap.cloneWithType();
+
+    mongodb:UpdateResult result = check collection->updateOne(filter, update);
+    return result.modifiedCount == 1;
+}
+
+isolated function incrementMenuItemStock(string restaurantId, string itemId, int quantity) returns boolean|error {
+    if quantity <= 0 {
+        return false;
+    }
+    mongodb:Collection collection = check getRestaurantsCollection();
+
+    map<json> filter = {
+        "id": restaurantId,
+        "menu.items.id": itemId
+    };
+
+    map<json> updateMap = {"$inc": {"menu.items.$.stock": quantity}};
+    mongodb:Update update = check updateMap.cloneWithType();
+
+    mongodb:UpdateResult result = check collection->updateOne(filter, update);
+    return result.modifiedCount == 1;
+}
+
 public isolated function seedDatabase() returns error? {
     do {
         mongodb:Collection restaurantsCollection = check getRestaurantsCollection();

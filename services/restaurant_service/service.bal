@@ -20,9 +20,9 @@ service / on new http:Listener(port) {
         };
         time:Utc endTime = time:utcNow();
         decimal durationMs = time:utcDiffSeconds(endTime, startTime) * 1000d;
-        metrics:recordHttpRequest("GET", "/health", 200, durationMs, "restaurant_service");
-        metrics:recordMessageLatency("orders.ready", durationMs, "restaurant_service");
-        metrics:setConsumerLagMetric("restaurant_service_group", "orders.ready", 0);
+        recordHttpRequest("GET", "/health", 200, durationMs, "restaurant_service");
+        recordMessageLatency("kitchen.orders.ready", durationMs, "restaurant_service");
+        setConsumerLagMetric("restaurant-kitchen-service", "orders.confirmed", 0);
         return response;
     }
 
@@ -332,6 +332,58 @@ service / on new http:Listener(port) {
         return jsonResponse(200, restaurant);
     }
 
+    isolated resource function post restaurants/[string restaurantId]/menu/items/[string itemId]/restock(
+            @http:Payload record {|int quantity;|} payload) returns http:Response {
+        if payload.quantity <= 0 {
+            return jsonResponse(400, {message: "Restock quantity must be greater than zero"});
+        }
+
+        Restaurant?|error restaurantResult = findRestaurant(restaurantId);
+        if restaurantResult is error {
+            return jsonResponse(500, {message: "Database connection failed"});
+        }
+        if restaurantResult is () {
+            return jsonResponse(404, {message: "Restaurant not found"});
+        }
+        Restaurant restaurant = restaurantResult;
+
+        boolean itemFound = false;
+        foreach MenuCategory category in restaurant.menu {
+            foreach MenuItem item in category.items {
+                if item.id == itemId {
+                    item.stock = item.stock + payload.quantity;
+                    item.isAvailable = item.stock > 0;
+                    itemFound = true;
+                    break;
+                }
+            }
+            if itemFound {
+                break;
+            }
+        }
+        if !itemFound {
+            return jsonResponse(404, {message: "Menu item not found"});
+        }
+
+        mongodb:Collection collection;
+        var collectionResult = getRestaurantsCollection();
+        if collectionResult is error {
+            return jsonResponse(500, {message: "Database connection failed"});
+        }
+        collection = collectionResult;
+
+        map<json>|error restaurantDoc = restaurant.cloneWithType();
+        if restaurantDoc is error {
+            return jsonResponse(500, {message: "Database connection failed"});
+        }
+
+        mongodb:UpdateResult|error updateResult = collection->updateOne({"id": restaurantId}, {"$set": restaurantDoc});
+        if updateResult is error {
+            return jsonResponse(500, {message: "Database connection failed"});
+        }
+        return jsonResponse(200, restaurant);
+    }
+
     isolated resource function put restaurants/[string restaurantId]/menu/items/[string itemId](
             @http:Payload MenuItem itemPayload) returns http:Response {
         string? validationError = validateMenuItem(itemPayload);
@@ -416,6 +468,65 @@ isolated function isMenuItemIdUniqueAcrossRestaurant(Restaurant restaurant, stri
         }
     }
     return true;
+}
+
+isolated function isRestaurantOpenForOrdering(Restaurant restaurant, string? currentDayOfWeek = (), string? currentTime = ()) returns boolean {
+    string resolvedDay = currentDayOfWeek is string ? currentDayOfWeek : getCurrentDayOfWeek();
+    string resolvedTime = currentTime is string ? currentTime : getCurrentTimeOfDay();
+
+    foreach OperatingHours operatingHours in restaurant.operatingHours {
+        if operatingHours.isClosed || operatingHours.dayOfWeek != resolvedDay {
+            continue;
+        }
+        if operatingHours.openTime.trim().length() == 0 || operatingHours.closeTime.trim().length() == 0 {
+            return false;
+        }
+
+        int currentMinutes = parseTimeStringToMinutes(resolvedTime);
+        int openMinutes = parseTimeStringToMinutes(operatingHours.openTime);
+        int closeMinutes = parseTimeStringToMinutes(operatingHours.closeTime);
+        if closeMinutes < openMinutes {
+            return currentMinutes >= openMinutes || currentMinutes <= closeMinutes;
+        }
+        return currentMinutes >= openMinutes && currentMinutes <= closeMinutes;
+    }
+    return false;
+}
+
+isolated function validateRestaurantOpenForOrdering(Restaurant restaurant, string? currentDayOfWeek = (), string? currentTime = ()) returns string? {
+    if !isRestaurantOpenForOrdering(restaurant, currentDayOfWeek, currentTime) {
+        return "Restaurant is currently closed for ordering";
+    }
+    return ();
+}
+
+isolated function getCurrentDayOfWeek() returns string {
+    time:Civil civil = time:utcToCivil(time:utcNow());
+    string[] days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    int? dayOfWeek = civil.dayOfWeek;
+    if dayOfWeek is () {
+        return "Sunday";
+    }
+    int index = dayOfWeek - 1;
+    if index < 0 || index >= days.length() {
+        index = 0;
+    }
+    return days[index];
+}
+
+isolated function getCurrentTimeOfDay() returns string {
+    time:Civil civil = time:utcToCivil(time:utcNow());
+    return string `${civil.hour.toString().padStart(2, "0")}:${civil.minute.toString().padStart(2, "0")}`;
+}
+
+isolated function parseTimeStringToMinutes(string timeText) returns int {
+    string[] parts = re `:`.split(timeText);
+    if parts.length() < 2 {
+        return 0;
+    }
+    int hours = checkpanic int:fromString(parts[0]);
+    int minutes = checkpanic int:fromString(parts[1]);
+    return (hours * 60) + minutes;
 }
 
 isolated function isPlaceholderId(string id) returns boolean {

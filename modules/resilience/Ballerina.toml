@@ -1,6 +1,6 @@
 [package]
 org = "peerpressure"
-name = "restaurant_service"
+name = "resilience"
 version = "0.1.0"
 distribution = "2201.13.5"
 
@@ -9,7 +9,7 @@ observabilityIncluded = true
 
 [[dependency]]
 org = "peerpressure"
-name = "events"
+name = "kafka_client"
 version = "0.1.0"
 repository = "local"
 
