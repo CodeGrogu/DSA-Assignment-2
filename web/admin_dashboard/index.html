@@ -15,7 +15,10 @@
   <body>
     <header>
       <h1>Food Delivery — Admin Dashboard</h1>
-      <span id="last-updated">Waiting for data...</span>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <button id="btn-refresh" style="cursor: pointer; padding: 7px 14px; border-radius: var(--radius-sm); border: 1px solid var(--line); background: var(--surface); font-weight: 600; font-size: 13px; color: var(--ink);">Refresh Now</button>
+        <span id="last-updated">Waiting for data...</span>
+      </div>
     </header>
 
     <section class="kpi-grid">
@@ -74,8 +77,28 @@
       <h2>Service Health</h2>
       <div class="health-grid">
         <div class="health-item">
+          <span class="dot" id="health-order"></span>
+          <span>order_service :9091</span>
+        </div>
+        <div class="health-item">
+          <span class="dot" id="health-customer"></span>
+          <span>customer_service :9093</span>
+        </div>
+        <div class="health-item">
+          <span class="dot" id="health-payment"></span>
+          <span>payment_service :9094</span>
+        </div>
+        <div class="health-item">
+          <span class="dot" id="health-restaurant"></span>
+          <span>restaurant_service :9095</span>
+        </div>
+        <div class="health-item">
+          <span class="dot" id="health-delivery"></span>
+          <span>delivery_service :9096</span>
+        </div>
+        <div class="health-item">
           <span class="dot" id="health-notif"></span>
-          <span>notification_service :9095</span>
+          <span>notification_service :9097</span>
         </div>
         <div class="health-item">
           <span class="dot" id="health-admin"></span>
