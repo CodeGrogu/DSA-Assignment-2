@@ -1,105 +1,105 @@
 // MongoDB Initialization Script
 // Databases, collections, indexes, and service users are provisioned during bootstrap.
 
+function ensureCollection(database, collectionName) {
+    if (!database.getCollectionNames().includes(collectionName)) {
+        database.createCollection(collectionName);
+        print("Created collection: " + database.getName() + "." + collectionName);
+    }
+}
+
+function ensureUser(databaseName, username, password, roles) {
+    const targetDb = db.getSiblingDB(databaseName);
+    try {
+        targetDb.createUser({
+            user: username,
+            pwd: password,
+            roles: roles
+        });
+        print("Created user: " + username + " on " + databaseName);
+    } catch (e) {
+        if (e.message && (e.message.includes("already exists") || e.code === 51003)) {
+            targetDb.updateUser(username, { pwd: password, roles: roles });
+            print("Updated existing user: " + username + " on " + databaseName);
+        } else {
+            throw e;
+        }
+    }
+}
 
 // Customer Service database
-db = db.getSiblingDB("customer_db");
-
-db.createCollection("customers");
-
-db.customers.createIndex(
+const customerDb = db.getSiblingDB("customer_db");
+ensureCollection(customerDb, "customers");
+customerDb.customers.createIndex(
     { email: 1 },
     { unique: true }
 );
-
-db.customers.createIndex(
+customerDb.customers.createIndex(
     { "addresses.location": "2dsphere" }
 );
 
-
 // Order Service database
-db = db.getSiblingDB("order_db");
-
-db.createCollection("orders");
-
-db.orders.createIndex(
+const orderDb = db.getSiblingDB("order_db");
+ensureCollection(orderDb, "orders");
+orderDb.orders.createIndex(
     { customerId: 1, createdAt: -1 }
 );
 
-
 // Restaurant Service database
-db = db.getSiblingDB("restaurant_db");
-
-db.createCollection("restaurants");
-
-db.restaurants.createIndex(
+const restaurantDb = db.getSiblingDB("restaurant_db");
+ensureCollection(restaurantDb, "restaurants");
+restaurantDb.restaurants.createIndex(
     { location: "2dsphere" }
 );
 
-
-// Payment Service database
-db = db.getSiblingDB("payment_db");
-
-db.createCollection("payments");
-
-db.payments.createIndex(
+// Payment Service database (legacy/singular and v2/plural)
+const paymentDb = db.getSiblingDB("payment_db");
+ensureCollection(paymentDb, "payments");
+paymentDb.payments.createIndex(
     { idempotencyKey: 1 },
     { unique: true }
 );
 
+const paymentsDb = db.getSiblingDB("payments_db");
+ensureCollection(paymentsDb, "payments");
+paymentsDb.payments.createIndex(
+    { idempotencyKey: 1 },
+    { unique: true }
+);
+
+// Payment service v2 uses multiple immutable transactions per order for refunds.
+if (paymentsDb.getCollectionNames().includes("transactions")) {
+    const legacyOrderIndex = paymentsDb.transactions.getIndexes().find(
+        index => index.name === "orderId_1" && index.unique === true
+    );
+    if (legacyOrderIndex) {
+        paymentsDb.transactions.dropIndex(legacyOrderIndex.name);
+    }
+}
+ensureCollection(paymentsDb, "transactions");
+ensureCollection(paymentsDb, "ledger_entries");
+ensureCollection(paymentsDb, "idempotency_keys");
+paymentsDb.transactions.createIndex({ orderId: 1, createdAt: -1 });
 
 // Delivery Service database
-db = db.getSiblingDB("delivery_db");
-
-db.createCollection("deliveries");
-db.createCollection("drivers");
-
-db.drivers.createIndex(
+const deliveryDb = db.getSiblingDB("delivery_db");
+ensureCollection(deliveryDb, "deliveries");
+ensureCollection(deliveryDb, "drivers");
+deliveryDb.drivers.createIndex(
     { location: "2dsphere" }
 );
 
-
 // Notification Service database
-db = db.getSiblingDB("notification_db");
-
-db.createCollection("notifications");
-
+const notificationDb = db.getSiblingDB("notification_db");
+ensureCollection(notificationDb, "notifications");
 
 // Service users
-db.getSiblingDB("customer_db").createUser({
-    user: "customer_user",
-    pwd: "customer_password",
-    roles: [{ role: "readWrite", db: "customer_db" }]
-});
-
-db.getSiblingDB("order_db").createUser({
-    user: "order_user",
-    pwd: "order_password",
-    roles: [{ role: "readWrite", db: "order_db" }]
-});
-
-db.getSiblingDB("restaurant_db").createUser({
-    user: "restaurant_user",
-    pwd: "restaurant_password",
-    roles: [{ role: "readWrite", db: "restaurant_db" }]
-});
-
-db.getSiblingDB("payment_db").createUser({
-    user: "payment_user",
-    pwd: "payment_password",
-    roles: [{ role: "readWrite", db: "payment_db" }]
-});
-
-db.getSiblingDB("delivery_db").createUser({
-    user: "delivery_user",
-    pwd: "delivery_password",
-    roles: [{ role: "readWrite", db: "delivery_db" }]
-});
-
-db.getSiblingDB("notification_db").createUser({
-    user: "notification_user",
-    pwd: "notification_password",
-    roles: [{ role: "readWrite", db: "notification_db" }]
-});
+ensureUser("customer_db", "customer_user", "customer_password", [{ role: "readWrite", db: "customer_db" }]);
+ensureUser("order_db", "order_user", "order_password", [{ role: "readWrite", db: "order_db" }]);
+ensureUser("restaurant_db", "restaurant_user", "restaurant_password", [{ role: "readWrite", db: "restaurant_db" }]);
+ensureUser("payment_db", "payment_user", "payment_password", [{ role: "readWrite", db: "payment_db" }]);
+ensureUser("payments_db", "payment_user", "payment_password", [{ role: "readWrite", db: "payments_db" }]);
+ensureUser("delivery_db", "delivery_user", "delivery_password", [{ role: "readWrite", db: "delivery_db" }]);
+ensureUser("notification_db", "notification_user", "notification_password", [{ role: "readWrite", db: "notification_db" }]);
 
 print("MongoDB initialization completed successfully.");

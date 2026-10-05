@@ -37,6 +37,7 @@ if [ -d "services" ]; then
         echo "Building microservice: $svc"
         (
             cd "$svc"
+            run_bal test
             run_bal build
         )
     done

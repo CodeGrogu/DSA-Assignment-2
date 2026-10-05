@@ -1,4 +1,4 @@
-public function validateNamibiaCoordinates(GeoJSONPoint location)
+public isolated function validateNamibiaCoordinates(GeoJSONPoint location)
         returns error? {
 
     if location.'type != "Point" {
