@@ -1,6 +1,7 @@
 import ballerina/log;
 import ballerina/uuid;
 import ballerinax/kafka;
+
 import peerpressure/events as events;
 
 configurable string kafkaBootstrapServers = "localhost:9092";

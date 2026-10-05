@@ -1,5 +1,6 @@
 import ballerina/log;
 import ballerinax/mongodb;
+
 import peerpressure/events as events;
 
 configurable boolean enableMongo = true;

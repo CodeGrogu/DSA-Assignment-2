@@ -1,5 +1,6 @@
 import ballerina/http;
 import ballerina/test;
+
 import peerpressure/events as events;
 
 function createSampleOrder(string orderId, events:OrderStatus status = events:CREATED) returns Order {
@@ -591,5 +592,4 @@ function testEndToEndOrderLifecycleViaKafkaEvents() returns error? {
         test:assertEquals(finalStored.status, events:DELIVERED);
     }
 }
-
 
