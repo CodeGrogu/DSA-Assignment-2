@@ -28,7 +28,32 @@ export async function call(name, method, path, body, timeoutMs = 15000) {
 export const percentile = (sorted, p) =>
   sorted.length ? sorted[Math.min(sorted.length - 1, Math.ceil((p / 100) * sorted.length) - 1)] : 0;
 
+export async function pollUntil(fn, { timeoutMs = 15000, intervalMs = 500 } = {}) {
+  const started = performance.now();
+  while (performance.now() - started < timeoutMs) {
+    try {
+      const res = await fn();
+      if (res) return res;
+    } catch {
+      // Ignore transient network errors during polling
+    }
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
+  return null;
+}
+
 export const menuItem = (id, stock) => ({ id, name: `Item ${id}`, price: 25.5, stock });
+
+export const DAYS_OF_WEEK = [
+  "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"
+];
+
+export const DEFAULT_OPERATING_HOURS = DAYS_OF_WEEK.map((dayOfWeek) => ({
+  dayOfWeek,
+  openTime: "00:00",
+  closeTime: "23:59",
+  isClosed: false
+}));
 
 export function restaurantPayload(tag, items) {
   return {
@@ -36,7 +61,34 @@ export function restaurantPayload(tag, items) {
     address: "1 Test Street, Windhoek",
     location: { type: "Point", coordinates: [17.0658, -22.5609] },
     contactNumber: "+264811234567",
+    operatingHours: DEFAULT_OPERATING_HOURS,
     menu: [{ id: "cat-main", name: "Mains", items }],
+  };
+}
+
+export function orderPayload(customerId, restaurantId, itemId, quantity = 1, price = 50.0) {
+  return {
+    customerId,
+    restaurantId,
+    items: [
+      {
+        itemId,
+        name: `Item ${itemId}`,
+        quantity,
+        price,
+        specialInstructions: []
+      }
+    ],
+    deliveryAddress: {
+      street: "123 Sam Nujoma Drive",
+      city: "Windhoek",
+      state: "Khomas",
+      postalCode: "9000",
+      coordinates: {
+        latitude: -22.56,
+        longitude: 17.08
+      }
+    }
   };
 }
 

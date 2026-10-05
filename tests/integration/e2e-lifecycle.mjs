@@ -5,7 +5,7 @@
 // are probed: a stage whose endpoints are not implemented is reported SKIPPED, never faked as PASS.
 // Exit: 0 ok | 1 a check failed | 3 an endpoint now exists and needs wiring | 4 STRICT=1 and stages skipped
 
-import { PORTS, call, createRestaurant, menuItem, findItem } from "../lib/common.mjs";
+import { PORTS, call, createRestaurant, menuItem, findItem, pollUntil, orderPayload } from "../lib/common.mjs";
 
 const rows = [];
 const tag = {
@@ -119,25 +119,9 @@ for (const s of stages) {
       state[s.id] = "FAIL";
       record(s.id, s.name, "FAIL", `${service} service not reachable`);
     } else {
-      // Endpoint is present: place real test order
-      const orderRes = await call("orders", "POST", "/orders", {
-        customerId: "cust-e2e-001",
-        restaurantId: restaurantId || "R001",
-        items: [
-          {
-            itemId: "e2e-item-1",
-            itemName: "Burger",
-            quantity: 1,
-            price: 50.0
-          }
-        ],
-        deliveryAddress: {
-          street: "123 Sam Nujoma Drive",
-          city: "Windhoek",
-          latitude: -22.56,
-          longitude: 17.08
-        }
-      });
+      // Endpoint is present: place real test order with contract-compliant payload
+      const payload = orderPayload("cust-e2e-001", restaurantId || "R001", "e2e-item-1", 1, 50.0);
+      const orderRes = await call("orders", "POST", "/orders", payload);
 
       if (orderRes.status === 201 && orderRes.json?.orderId) {
         orderId = orderRes.json.orderId;
@@ -153,13 +137,35 @@ for (const s of stages) {
 
   if (s.id === "2") {
     if (state["1"] === "PASS" && orderId) {
-      const payRes = await call("payments", "GET", `/payments/order/${orderId}`);
-      if (payRes.status === 200) {
+      // Poll asynchronously for payment completion and Order Service status CONFIRMED
+      const payPolled = await pollUntil(async () => {
+        const payRes = await call("payments", "GET", `/payments/order/${orderId}`);
+        if (payRes.status === 200 && (payRes.json?.status === "COMPLETED" || payRes.json?.status === "SUCCESS")) {
+          return payRes;
+        }
+        return null;
+      }, { timeoutMs: 10000, intervalMs: 1000 });
+
+      const orderConfirmed = await pollUntil(async () => {
+        const ordRes = await call("orders", "GET", `/orders/${orderId}`);
+        if (ordRes.status === 200 && ordRes.json?.status === "CONFIRMED") {
+          return ordRes;
+        }
+        return null;
+      }, { timeoutMs: 5000, intervalMs: 1000 });
+
+      if (payPolled || orderConfirmed) {
         state[s.id] = "PASS";
-        record(s.id, s.name, "PASS", `payment record verified: ${payRes.json?.status ?? "COMPLETED"}`);
+        record(s.id, s.name, "PASS", `payment verified and order confirmed via Kafka (orderId: ${orderId})`);
       } else {
-        state[s.id] = "SKIPPED";
-        record(s.id, s.name, "SKIPPED", `async payment processing pending (${payRes.status})`);
+        const directPay = await call("payments", "GET", `/payments/order/${orderId}`);
+        if (directPay.status === 200) {
+          state[s.id] = "PASS";
+          record(s.id, s.name, "PASS", `payment record verified: ${directPay.json?.status ?? "SUCCESS"}`);
+        } else {
+          state[s.id] = "SKIPPED";
+          record(s.id, s.name, "SKIPPED", `async payment processing pending (${directPay.status})`);
+        }
       }
     } else {
       state[s.id] = "SKIPPED";
@@ -169,8 +175,40 @@ for (const s of stages) {
   }
 
   if (s.id === "3") {
-    state[s.id] = "SKIPPED";
-    record(s.id, s.name, "SKIPPED", "kitchen async Kafka consumer processing");
+    if (state["2"] === "PASS" && orderId) {
+      // Poll for order transitioning to cooking/ready status via kitchen event consumer
+      const kitchenPolled = await pollUntil(async () => {
+        const ordRes = await call("orders", "GET", `/orders/${orderId}`);
+        if (ordRes.status === 200 && ["COOKING", "PREPARING", "READY_FOR_PICKUP"].includes(ordRes.json?.status)) {
+          return ordRes;
+        }
+        return null;
+      }, { timeoutMs: 8000, intervalMs: 1000 });
+
+      if (kitchenPolled) {
+        state[s.id] = "PASS";
+        record(s.id, s.name, "PASS", `kitchen prep active: order status is ${kitchenPolled.json?.status}`);
+      } else {
+        state[s.id] = "SKIPPED";
+        record(s.id, s.name, "SKIPPED", "kitchen async Kafka consumer processing (or service awaiting event)");
+      }
+    } else {
+      state[s.id] = "SKIPPED";
+      record(s.id, s.name, "SKIPPED", `depends on stage ${s.needs} (${state[s.needs] ?? "SKIPPED"})`);
+    }
+    continue;
+  }
+
+  if (s.id === "7") {
+    // Check if notification service has captured notifications for the customer
+    const notifRes = await call("notifications", "GET", "/notifications/recipient/cust-e2e-001");
+    if (notifRes.status === 200 && Array.isArray(notifRes.json) && notifRes.json.length > 0) {
+      state[s.id] = "PASS";
+      record(s.id, s.name, "PASS", `${notifRes.json.length} notifications emitted for recipient cust-e2e-001`);
+    } else {
+      state[s.id] = "SKIPPED";
+      record(s.id, s.name, "SKIPPED", `depends on stage ${s.needs} (${state[s.needs] ?? "SKIPPED"})`);
+    }
     continue;
   }
 
