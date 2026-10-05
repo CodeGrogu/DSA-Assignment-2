@@ -111,6 +111,159 @@ public isolated function updateCustomerAddress(
     return;
 }
 
+public isolated function setDefaultAddress(
+        string customerId,
+        string addressId
+) returns error? {
+    mongodb:Collection|error collection = getCustomerCollection();
+    if collection is error {
+        return error DatabaseOperationError("Failed to access collection: " + collection.message());
+    }
+
+    Customer|error customerResult = getCustomerById(customerId);
+    if customerResult is error {
+        if customerResult is CustomerNotFoundError {
+            return customerResult;
+        }
+        if customerResult is DatabaseOperationError {
+            return customerResult;
+        }
+        return error DatabaseOperationError("Failed to query customer: " + customerResult.message());
+    }
+
+    boolean addressFound = false;
+    foreach CustomerAddress addr in customerResult.addresses {
+        if addr.id == addressId {
+            addr.isDefault = true;
+            addressFound = true;
+        } else {
+            addr.isDefault = false;
+        }
+    }
+
+    if !addressFound {
+        return error AddressNotFoundError("Address not found");
+    }
+
+    json|error addressesJson = customerResult.addresses.cloneWithType(json);
+    if addressesJson is error {
+        return error DatabaseOperationError("Failed to serialize addresses: " + addressesJson.message());
+    }
+
+    mongodb:Update update = {
+        "set": {
+            "addresses": addressesJson
+        }
+    };
+
+    mongodb:UpdateResult|error result = collection->updateOne(
+        {id: customerId},
+        update
+    );
+    if result is error {
+        return error DatabaseOperationError("Failed to update default address: " + result.message());
+    }
+
+    if result.matchedCount == 0 {
+        return error CustomerNotFoundError("Customer not found");
+    }
+
+    return;
+}
+
+public isolated function updateCustomerProfile(
+        string customerId,
+        string name,
+        string phone
+) returns error? {
+    mongodb:Collection|error collection = getCustomerCollection();
+    if collection is error {
+        return error DatabaseOperationError("Failed to access collection: " + collection.message());
+    }
+
+    mongodb:Update update = {
+        "set": {
+            "name": name,
+            "phone": phone
+        }
+    };
+
+    mongodb:UpdateResult|error result = collection->updateOne(
+        {id: customerId},
+        update
+    );
+    if result is error {
+        return error DatabaseOperationError("Failed to update customer profile: " + result.message());
+    }
+
+    if result.matchedCount == 0 {
+        return error CustomerNotFoundError("Customer not found");
+    }
+
+    return;
+}
+
+public isolated function deleteCustomerAddress(
+        string customerId,
+        string addressId
+) returns error? {
+    mongodb:Collection|error collection = getCustomerCollection();
+    if collection is error {
+        return error DatabaseOperationError("Failed to access collection: " + collection.message());
+    }
+
+    Customer|error customerResult = getCustomerById(customerId);
+    if customerResult is error {
+        if customerResult is CustomerNotFoundError {
+            return customerResult;
+        }
+        if customerResult is DatabaseOperationError {
+            return customerResult;
+        }
+        return error DatabaseOperationError("Failed to query customer: " + customerResult.message());
+    }
+
+    CustomerAddress[] remainingAddresses = [];
+    boolean addressFound = false;
+
+    foreach CustomerAddress addr in customerResult.addresses {
+        if addr.id == addressId {
+            addressFound = true;
+        } else {
+            remainingAddresses.push(addr);
+        }
+    }
+
+    if !addressFound {
+        return error AddressNotFoundError("Address not found");
+    }
+
+    json|error addressesJson = remainingAddresses.cloneWithType(json);
+    if addressesJson is error {
+        return error DatabaseOperationError("Failed to serialize addresses: " + addressesJson.message());
+    }
+
+    mongodb:Update update = {
+        "set": {
+            "addresses": addressesJson
+        }
+    };
+
+    mongodb:UpdateResult|error result = collection->updateOne(
+        {id: customerId},
+        update
+    );
+    if result is error {
+        return error DatabaseOperationError("Failed to update customer addresses: " + result.message());
+    }
+
+    if result.matchedCount == 0 {
+        return error CustomerNotFoundError("Customer not found");
+    }
+
+    return;
+}
+
 public isolated function deleteCustomer(string id) returns error? {
     mongodb:Collection|error collection = getCustomerCollection();
     if collection is error {
@@ -128,3 +281,4 @@ public isolated function deleteCustomer(string id) returns error? {
 
     return;
 }
+
