@@ -16,18 +16,14 @@ Before building containers, compile the Ballerina executables:
 bal build
 ```
 
-### 2. Launch Supporting Infrastructure
-Ensure Kafka and MongoDB are running:
+### 2. Build & Launch Services with Infrastructure
 ```bash
-docker compose -f docker-compose.infra.yml up -d
+docker compose -f docker-compose.infra.yml -f docker/docker-compose.services.yml up -d --build
 ```
 
-### 3. Launch Microservices Cluster
-```bash
-docker compose -f docker/docker-compose.services.yml up -d --build
-```
+To start only the payment service and its dependencies, append `payment-service` to the command.
 
-### 4. Verify Endpoints
+### 3. Verify Endpoints
 * Order Service: `http://localhost:9091/health`
 * Customer Service: `http://localhost:9093/health`
 * Payment Service: `http://localhost:9094/health`
@@ -36,4 +32,4 @@ docker compose -f docker/docker-compose.services.yml up -d --build
 * Notification Service: `http://localhost:9097/health`
 * Admin Service: `http://localhost:9098/health`
 
-Currently these services expose only `/health` liveness endpoints; they do not yet implement order, payment, or delivery flows. Kafka data persists in the `kafka-data` volume (removed by `docker compose down -v`).
+The payment service also exposes transaction lookups and consumes/publishes payment events. Other services may still expose only `/health`. Kafka data persists in the `kafka-data` volume (removed by `docker compose down -v`).
