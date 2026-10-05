@@ -79,7 +79,9 @@ function consumePaymentEvents() returns error? {
                 log:printError("Failed to process order event record", 'error = procErr);
             }
         }
-        check orderConsumer->commit();
+        if orderRecords.length() > 0 {
+            check orderConsumer->commit();
+        }
 
         kafka:AnydataConsumerRecord[] refundRecords = check refundConsumer->poll(0.5);
         foreach kafka:AnydataConsumerRecord kafkaRecord in refundRecords {
@@ -88,7 +90,13 @@ function consumePaymentEvents() returns error? {
                 log:printError("Failed to process refund event record", 'error = refErr);
             }
         }
-        check refundConsumer->commit();
+        if refundRecords.length() > 0 {
+            check refundConsumer->commit();
+        }
+
+        if orderRecords.length() == 0 && refundRecords.length() == 0 {
+            runtime:sleep(0.5d);
+        }
     }
 }
 
