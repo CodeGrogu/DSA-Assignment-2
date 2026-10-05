@@ -60,6 +60,21 @@ paymentDb.payments.createIndex(
     { unique: true }
 );
 
+// Payment service v2 uses multiple immutable transactions per order for refunds.
+const paymentsDb = db.getSiblingDB("payments_db");
+if (paymentsDb.getCollectionNames().includes("transactions")) {
+    const legacyOrderIndex = paymentsDb.transactions.getIndexes().find(
+        index => index.name === "orderId_1" && index.unique === true
+    );
+    if (legacyOrderIndex) {
+        paymentsDb.transactions.dropIndex(legacyOrderIndex.name);
+    }
+}
+ensureCollection(paymentsDb, "transactions");
+ensureCollection(paymentsDb, "ledger_entries");
+ensureCollection(paymentsDb, "idempotency_keys");
+paymentsDb.transactions.createIndex({ orderId: 1, createdAt: -1 });
+
 // Delivery Service database
 const deliveryDb = db.getSiblingDB("delivery_db");
 ensureCollection(deliveryDb, "deliveries");
@@ -81,4 +96,3 @@ ensureUser("delivery_db", "delivery_user", "delivery_password", [{ role: "readWr
 ensureUser("notification_db", "notification_user", "notification_password", [{ role: "readWrite", db: "notification_db" }]);
 
 print("MongoDB initialization completed successfully.");
-

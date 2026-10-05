@@ -1,21 +1,29 @@
 import ballerina/http;
 import ballerina/log;
+import ballerina/time;
 import ballerina/uuid;
 import ballerinax/mongodb;
 
-import peerpressure/events as _;
+import peerpressure/metrics as metrics;
 
 configurable int port = 9095;
 
-isolated service / on new http:Listener(port) {
-    isolated resource function get health() returns json {
-        return {
+service / on new http:Listener(port) {
+    resource function get health() returns json {
+        time:Utc startTime = time:utcNow();
+        json response = {
             status: "UP",
             "service": "restaurant_service",
             port: port,
             version: "0.1.0",
             contracts: "peerpressure/events:0.1.0"
         };
+        time:Utc endTime = time:utcNow();
+        decimal durationMs = time:utcDiffSeconds(endTime, startTime) * 1000d;
+        metrics:recordHttpRequest("GET", "/health", 200, durationMs, "restaurant_service");
+        metrics:recordMessageLatency("orders.ready", durationMs, "restaurant_service");
+        metrics:setConsumerLagMetric("restaurant_service_group", "orders.ready", 0);
+        return response;
     }
 
     isolated resource function get restaurants(string? category = (), boolean? activeOnly = ())
@@ -390,22 +398,13 @@ isolated service / on new http:Listener(port) {
         }
         return jsonResponse(200, {message: "Database seeded successfully"});
     }
+
+    resource function get metrics() returns http:Response {
+        return metrics:getMetricsResponse();
+    }
 }
 
 isolated function isMenuItemIdUniqueAcrossRestaurant(Restaurant restaurant, string itemId, string? excludeCategoryId = ()) returns boolean {
-    if excludeCategoryId is string {
-        foreach MenuCategory category in restaurant.menu {
-            if category.id == excludeCategoryId {
-                foreach MenuItem item in category.items {
-                    if item.id == itemId {
-                        return true;
-                    }
-                }
-                break;
-            }
-        }
-    }
-
     foreach MenuCategory category in restaurant.menu {
         if excludeCategoryId is string && category.id == excludeCategoryId {
             continue;
