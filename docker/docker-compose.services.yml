@@ -1,7 +1,7 @@
 services:
   order-service:
     build:
-      context: .
+      context: ..
       dockerfile: docker/Dockerfile.service
       args:
         SERVICE_NAME: order_service
@@ -18,7 +18,7 @@ services:
 
   customer-service:
     build:
-      context: .
+      context: ..
       dockerfile: docker/Dockerfile.service
       args:
         SERVICE_NAME: customer_service
@@ -35,22 +35,24 @@ services:
 
   payment-service:
     build:
-      context: .
-      dockerfile: services/payment_service/Dockerfile
+      context: ..
+      dockerfile: docker/Dockerfile.service
+      args:
+        SERVICE_NAME: payment_service
+        PORT: 9094
     container_name: dsa-payment-service
     ports:
       - "9094:9094"
-    depends_on:
-      kafka:
-        condition: service_healthy
-      mongodb:
-        condition: service_healthy
+    environment:
+      PORT: 9094
+      KAFKA_BROKER: kafka:9092
+      MONGO_URI: mongodb://${MONGO_ROOT_USER:-root}:${MONGO_ROOT_PASSWORD:-password}@mongodb:27017/payments_db?authSource=admin
     networks:
       - dsa-network
 
   restaurant-service:
     build:
-      context: .
+      context: ..
       dockerfile: docker/Dockerfile.service
       args:
         SERVICE_NAME: restaurant_service
@@ -67,7 +69,7 @@ services:
 
   delivery-service:
     build:
-      context: .
+      context: ..
       dockerfile: docker/Dockerfile.service
       args:
         SERVICE_NAME: delivery_service
@@ -84,7 +86,7 @@ services:
 
   notification-service:
     build:
-      context: .
+      context: ..
       dockerfile: docker/Dockerfile.service
       args:
         SERVICE_NAME: notification_service
@@ -101,7 +103,7 @@ services:
 
   admin-service:
     build:
-      context: .
+      context: ..
       dockerfile: docker/Dockerfile.service
       args:
         SERVICE_NAME: admin_service

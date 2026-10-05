@@ -18,6 +18,7 @@ configurable boolean publishDedicatedPaymentTopics = true;
 configurable string simulatorDefaultMode = "SUCCESS";
 configurable int gatewayTimeoutSeconds = 2;
 configurable string paymentMethod = "CARD";
+configurable boolean startKafkaConsumers = true;
 
 class PaymentEventPublisher {
     private kafka:Producer? producer = ();
@@ -38,8 +39,10 @@ class PaymentEventPublisher {
 
 final PaymentEventPublisher paymentEventPublisher = new;
 
-public function main() returns error? {
-    _ = start runPaymentConsumers();
+function init() returns error? {
+    if startKafkaConsumers {
+        _ = start runPaymentConsumers();
+    }
 }
 
 function runPaymentConsumers() returns error? {
@@ -71,13 +74,19 @@ function consumePaymentEvents() returns error? {
     while true {
         kafka:AnydataConsumerRecord[] orderRecords = check orderConsumer->poll(0.5);
         foreach kafka:AnydataConsumerRecord kafkaRecord in orderRecords {
-            check processOrderRecord(kafkaRecord);
+            error? procErr = processOrderRecord(kafkaRecord);
+            if procErr is error {
+                log:printError("Failed to process order event record", 'error = procErr);
+            }
         }
         check orderConsumer->commit();
 
         kafka:AnydataConsumerRecord[] refundRecords = check refundConsumer->poll(0.5);
         foreach kafka:AnydataConsumerRecord kafkaRecord in refundRecords {
-            check processRefundRecord(kafkaRecord);
+            error? refErr = processRefundRecord(kafkaRecord);
+            if refErr is error {
+                log:printError("Failed to process refund event record", 'error = refErr);
+            }
         }
         check refundConsumer->commit();
     }

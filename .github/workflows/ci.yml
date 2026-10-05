@@ -33,11 +33,11 @@ jobs:
           docker compose -f docker-compose.infra.yml config -q
           echo "[PASS] docker-compose.infra.yml is valid."
 
-          echo "Validating docker/docker-compose.services.yml with its infrastructure dependencies..."
-          docker compose -f docker-compose.infra.yml -f docker/docker-compose.services.yml config -q
-          echo "[PASS] docker/docker-compose.services.yml and its infrastructure dependencies are valid."
+          echo "Validating docker/docker-compose.services.yml..."
+          docker compose -f docker/docker-compose.services.yml config -q
+          echo "[PASS] docker/docker-compose.services.yml is valid."
           infra_network=$(docker compose -f docker-compose.infra.yml config --format json | python3 -c 'import json,sys; print(json.load(sys.stdin)["networks"]["dsa-network"]["name"])')
-          services_network=$(docker compose -f docker-compose.infra.yml -f docker/docker-compose.services.yml config --format json | python3 -c 'import json,sys; print(json.load(sys.stdin)["networks"]["dsa-network"]["name"])')
+          services_network=$(docker compose -f docker/docker-compose.services.yml config --format json | python3 -c 'import json,sys; print(json.load(sys.stdin)["networks"]["dsa-network"]["name"])')
           test "$infra_network" = "$services_network"
 
   postman-lint:
@@ -180,11 +180,11 @@ jobs:
         timeout-minutes: 20
         run: |
           docker compose -f docker-compose.infra.yml up -d --wait
-          docker compose -f docker-compose.infra.yml -f docker/docker-compose.services.yml build
+          docker compose -f docker/docker-compose.services.yml build
           for entry in order-service:9091 customer-service:9093 payment-service:9094 restaurant-service:9095 delivery-service:9096 notification-service:9097 admin-service:9098; do
             service="${entry%:*}"
             port="${entry#*:}"
-            docker compose -f docker-compose.infra.yml -f docker/docker-compose.services.yml up -d --no-deps "$service"
+            docker compose -f docker/docker-compose.services.yml up -d --no-deps "$service"
             healthy=0
             for attempt in $(seq 1 20); do
               if curl --fail --silent --show-error --max-time 3 "http://localhost:${port}/health"; then
@@ -197,7 +197,7 @@ jobs:
               echo "$service did not become healthy on port $port"
               exit 1
             fi
-            docker compose -f docker-compose.infra.yml -f docker/docker-compose.services.yml stop "$service"
+            docker compose -f docker/docker-compose.services.yml stop "$service"
           done
 
           docker exec dsa-kafka kafka-topics --bootstrap-server localhost:9092 --create --topic smoke.persistence --partitions 1 --replication-factor 1
@@ -215,12 +215,12 @@ jobs:
         if: failure()
         run: |
           docker compose -f docker-compose.infra.yml logs --tail=100 || true
-          docker compose -f docker-compose.infra.yml -f docker/docker-compose.services.yml logs --tail=100 || true
+          docker compose -f docker/docker-compose.services.yml logs --tail=100 || true
 
       - name: Clean Up CI Containers
         if: always()
         run: |
-          docker compose -f docker-compose.infra.yml -f docker/docker-compose.services.yml down || true
+          docker compose -f docker/docker-compose.services.yml down || true
           docker compose -f docker-compose.infra.yml down --volumes || true
 
   pr-scope-validate:
