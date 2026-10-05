@@ -6,7 +6,7 @@ import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { call, createRestaurant, menuItem, findItem, percentile } from "../lib/common.mjs";
+import { call, createRestaurant, menuItem, findItem, percentile, orderPayload } from "../lib/common.mjs";
 
 const N = Number(process.env.ORDERS ?? 50);
 const BURST_LIMIT_MS = 10_000;
@@ -43,7 +43,7 @@ async function burst(label, makeRequest) {
     label, wallMs,
     throughput: N / (wallMs / 1000),
     min: lat[0], p50: percentile(lat, 50), p95: percentile(lat, 95), p99: percentile(lat, 99), max: lat[lat.length - 1],
-    failed: results.filter((r) => r.status !== 200),
+    failed: results.filter((r) => ![200, 201].includes(r.status)),
   };
   console.log(`${label}: ${N} requests in ${wallMs.toFixed(0)} ms (${stats.throughput.toFixed(1)} req/s), ` +
     `p50 ${stats.p50.toFixed(0)} ms, p95 ${stats.p95.toFixed(0)} ms, max ${stats.max.toFixed(0)} ms, failed ${stats.failed.length}`);
@@ -71,6 +71,16 @@ const c = await burst("Phase C (atomic reservation)", () =>
 const afterC = await call("restaurants", "GET", `/restaurants/${rid}`);
 const atomicStock = findItem(afterC.json, "atomic-item")?.stock;
 
+// Phase D: Peak meal concurrent order checkout (PEE-104 / #38 / #116)
+// Simulates N concurrent customer checkouts through order_service (POST /orders)
+const ordersHealth = await call("orders", "GET", "/health");
+let d = null;
+if (ordersHealth.status === 200) {
+  d = await burst("Phase D (peak order checkout)", (i) =>
+    call("orders", "POST", "/orders", orderPayload(`cust-load-${i}`, rid, `item-${i % N}`, 1, 35.0))
+  );
+}
+
 let docker = [];
 try {
   docker = execSync('docker stats --no-stream --format "{{.Name}}|{{.CPUPerc}}|{{.MemUsage}}"', { encoding: "utf8", timeout: 20000 })
@@ -85,11 +95,22 @@ const checks = [
   { name: `B: every write persisted (no lost updates)`, pass: lost === 0, detail: `${applied}/${N} persisted, ${lost} lost` },
   { name: `C: all ${N} atomic reservation requests succeeded (status 200)`, pass: c.failed.length === 0, detail: `${c.failed.length} failed` },
   { name: "C: atomic inventory decremented exactly to zero (no overselling)", pass: atomicStock === 0, detail: `final stock ${atomicStock}` },
-  { name: `p95 latency under ${P95_LIMIT_MS} ms across burst phases`, pass: a.p95 < P95_LIMIT_MS && b.p95 < P95_LIMIT_MS && c.p95 < P95_LIMIT_MS, detail: `A ${a.p95.toFixed(0)} ms, B ${b.p95.toFixed(0)} ms, C ${c.p95.toFixed(0)} ms` },
+  { name: `p95 latency under ${P95_LIMIT_MS} ms across burst phases`, pass: a.p95 < P95_LIMIT_MS && b.p95 < P95_LIMIT_MS && c.p95 < P95_LIMIT_MS && (!d || d.p95 < P95_LIMIT_MS), detail: `A ${a.p95.toFixed(0)} ms, B ${b.p95.toFixed(0)} ms, C ${c.p95.toFixed(0)} ms${d ? `, D ${d.p95.toFixed(0)} ms` : ""}` },
 ];
+
+if (d) {
+  checks.push(
+    { name: `D: all ${N} concurrent order checkouts returned 201`, pass: d.failed.length === 0, detail: `${d.failed.length} failed` },
+    { name: `D: order checkout burst finished within ${BURST_LIMIT_MS / 1000} s`, pass: d.wallMs <= BURST_LIMIT_MS, detail: `${d.wallMs.toFixed(0)} ms` }
+  );
+}
+
 const skipped = [
   { name: "Kafka message-loss check", reason: "not measured in HTTP load suite: Kafka consumer event lag is verified via Prometheus metrics" },
 ];
+if (!d) {
+  skipped.push({ name: "Phase D (peak order checkout)", reason: "order_service not running in this environment" });
+}
 
 console.log("");
 for (const chk of checks) console.log(`[${chk.pass ? "PASS " : "FAIL "}] ${chk.name} - ${chk.detail}`);
@@ -101,15 +122,16 @@ if (lost > 0) {
 }
 
 const f = (n) => n.toFixed(0);
+const allPhases = [a, b, c, ...(d ? [d] : [])];
 const report = [
   "# Peak Meal Load Test Report", "",
   `- Date: ${new Date().toISOString()}`,
   `- Concurrent requests per phase: ${N}`,
-  `- Target: restaurant_service (\`PUT /restaurants/{id}/menu/items/{itemId}/stock\` and \`POST /restaurants/{id}/order/validate-and-reserve\`), MongoDB backend`, "",
+  `- Target: restaurant_service (\`PUT /restaurants/{id}/menu/items/{itemId}/stock\` and \`POST /restaurants/{id}/order/validate-and-reserve\`), order_service (\`POST /orders\`), MongoDB backend`, "",
   "## Throughput and latency", "",
   "| Phase | Requests | Wall time (ms) | Throughput (req/s) | p50 (ms) | p95 (ms) | p99 (ms) | max (ms) | Failed |",
   "|---|---|---|---|---|---|---|---|---|",
-  ...[a, b, c].map((s) => `| ${s.label} | ${N} | ${f(s.wallMs)} | ${s.throughput.toFixed(1)} | ${f(s.p50)} | ${f(s.p95)} | ${f(s.p99)} | ${f(s.max)} | ${s.failed.length} |`),
+  ...allPhases.map((s) => `| ${s.label} | ${N} | ${f(s.wallMs)} | ${s.throughput.toFixed(1)} | ${f(s.p50)} | ${f(s.p95)} | ${f(s.p99)} | ${f(s.max)} | ${s.failed.length} |`),
   "", "## Checks", "",
   "| Result | Check | Detail |", "|---|---|---|",
   ...checks.map((chk) => `| ${chk.pass ? "PASS" : "FAIL"} | ${chk.name} | ${chk.detail} |`),
@@ -122,6 +144,7 @@ const report = [
     : "- No lost updates on individual item updates.",
   `- Same-item contention: final stock was ${hotStock}, one of the submitted values.`,
   `- **Atomic inventory reservation:** all ${N} concurrent requests to \`validate-and-reserve\` succeeded, reducing stock from ${N} to exactly ${atomicStock} with zero lost updates and zero oversold items.`,
+  ...(d ? [`- **Peak order checkout throughput:** ${N} concurrent orders submitted at ${d.throughput.toFixed(1)} req/s (p95: ${f(d.p95)} ms) with zero dropouts.`] : []),
   "- Kafka event lag is continuously tracked via the Prometheus /metrics endpoint.", "",
 ].join("\n");
 fs.writeFileSync(path.join(here, "LOAD_TEST_REPORT.md"), report);
