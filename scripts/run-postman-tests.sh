@@ -17,16 +17,23 @@ elif command -v bunx >/dev/null 2>&1; then NEWMAN=(bunx newman)
 elif command -v npx >/dev/null 2>&1; then NEWMAN=(npx --yes newman)
 else echo "Install newman (npm i -g newman), Bun (bunx) or Node.js (npx)."; exit 2; fi
 
-UP="docker compose -f docker-compose.infra.yml up -d --wait && docker compose -f docker/docker-compose.services.yml up -d"
-echo "Waiting for services (up to 90s)..."
-for port in 9091 9093 9094 9095 9096 9097 9098; do
-  ok=0
-  for _ in $(seq 1 45); do
-    curl -fsS "http://localhost:$port/health" >/dev/null 2>&1 && { ok=1; break; }
-    sleep 2
+SKIP_WAIT="${SKIP_WAIT:-0}"
+if [[ "${1:-}" == "--skip-wait" ]]; then
+  SKIP_WAIT=1
+fi
+
+if [[ "$SKIP_WAIT" -ne 1 ]]; then
+  UP="docker compose -f docker-compose.infra.yml up -d --wait && docker compose -f docker/docker-compose.services.yml up -d"
+  echo "Waiting for services (up to 90s)..."
+  for port in 9091 9093 9094 9095 9096 9097 9098; do
+    ok=0
+    for _ in $(seq 1 45); do
+      curl -fsS "http://localhost:$port/health" >/dev/null 2>&1 && { ok=1; break; }
+      sleep 2
+    done
+    [[ $ok -eq 1 ]] || { echo "Service on port $port is not healthy. Run: $UP"; exit 2; }
   done
-  [[ $ok -eq 1 ]] || { echo "Service on port $port is not healthy. Run: $UP"; exit 2; }
-done
+fi
 
 files=("postman/restaurants.postman_collection.json")
 for f in postman/*.postman_collection.json; do

@@ -62,6 +62,58 @@
         "url": "{{notifications_url}}/health",
         "description": "Liveness probe for the notification service."
       }
+    },
+    {
+      "name": "Get notifications by recipient",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status code is 200 or 404\", function () {",
+              "  pm.expect(pm.response.code).to.be.oneOf([200, 404]);",
+              "});",
+              "",
+              "pm.test(\"response time is under 2000 ms\", function () {",
+              "  pm.expect(pm.response.responseTime).to.be.below(2000);",
+              "});",
+              "",
+              "pm.test(\"body matches notifications schema when found\", function () {",
+              "  if (pm.response.code === 200) {",
+              "    pm.response.to.have.header(\"Content-Type\");",
+              "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\");",
+              "    pm.response.to.have.jsonSchema({",
+              "      type: \"array\",",
+              "      items: {",
+              "        type: \"object\",",
+              "        required: [\"recipientId\"],",
+              "        properties: {",
+              "          notificationId: { type: \"string\" },",
+              "          recipientId: { type: \"string\" },",
+              "          channel: { type: \"string\" },",
+              "          status: { type: \"string\" },",
+              "          sentAt: { type: \"string\" }",
+              "        }",
+              "      }",
+              "    });",
+              "  }",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{notifications_url}}/notifications/recipient/cust_test_1",
+        "description": "Retrieves notification history for a specific recipient."
+      }
     }
   ]
 }

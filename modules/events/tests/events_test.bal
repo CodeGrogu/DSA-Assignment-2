@@ -415,7 +415,7 @@ function testValidatePaymentCompletedMissingField() {
         customerId: "cust-01",
         amount: 50.00,
         currency: "NAD"
-        // missing transactionReference, paymentMethod, completedAt
+    // missing transactionReference, paymentMethod, completedAt
     };
 
     PaymentCompleted|error result = validatePaymentCompleted(invalidJson);
@@ -427,7 +427,7 @@ function testValidateKitchenOrderReadyMissingField() {
     json invalidJson = {
         eventId: "evt-kit-01",
         orderId: "ord-01"
-        // missing restaurantId and pickupReadyAt
+    // missing restaurantId and pickupReadyAt
     };
 
     KitchenOrderReady|error result = validateKitchenOrderReady(invalidJson);
@@ -443,7 +443,7 @@ function testValidateDeliveryStatusUpdatedInvalidCoordinates() {
         driverId: "drv-01",
         status: "PICKED_UP",
         currentLocation: {
-            latitude: 195.0, // Invalid: exceeds 90 degrees
+            latitude: 195.0,  // Invalid: exceeds 90 degrees
             longitude: 17.06
         },
         updatedAt: "2026-09-21T12:00:00Z"

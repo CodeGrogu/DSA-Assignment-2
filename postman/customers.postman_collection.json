@@ -62,6 +62,114 @@
         "url": "{{customers_url}}/health",
         "description": "Liveness probe for the customer service."
       }
+    },
+    {
+      "name": "Get customer by ID",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status code is 200 or 404\", function () {",
+              "  pm.expect(pm.response.code).to.be.oneOf([200, 404]);",
+              "});",
+              "",
+              "pm.test(\"response time is under 2000 ms\", function () {",
+              "  pm.expect(pm.response.responseTime).to.be.below(2000);",
+              "});",
+              "",
+              "pm.test(\"body matches customer schema when found\", function () {",
+              "  if (pm.response.code === 200) {",
+              "    pm.response.to.have.header(\"Content-Type\");",
+              "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\");",
+              "    pm.response.to.have.jsonSchema({",
+              "      type: \"object\",",
+              "      required: [\"name\", \"email\"],",
+              "      properties: {",
+              "        id: { type: \"string\" },",
+              "        name: { type: \"string\" },",
+              "        email: { type: \"string\" },",
+              "        phone: { type: \"string\" },",
+              "        address: { type: \"object\" }",
+              "      }",
+              "    });",
+              "  }",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{customers_url}}/customers/cust_test_1",
+        "description": "Retrieves customer profile and default address by customer ID."
+      }
+    },
+    {
+      "name": "Create customer",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status code is 201 or 200\", function () {",
+              "  pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+              "});",
+              "",
+              "pm.test(\"Content-Type header is JSON\", function () {",
+              "  pm.response.to.have.header(\"Content-Type\");",
+              "  pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\");",
+              "});",
+              "",
+              "pm.test(\"response time is under 2000 ms\", function () {",
+              "  pm.expect(pm.response.responseTime).to.be.below(2000);",
+              "});",
+              "",
+              "pm.test(\"body matches created customer schema\", function () {",
+              "  pm.response.to.have.jsonSchema({",
+              "    type: \"object\",",
+              "    required: [\"name\", \"email\"],",
+              "    properties: {",
+              "      id: { type: \"string\" },",
+              "      name: { type: \"string\" },",
+              "      email: { type: \"string\" },",
+              "      phone: { type: \"string\" },",
+              "      address: { type: \"object\" }",
+              "    }",
+              "  });",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{customers_url}}/customers",
+        "description": "Registers a new customer profile.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"cust_test_1@example.com\",\n  \"phone\": \"+264811234567\",\n  \"address\": {\n    \"street\": \"123 Independence Ave\",\n    \"city\": \"Windhoek\",\n    \"state\": \"Khomas\",\n    \"postalCode\": \"9000\"\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
     }
   ]
 }

@@ -23,6 +23,13 @@ echo "[2/3] Checking Ballerina code formatting..."
 bash scripts/format-all.sh --check
 
 echo "[3/3] Validating Postman collections and environments..."
-bun scripts/validate-postman.mjs
+if command -v bun >/dev/null 2>&1; then
+    bun scripts/validate-postman.mjs
+elif command -v node >/dev/null 2>&1; then
+    node scripts/validate-postman.mjs
+else
+    echo "  [FAIL] Neither bun nor node is installed to run validate-postman.mjs." >&2
+    exit 1
+fi
 echo "  [PASS] All Postman collections and environments passed validation."
 
